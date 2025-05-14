@@ -1,3 +1,27 @@
 .Mui-selected {
     background-color: #2ab0e2f1 !important;
 }
+
+.TopBar{
+    display: flex;
+    background-color: rgb(1, 1, 75);
+    color: white;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 20px;
+}
+
+.FormBox{
+    width: 100%;
+    min-height: 100px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-evenly;
+    box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
+}
+
+.FormArea{
+    width: 33%;
+    padding: 15px;
+    margin-bottom: 20px;
+}
