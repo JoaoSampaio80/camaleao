@@ -7,6 +7,7 @@ import SelectForm from "./forms/SelectForm";
 import MultiSelectForm from "./forms/MultiSelectForm";
 import DescriptionForm from "./forms/DescriptionForm";
 import Button from '@mui/material/Button';
+import {useFormik} from 'formik'
 
 const Create = () => {
     const [country, setCountry] = useState([])
@@ -37,8 +38,29 @@ const Create = () => {
         GetData()
     }, [])
 
+    const formik = useFormik({
+        initialValues:{
+            name: "",
+            description: "",
+            country: "",
+            league: "",
+            attendance: "",
+            city: "",
+            characteristic: []
+        },
+
+        onSubmit: (values) => {
+            AxiosInstance.post('footballclub/', values).then(() => {
+                console.log("Dados salvos com sucesso!")
+            })
+        }
+    })
+
+    console.log("Form values", formik.values)
+
     return(
         <div>
+            <form onSubmit={formik.handleSubmit}>
             <Box className={'TopBar'}>
                 <AddBoxIcon/>
                 <Typography sx={{marginLeft:'15px', fontWeight:'bold'}} variant='subtitle1'>Create a new club!</Typography>
@@ -48,12 +70,20 @@ const Create = () => {
                 <Box className={'FormArea'}>
                     <TextForm
                         label={"Club name"}
+                        name='name'
+                        value={formik.values.name}
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
                     />
                 </Box>
 
                 <Box className={'FormArea'}>
                      <TextForm
                         label={"City"}
+                        name='city'
+                        value={formik.values.city}
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
                     />
                 </Box>
 
@@ -61,6 +91,10 @@ const Create = () => {
                     <SelectForm
                         label ={"League"}
                         options={league}
+                        name='league'
+                        value={formik.values.league}
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
                     />
                 </Box>
 
@@ -68,6 +102,20 @@ const Create = () => {
                     <SelectForm
                         label ={"Country"}
                         options={country}
+                        name='country'
+                        value={formik.values.country}
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
+                    />
+                </Box>
+
+                <Box className={'FormArea'}>
+                     <TextForm
+                        label={"Attendance"}
+                        name='attendance'
+                        value={formik.values.attendance}
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
                     />
                 </Box>
 
@@ -75,21 +123,30 @@ const Create = () => {
                     <MultiSelectForm
                         label ={"Characteristics"}
                         options={characteristic}
+                        name='characteristic'
+                        value={formik.values.characteristic}
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
                     />
                 </Box>
 
                  <Box className={'FormArea'}>
                     <DescriptionForm
                         label ={"Description"}
-                        rows = {9}                        
+                        rows = {9}
+                        name='description'
+                        value={formik.values.description}
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}                        
                     />
                 </Box>
 
                 <Box sx={{marginTop:'30px', paddingLeft:'90%'}}>
-                    <Button variant="contained">Salvar</Button>
+                    <Button type="submit" variant="contained">Salvar</Button>
                 </Box>
                 
             </Box>
+            </form>
         </div>
     )
 }
