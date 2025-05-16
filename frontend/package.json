@@ -18,7 +18,8 @@
     "formik": "^2.4.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router": "^7.5.3"
+    "react-router": "^7.5.3",
+    "yup": "^1.6.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",
