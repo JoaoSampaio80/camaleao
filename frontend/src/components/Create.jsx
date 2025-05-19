@@ -1,15 +1,15 @@
-import {React, useState, useEffect} from "react";
-import AxiosInstance from "./Axios";
+import {React, useState, useEffect} from 'react';
+import AxiosInstance from './Axios';
 import {Box, Typography} from '@mui/material'
 import AddBoxIcon from '@mui/icons-material/AddBox';
-import TextForm from "./forms/TextForm";
-import SelectForm from "./forms/SelectForm";
-import MultiSelectForm from "./forms/MultiSelectForm";
-import DescriptionForm from "./forms/DescriptionForm";
+import TextForm from './forms/TextForm';
+import SelectForm from './forms/SelectForm';
+import MultiSelectForm from './forms/MultiSelectForm';
+import DescriptionForm from './forms/DescriptionForm';
 import Button from '@mui/material/Button';
 import {useFormik} from 'formik';
 import * as yup from 'yup';
-import MyMessage from "./forms/Message";
+import MyMessage from './forms/Message';
 import {useNavigate} from 'react-router';
 
 const Create = () => {
@@ -17,7 +17,7 @@ const Create = () => {
     const [league, setLeague] = useState([])
     const [characteristic, setCharacteristic] = useState([])
     const [message, setMessage] = useState([])
-    const navigate = useNavigate
+    const navigate = useNavigate()
 
     console.log("Country", country)
     console.log("League", league)
@@ -81,7 +81,7 @@ const Create = () => {
                 )
                 setTimeout(() => {
                     navigate('/')
-                }, 3000)
+                },3000)
             })
         }
     })
@@ -100,6 +100,8 @@ const Create = () => {
                 messageText={'Dados salvos com sucesso'}
                 messagecolor={'green'}
             /> */}
+
+            {message}
 
             <Box className={'FormBox'}>
                 <Box className={'FormArea'}>
