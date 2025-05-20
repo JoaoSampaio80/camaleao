@@ -1,8 +1,10 @@
-import {React, useEffect, useMemo, useState} from "react";
-import {Box, Chip, Typography} from '@mui/material';
+import { React, useEffect, useMemo, useState } from "react";
+import { Box, Chip, IconButton, Typography } from '@mui/material';
 import CalendarViewMonthIcon from '@mui/icons-material/CalendarViewMonth';
-import {MaterialReactTable} from 'material-react-table';
+import { MaterialReactTable } from 'material-react-table';
 import AxiosInstance from "./Axios";
+import { Link } from "react-router";
+import EditIcon from '@mui/icons-material/Edit';
 
 const Home = () => {
 
@@ -11,7 +13,7 @@ const Home = () => {
     const GetData = () => {
         AxiosInstance.get('footballclub/').then((res) => {
             setMyData(res.data)
-        })       
+        })
     }
 
     useEffect(() => {
@@ -43,11 +45,11 @@ const Home = () => {
             {
                 accessorKey: 'characteristics_names',
                 header: 'Characteristics',
-                Cell: ({cell}) =>(
-                    <div  style = {{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
+                Cell: ({ cell }) => (
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         {
-                            cell.getValue()?.map((char, index) =>(
-                                <Chip key = {index} label = {char}/>
+                            cell.getValue()?.map((char, index) => (
+                                <Chip key={index} label={char} />
                             ))
                         }
                     </div>
@@ -56,18 +58,26 @@ const Home = () => {
         ]
     )
 
-    return(
+    return (
         <div>
             <Box className={'TopBar'}>
-                <CalendarViewMonthIcon/>
-                <Typography sx={{marginLeft:'15px', fontWeight:'bold'}} variant='subtitle1'>View all clubs!</Typography>
+                <CalendarViewMonthIcon />
+                <Typography sx={{ marginLeft: '15px', fontWeight: 'bold' }} variant='subtitle1'>View all clubs!</Typography>
             </Box>
 
             <MaterialReactTable
-                columns = {columns}
-                data = {myData}
+                columns={columns}
+                data={myData}
+                enableRowActions
+                renderRowActions={({ row }) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'nowrap', gap: '8px' }}>
+                        <IconButton color="primary" component={Link} to={`edit/${row.original.id}`}>
+                            <EditIcon />
+                        </IconButton>
+                    </Box>
+                )}
             />
-            
+
         </div>
     )
 }
