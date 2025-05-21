@@ -5,6 +5,7 @@ import { MaterialReactTable } from 'material-react-table';
 import AxiosInstance from "./Axios";
 import { Link } from "react-router";
 import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 const Home = () => {
 
@@ -73,6 +74,9 @@ const Home = () => {
                     <Box sx={{ display: 'flex', flexWrap: 'nowrap', gap: '8px' }}>
                         <IconButton color="primary" component={Link} to={`edit/${row.original.id}`}>
                             <EditIcon />
+                        </IconButton>
+                        <IconButton color="error" component={Link} to={`delete/${row.original.id}`}>
+                            <DeleteIcon/>
                         </IconButton>
                     </Box>
                 )}

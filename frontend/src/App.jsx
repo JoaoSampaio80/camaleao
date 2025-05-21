@@ -6,6 +6,7 @@ import Create from './components/Create'
 import Edit from './components/Edit'
 import Delete from './components/Delete'
 import Navbar from './components/navbar/Navbar'
+import CadastroDPO from './components/CadastroDPO'
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
             <Route path="/create" element={<Create/>}/>
             <Route path="/edit/:id" element={<Edit/>}/>
             <Route path="/delete/:id" element={<Delete/>}/>
+            <Route path='/cadastrodpo' element={<CadastroDPO/>}/>
           </Routes>
         }
       />

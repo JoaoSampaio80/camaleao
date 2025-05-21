@@ -1,29 +1,31 @@
 from rest_framework import serializers
 from .models import *
+from datetime import timedelta
 
-class CountrySerializer(serializers.ModelSerializer):
+class DPOSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Country
-        fields = ('id', 'name')
+        model = DPO
+        fields = ['id', 'nome', 'email', 'telefone', 'cargo', 'data_nomeacao', 'validade_nomeacao']
+        read_only_fields = ['validade_nomeacao'] # Vamos calcular no frontend ou no save do model
 
-class LeagueSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = League
-        fields = ('id', 'name')
+    def create(self, validated_data):
+        # Calcula a validade da nomeação (2 anos após a data de nomeação)
+        data_nomeacao = validated_data['data_nomeacao']
+        validated_data['validade_nomeacao'] = data_nomeacao + timedelta(days=365 * 2) # Aproximadamente 2 anos
 
-class CharacteristicSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Characteristic
-        fields = ('id', 'name')
+        return DPO.objects.create(**validated_data)
 
-class FootballClubSerializer(serializers.ModelSerializer):
-    league_details = LeagueSerializer(source = 'league', read_only = True)
-    country_details = CountrySerializer(source = 'country', read_only = True)
-    characteristics_names = serializers.SerializerMethodField()
+    def update(self, instance, validated_data):
+        # Atualiza os campos
+        instance.nome = validated_data.get('nome', instance.nome)
+        instance.email = validated_data.get('email', instance.email)
+        instance.telefone = validated_data.get('telefone', instance.telefone)
+        instance.cargo = validated_data.get('cargo', instance.cargo)
+        instance.data_nomeacao = validated_data.get('data_nomeacao', instance.data_nomeacao)
 
-    class Meta:
-        model = FootballClub
-        fields = "__all__"
+        # Recalcula a validade da nomeação se a data de nomeação for alterada
+        if 'data_nomeacao' in validated_data:
+            instance.validade_nomeacao = validated_data['data_nomeacao'] + timedelta(days=365 * 2)
 
-    def get_characteristics_names(self, obj):
-        return[char.name for char in obj.characteristic.all()]
+        instance.save()
+        return instance

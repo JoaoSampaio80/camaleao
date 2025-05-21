@@ -32,15 +32,15 @@ const Edit = () => {
     const navigate = useNavigate()        
 
     const GetData = () => {
-        AxiosInstance.get('country/').then((res) => {
+        AxiosInstance.get(`country/`).then((res) => {
             setCountry(res.data)
         })
 
-        AxiosInstance.get('league/').then((res) => {
+        AxiosInstance.get(`league/`).then((res) => {
             setLeague(res.data)
         })
 
-        AxiosInstance.get('characteristic/').then((res) => {
+        AxiosInstance.get(`characteristic/`).then((res) => {
             setCharacteristic(res.data)
         })
 
@@ -88,7 +88,7 @@ const Edit = () => {
             AxiosInstance.put(`footballclub/${MyId}/`, values).then(() => {                
                 setMessage(
                     <MyMessage
-                        messageText={'Dados alterados com sucesso'}
+                        messageText={'Dados alterados com sucesso!'}
                         messagecolor={'green'}
                     />
                 )
@@ -104,6 +104,7 @@ const Edit = () => {
     return(
         <div>
             <form onSubmit={formik.handleSubmit}>
+            
             <Box className={'TopBar'}>
                 <AddBoxIcon/>
                 <Typography sx={{marginLeft:'15px', fontWeight:'bold'}} variant='subtitle1'>Edit a Football club!</Typography>

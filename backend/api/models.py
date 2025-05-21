@@ -1,43 +1,13 @@
 from django.db import models
 
 
-class Country(models.Model):
-    name = models.CharField(unique=True, max_length=100)
-    created = models.DateTimeField(auto_now_add=True)
-    modified = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name_plural = 'Countries'
-
-    def __str__(self):
-        return self.name
-
-class League(models.Model):
-    name = models.CharField(unique=True, max_length=100)
-    created = models.DateTimeField(auto_now_add=True)
-    modified = models.DateTimeField(auto_now=True)
+class DPO(models.Model):
+    nome = models.CharField(max_length=255)
+    email = models.EmailField(unique=True)
+    telefone = models.CharField(max_length=20, blank=True, null=True)
+    cargo = models.CharField(max_length=100)
+    data_nomeacao = models.DateField()
+    validade_nomeacao = models.DateField() # Será calculada no frontend ou no serializer
 
     def __str__(self):
-        return self.name
-
-class Characteristic(models.Model):
-    name = models.CharField(unique=True, max_length=100)
-    created = models.DateTimeField(auto_now_add=True)
-    modified = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return self.name
-
-class FootballClub(models.Model):
-    name = models.CharField(unique=True, max_length=100)
-    description = models.CharField(max_length=1000)
-    attendance = models.IntegerField(null=True)
-    city = models.CharField(max_length=100)
-    country = models.ForeignKey(Country, on_delete=models.CASCADE)
-    league = models.ForeignKey(League, on_delete=models.CASCADE)
-    characteristic = models.ManyToManyField(Characteristic)
-    created = models.DateTimeField(auto_now_add=True)
-    modified = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return self.name
+        return self.nome
