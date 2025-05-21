@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import moment from 'moment'; // Para facilitar o cálculo da data de validade
 
 const DPOCadastro = () => {
   const [formData, setFormData] = useState({
@@ -20,15 +19,7 @@ const DPOCadastro = () => {
     setFormData({
       ...formData,
       [name]: value,
-    });
-
-    if (name === 'data_nomeacao' && value) {
-      const dataNomeacaoMoment = moment(value);
-      const validade = dataNomeacaoMoment.add(2, 'years').format('YYYY-MM-DD');
-      setValidadeNomeacao(validade);
-    } else {
-      setValidadeNomeacao('');
-    }
+    });    
   };
 
   const handleSubmit = async (e) => {
@@ -42,10 +33,13 @@ const DPOCadastro = () => {
     }
 
     try {
-      // Inclua a validade_nomeacao calculada no frontend
+      // Enviamos apenas os campos necessários, o backend cuidará de 'validade_nomeacao'
       const payload = {
-        ...formData,
-        validade_nomeacao: validadeNomeacao,
+        nome: formData.nome,
+        email: formData.email,
+        telefone: formData.telefone,
+        cargo: formData.cargo,
+        data_nomeacao: formData.data_nomeacao,
       };
 
       const response = await axios.post('http://localhost:8000/api/dpos/', payload); // Ajuste a URL da sua API
