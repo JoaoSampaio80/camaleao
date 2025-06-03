@@ -1,80 +1,119 @@
 from rest_framework import serializers
 from .models import *
-from django.contrib.auth.hashers import make_password
 
-# Serializer para o modelo User (incluindo o campo 'role')
 class UserSerializer(serializers.ModelSerializer):
-    # password = serializers.CharField(write_only=True, required=False)
     class Meta:
         model = User
-        # Inclua todos os campos que você quer que sejam acessíveis via API
-        # e que não sejam confidenciais (como a senha criptografada).
         fields = (
             'id', 'email', 'username', 'first_name', 'last_name',
             'phone_number', 'job_title', 'appointment_date',
             'appointment_validity', 'role',
-            'is_staff', 'is_active', 'date_joined', 'last_login'
+            'is_staff', 'is_active', 'date_joined', 'last_login', 'password',
         )
         read_only_fields = ('is_staff', 'is_active', 'date_joined', 'last_login')
+        extra_kwargs = {
+            'password': {'write_only': True, 'required': False} # password pode não ser obrigatório em PUT/PATCH
+        }
 
-    
-   
+    def create(self, validated_data):
+        password = validated_data.pop('password', None)
+        # É uma boa prática usar super().create para que o ModelSerializer cuide da criação padrão
+        user = super().create(validated_data)
+        if password is not None:
+            user.set_password(password)
+        user.save()
+        return user
 
-    # def create(self, validated_data):
-    #     # Remove a senha dos dados validados para que não seja passada diretamente
-    #     # para o User.objects.create()
-    #     password = validated_data.pop('password', None)
-    #     user = User.objects.create(**validated_data)
-    #     if password is not None:
-    #         user.set_password(password) # Define a senha de forma segura
-    #     user.save()
-    #     return user
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password', None)
+        # Use super().update para lidar com os campos não-senha de forma eficiente
+        instance = super().update(instance, validated_data)
+        if password is not None:
+            instance.set_password(password) # Define a nova senha
+        instance.save()
+        return instance
 
-    # def update(self, instance, validated_data):
-    #     # Lida com a atualização da senha separadamente para segurança
-    #     password = validated_data.pop('password', None)
-    #     for attr, value in validated_data.items():
-    #         setattr(instance, attr, value)
-    #     if password is not None:
-    #         instance.set_password(password)
-    #     instance.save()
-    #     return instance
-
-# Serializer para o modelo InventarioDados
 class InventarioDadosSerializer(serializers.ModelSerializer):
-    criado_por = serializers.ReadOnlyField(source='criado_por.email') # Exibe o email do usuário
+    # Para escrita (POST/PUT), espera o ID do usuário. Para leitura (GET), mostra o email.
+    criado_por = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        required=False, # Definido na view com perform_create
+        allow_null=True
+    )
+    criado_por_email = serializers.SerializerMethodField(read_only=True) # Campo apenas para leitura
 
     class Meta:
         model = InventarioDados
-        fields = '__all__' # Inclui todos os campos do modelo
+        fields = '__all__'
+        read_only_fields = ('data_criacao', 'data_atualizacao') # Campos gerenciados automaticamente
 
-# Serializer para o modelo MatrizRisco
+    def get_criado_por_email(self, obj):
+        return obj.criado_por.email if obj.criado_por else None
+
 class MatrizRiscoSerializer(serializers.ModelSerializer):
-    criado_por = serializers.ReadOnlyField(source='criado_por.email') # Exibe o email do usuário
-    # Adiciona o nome do processo afetado para facilitar a leitura na API
-    processo_afetado_nome = serializers.ReadOnlyField(source='processo_afetado.nome_processo')
+    # Campo processo_afetado: espera ID para escrita, mostra nome para leitura
+    processo_afetado = serializers.PrimaryKeyRelatedField(
+        queryset=InventarioDados.objects.all()
+    )
+    processo_afetado_nome = serializers.SerializerMethodField(read_only=True)
+
+    # Campo criado_por: espera ID para escrita, mostra email para leitura
+    criado_por = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        required=False, # Definido na view com perform_create
+        allow_null=True
+    )
+    criado_por_email = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = MatrizRisco
         fields = '__all__'
+        read_only_fields = ('data_criacao', 'data_atualizacao', 'nivel_risco') # Nível de risco pode ser calculado
 
-# Serializer para o modelo PlanoAcao
+    def get_processo_afetado_nome(self, obj):
+        return obj.processo_afetado.nome_processo if obj.processo_afetado else None
+
+    def get_criado_por_email(self, obj):
+        return obj.criado_por.email if obj.criado_por else None
+
 class PlanoAcaoSerializer(serializers.ModelSerializer):
-    responsavel = serializers.ReadOnlyField(source='responsavel.email') # Exibe o email do responsável
-    # Adiciona a descrição do risco associado para facilitar a leitura
-    risco_descricao = serializers.ReadOnlyField(source='risco.descricao_risco')
+    # Campo risco: espera ID para escrita, mostra descrição para leitura
+    risco = serializers.PrimaryKeyRelatedField(
+        queryset=MatrizRisco.objects.all()
+    )
+    risco_descricao = serializers.SerializerMethodField(read_only=True)
+
+    # Campo responsavel: espera ID para escrita, mostra email para leitura
+    responsavel = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        allow_null=True # No seu modelo é null=True
+    )
+    responsavel_email = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = PlanoAcao
         fields = '__all__'
+        read_only_fields = ('data_criacao', 'data_atualizacao')
 
-# Serializer para o modelo ExigenciaLGPD
+    def get_risco_descricao(self, obj):
+        return obj.risco.descricao_risco if obj.risco else None
+
+    def get_responsavel_email(self, obj):
+        return obj.responsavel.email if obj.responsavel else None
+
 class ExigenciaLGPDSerializer(serializers.ModelSerializer):
-    upload_por = serializers.ReadOnlyField(source='upload_por.email') # Exibe o email do usuário
+    # Campo upload_por: espera ID para escrita, mostra email para leitura
+    upload_por = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        required=False, # Definido na view com perform_create
+        allow_null=True
+    )
+    upload_por_email = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = ExigenciaLGPD
         fields = '__all__'
-        # Se você quiser controlar quais campos são de leitura/escrita, pode fazer:
-        # fields = ['id', 'titulo', 'descricao', 'artigos_referencia', 'arquivo_comprovacao', 'upload_por', 'data_upload']
-        # read_only_fields = ['upload_por', 'data_upload']
+        read_only_fields = ('data_upload', 'data_atualizacao') # Campos gerenciados automaticamente
+
+    def get_upload_por_email(self, obj):
+        return obj.upload_por.email if obj.upload_por else None

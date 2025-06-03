@@ -9,14 +9,20 @@ class IsAdminOrDPO(permissions.BasePermission):
         if request.method in permissions.SAFE_METHODS:
             return request.user.is_authenticated
         # Permite acesso de escrita (POST, PUT, PATCH, DELETE) apenas para Admin ou DPO
-        return request.user.is_authenticated and (request.user.role == 'admin' or request.user.role == 'dpo')
+        return (request.user.is_authenticated and (request.user.is_staff or 
+        request.user.is_superuser or request.user.role == 'admin' or 
+        request.user.role == 'dpo'))
 
     def has_object_permission(self, request, view, obj):
         # Permite acesso de leitura (GET, HEAD, OPTIONS) a todos os autenticados
         if request.method in permissions.SAFE_METHODS:
-            return True
+            return request.user.is_authenticated
         # Permite acesso de escrita (POST, PUT, PATCH, DELETE) apenas para Admin ou DPO
-        return request.user.is_authenticated and (request.user.role == 'admin' or request.user.role == 'dpo')
+        return (request.user.is_authenticated and
+                (request.user.is_staff or
+                 request.user.is_superuser or
+                 request.user.role == 'admin' or
+                 request.user.role == 'dpo'))
 
 
 class IsDPOOrManager(permissions.BasePermission):
