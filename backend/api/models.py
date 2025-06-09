@@ -51,26 +51,132 @@ class InventarioDados(models.Model):
     Modelo para o formulário de Inventário de Dados.
     Registra informações sobre processos que coletam e usam dados pessoais.
     """
-    nome_processo = models.CharField(max_length=255, verbose_name="Nome do Processo")
-    tipo_dado = models.CharField(max_length=100, verbose_name="Tipo de Dado Pessoal",
-        choices=[
-            ('comuns', 'Dados Pessoais Comuns'),
-            ('sensíveis', 'Dados Pessoais Sensíveis'),
-            ('anonimizados', 'Dados Anonimizados'),
-            ('pseudonimizados', 'Dados Pseudonimizados'),
-        ]
+    unidade = models.CharField(max_length=20, verbose_name="Matriz / Filial", choices=[
+            ('matriz', 'Matriz'),
+            ('filial', 'Filial'),
+            ('ambos', 'Matriz / Filial')
+        ],
+        default='', blank=True
     )
-    finalidade_coleta = models.TextField(verbose_name="Finalidade da Coleta")
-    base_legal = models.CharField(max_length=255, verbose_name="Base Legal da LGPD")
-    forma_coleta = models.CharField(max_length=255, verbose_name="Forma de Coleta")
-    periodo_retencao = models.CharField(max_length=100, verbose_name="Período de Retenção")
-    compartilhamento_terceiros = models.BooleanField(default=False, verbose_name="Compartilhamento com Terceiros?")
-    nome_terceiro = models.CharField(max_length=255, blank=True, null=True, verbose_name="Nome do Terceiro (se houver)")
-    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações Adicionais")
+
+    setor = models.CharField(max_length=255, verbose_name="Setor", default='', blank=True)
+
+    responsavel = models.CharField(max_length=255, verbose_name="Responsável (Email)", default='', blank=True)
+
+    processo = models.CharField(max_length=255, verbose_name="Processo de negócio", default='', blank=True)
+
+    finalidade = models.TextField(verbose_name="Finalidade", default='', blank=True)
+
+    origem = models.TextField(verbose_name="Origem", default='')
+
+    formato = models.CharField(max_length=30, verbose_name="Formato", choices=[
+            ('fisico', 'Físico'),
+            ('digital', 'Digital'),
+            ('ambos', 'Físico / Digital')
+        ],
+        default='', blank=True
+    )
+
+    ativos_associados = models.CharField(max_length=255,  verbose_name="Ativos associados", default='', blank=True)
+
+    impresso = models.CharField(max_length=10, verbose_name="É impresso?", choices=[
+            ('sim', 'Sim'),
+            ('nao', 'Não')
+        ],
+        default='', blank=True
+    )
+
+    dados_pessoais_tratados = models.TextField(verbose_name="Dados pessoais tratados", default='', blank=True)
+
+    tipo_dado = models.CharField(max_length=100, verbose_name="Tipo de Dado", choices=[
+            ('sensivel', 'Sensível'),
+            ('nao_sensivel', 'Não Sensível'),
+            ('ambos', 'Sensível e Não Sensível'),
+            ('nao_aplica', 'Não se Aplica'),
+        ],
+        default='', blank=True
+    )
+
+    titular_dados = models.CharField(max_length=255, verbose_name="Titular dos dados", default='', blank=True)
+
+    dados_menores = models.CharField(max_length=20, verbose_name="Dados de criança / adolescente ou vulnerável", choices=[
+            ('sim', 'Sim'),
+            ('nao', 'Não'),
+            ('nao_aplica', 'Não se Aplica')
+        ],
+        default='', blank=True
+    )
+
+    base_legal = models.TextField(verbose_name="Base legal", default='', blank=True)
+
+    pessoas_acesso = models.CharField(max_length=255, verbose_name="Pessoas com acesso", default='', blank=True)
+
+    atualizacoes = models.CharField(max_length=255, verbose_name="Atualizações", default='', blank=True)
+
+    transmissao_interna = models.CharField(max_length=255, verbose_name="Transmissão interna", default='', blank=True)
+
+    transmissao_externa = models.CharField(max_length=255, verbose_name="Transmissão externa", default='', blank=True)
+
+    locais_armazenamento = models.CharField(max_length=255, verbose_name="Locais de armazenamento (Digital e físico)", default='', blank=True)
+
+    controlador_operador = models.CharField(max_length=30, verbose_name="Controlador / Operador", choices=[
+            ('controlador', 'Controlador'),
+            ('operador', 'Operador'),
+            ('ambos', 'Controlador / Operador'),
+            ('nao_aplica', 'Não se Aplica')
+        ],
+        default='', blank=True
+    )
+
+    motivo_retencao = models.CharField(max_length=255, verbose_name="Motivo da retenção", default='', blank=True)
+
+    periodo_retencao = models.CharField(max_length=100, verbose_name="Período de Retenção", default='', blank=True)
+
+    exclusao = models.CharField(max_length=100, verbose_name="Exclusão", default='', blank=True)
+
+    forma_exclusao = models.CharField(max_length=255, verbose_name="Forma de exclusão", default='', blank=True)
+
+    transf_terceiros = models.CharField(max_length=10, verbose_name="Transferência para terceiros?", choices=[
+            ('sim', 'Sim'),
+            ('nao', 'Não')
+        ],
+        default='', blank=True
+    )
+
+    dados_transferidos = models.CharField(max_length=255, verbose_name="Dados são transferidos", default='', blank=True)
+
+    empresa_terceira = models.CharField(max_length=255, verbose_name="Empresa terceira", default='', blank=True)
+
+    transf_internacional = models.CharField(max_length=20, verbose_name="Ocorre transferência internacional?", choices=[
+            ('sim', 'Sim'),
+            ('nao', 'Não'),
+            ('nao_aplica', 'Não se Aplica')
+        ],
+        default='', blank=True
+    )
+
+    adequado_contrato = models.CharField(max_length=20, verbose_name="Adequado contratualmente?", choices=[
+            ('sim', 'Sim'),
+            ('nao', 'Não'),
+            ('nao_aplica', 'Não se Aplica')
+        ],
+        default='', blank=True
+    )
+
+    paises_env_tratamento = models.CharField(max_length=255, verbose_name="Países envolvidos no tratamento", default='', blank=True)
+
+    medidas_seguranca = models.CharField(max_length=255, verbose_name="Medidas de segurança envolvidas", default='', blank=True)
+
+    consentimentos = models.CharField(max_length=255, verbose_name="Consentimentos", default='', blank=True)
+
+    observacao_extra = models.TextField(verbose_name="Observação", default='', blank=True)
 
     # Relacionamento com o usuário que criou o registro
-    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='inventarios_criados', verbose_name="Criado por")
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='inventarios_criados', 
+    verbose_name="Criado por")
+
     data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+
     data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Última Atualização")
 
     def __str__(self):
@@ -80,7 +186,7 @@ class InventarioDados(models.Model):
     class Meta:
         verbose_name = "Inventário de Dados"
         verbose_name_plural = "Inventários de Dados"
-        ordering = ['nome_processo'] # Ordena por nome do processo por padrão
+        ordering = ['-data_criacao'] 
 
 
 class MatrizRisco(models.Model):
@@ -89,33 +195,71 @@ class MatrizRisco(models.Model):
     Avalia riscos associados a processos de tratamento de dados.
     """
     # Relaciona o risco a um registro de inventário de dados
-    processo_afetado = models.ForeignKey(InventarioDados, on_delete=models.CASCADE, related_name='riscos', verbose_name="Processo Afetado")
+    processo = models.ForeignKey(InventarioDados, on_delete=models.CASCADE, related_name='riscos', 
+    verbose_name="Processo de negócio", null=True, blank=True)
 
-    descricao_risco = models.TextField(verbose_name="Descrição do Risco")
-    probabilidade = models.CharField(max_length=50, verbose_name="Probabilidade",
-        choices=[
-            ('baixa', 'Baixa'),
-            ('media', 'Média'),
-            ('alta', 'Alta'),
-        ]
+    descricao_risco = models.TextField(verbose_name="Descrição do Risco", default='')
+
+    probabilidade = models.CharField(max_length=1, choices=[(str(i), str(i)) for i in range(1, 6)], 
+    verbose_name="Probabilidade [1-5]", default='', blank=True)
+
+    impacto = models.CharField(max_length=1, choices=[(str(i), str(i)) for i in range(1, 6)], verbose_name="Impacto [1-5]", 
+    default='', blank=True)
+
+    pontuacao_risco = models.PositiveIntegerField(editable=False, verbose_name="Pontuação do Risco", default=0)
+
+    controle_existente = models.CharField(max_length=255, verbose_name="Controle existente", default='', blank=True)
+
+    tipo_controle = models.CharField(max_length=20, verbose_name="Tipo de Controle", choices=[
+            ('preventivo', 'Preventivo'),
+            ('detectivo', 'Detectivo'),
+            ('nao_se_aplica', 'Não se aplica'),
+        ],
+        default='', blank=True
     )
-    impacto = models.CharField(max_length=50, verbose_name="Impacto",
-        choices=[
-            ('baixo', 'Baixo'),
-            ('medio', 'Médio'),
+
+    eficacia_controle = models.CharField(max_length=20, choices=[
+        ('1', '1'),
+        ('2', '2'),
+        ('3', '3'),
+        ('4', '4'),
+        ('5', '5'),
+        ('na', 'Não se aplica'),
+        ('', '---------')  # opcional: representa o valor vazio no admin
+    ],
+    verbose_name="Avaliação da Eficácia do Controle [1-5]", default='', blank=True
+    )
+
+    risco_residual = models.CharField(max_length=20, verbose_name="Risco Residual", choices=[
             ('alto', 'Alto'),
-        ]
+            ('medio', 'Médio'),
+            ('baixo', 'Baixo'),
+            ('nao_se_aplica', 'Não se aplica'),
+        ],
+        default='', blank=True
     )
-    nivel_risco = models.CharField(max_length=50, blank=True, null=True, verbose_name="Nível de Risco Calculado")
-    # Pode ser calculado no backend ou preenchido manualmente
 
-    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='riscos_criados', verbose_name="Criado por")
+    resposta_ao_risco = models.TextField(verbose_name="Resposta ao Risco", default='', blank=True)
+
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='riscos_criados', 
+    verbose_name="Criado por")
+
     data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+
     data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Última Atualização")
+
+    def save(self, *args, **kwargs):
+        try:
+            self.pontuacao_risco = int(self.probabilidade) * int(self.impacto)
+        except (ValueError, TypeError):
+            self.pontuacao_risco = 0
+        super().save(*args, **kwargs)
 
     def __str__(self):
         """Retorna a descrição do risco e o processo associado."""
-        return f"Risco: {self.descricao_risco[:50]}... (Processo: {self.processo_afetado.nome_processo})"
+        processo_nome = self.processo.nome_processo if self.processo else "Sem processo"
+        return f"Risco: {self.descricao_risco[:50]}... (Processo: {processo.nome})"
+
 
     class Meta:
         verbose_name = "Matriz de Risco"

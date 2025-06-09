@@ -39,17 +39,17 @@ admin.site.register(User, CustomUserAdmin)
 # Registra os outros modelos
 @admin.register(InventarioDados)
 class InventarioDadosAdmin(admin.ModelAdmin):
-    list_display = ('nome_processo', 'tipo_dado', 'base_legal', 'criado_por', 'data_criacao')
+    list_display = ('processo', 'tipo_dado', 'base_legal', 'criado_por', 'data_criacao')
     list_filter = ('tipo_dado', 'base_legal', 'criado_por')
-    search_fields = ('nome_processo', 'finalidade_coleta')
+    search_fields = ('processo', 'finalidade')
     raw_id_fields = ('criado_por',) # Para facilitar a seleção de usuários em massa
 
 @admin.register(MatrizRisco)
 class MatrizRiscoAdmin(admin.ModelAdmin):
-    list_display = ('processo_afetado', 'descricao_risco', 'probabilidade', 'impacto', 'nivel_risco', 'criado_por', 'data_criacao')
-    list_filter = ('probabilidade', 'impacto', 'nivel_risco', 'criado_por')
-    search_fields = ('descricao_risco', 'processo_afetado__nome_processo')
-    raw_id_fields = ('processo_afetado', 'criado_por',)
+    list_display = ('processo', 'descricao_risco', 'probabilidade', 'impacto', 'pontuacao_risco', 'tipo_controle', 'risco_residual', 'criado_por', 'data_criacao')
+    list_filter = ('probabilidade', 'impacto', 'criado_por')
+    search_fields = ('descricao_risco', 'processo_nome_processo')
+    raw_id_fields = ('processo', 'criado_por',)
 
 @admin.register(PlanoAcao)
 class PlanoAcaoAdmin(admin.ModelAdmin):
