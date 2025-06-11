@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import *
+from django.contrib.auth.models import AbstractUser
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -101,7 +102,7 @@ class PlanoAcaoSerializer(serializers.ModelSerializer):
     def get_responsavel_email(self, obj):
         return obj.responsavel.email if obj.responsavel else None
 
-class ExigenciaLGPDSerializer(serializers.ModelSerializer):
+class ExigenciasLGPDSerializer(serializers.ModelSerializer):
     # Campo upload_por: espera ID para escrita, mostra email para leitura
     upload_por = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
@@ -111,9 +112,29 @@ class ExigenciaLGPDSerializer(serializers.ModelSerializer):
     upload_por_email = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
-        model = ExigenciaLGPD
+        model = ExigenciasLGPD
         fields = '__all__'
         read_only_fields = ('data_upload', 'data_atualizacao') # Campos gerenciados automaticamente
 
     def get_upload_por_email(self, obj):
         return obj.upload_por.email if obj.upload_por else None
+
+class NotificacaoSerializer(serializers.ModelSerializer):
+    tipo_display = serializers.CharField(source='get_tipo_display', read_only=True)
+    gerado_por = serializers.StringRelatedField(read_only=True)
+    lida_por = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+
+    class Meta:
+        model = Notificacao
+        fields = [
+            'id',
+            'tipo',
+            'tipo_display',
+            'mensagem',
+            'gerado_por',
+            'origem_externa',
+            'data_criacao',
+            'lida_por',
+            'objeto_referencia',
+            'data_evento',
+        ]

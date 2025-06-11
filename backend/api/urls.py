@@ -10,7 +10,7 @@ router.register(r'users', UserViewSet)
 router.register(r'inventarios', InventarioDadosViewSet)
 router.register(r'riscos', MatrizRiscoViewSet)
 router.register(r'planos-acao', PlanoAcaoViewSet)
-router.register(r'exigencias', ExigenciaLGPDViewSet)
+router.register(r'exigencias', ExigenciasLGPDViewSet)
 
 urlpatterns = [
     # URLs para autenticação JWT

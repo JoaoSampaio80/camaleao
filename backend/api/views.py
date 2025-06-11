@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.db.models import Q
 from rest_framework import viewsets, permissions
 from .serializers import *
 from .models import *
@@ -9,6 +10,7 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.http import FileResponse, Http404
 from .permissions import IsAdminOrDPO, IsDPOOrManager, IsAdminOrReadOnly # Vamos criar estas permissões
+from .utils import criar_notificacao
 
 # View para o login JWT
 class MyTokenObtainPairView(TokenObtainPairView):
@@ -55,7 +57,15 @@ class InventarioDadosViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         # Automaticamente define o usuário que criou o registro
-        serializer.save(criado_por=self.request.user)
+        instance = serializer.save(criado_por=self.request.user)
+
+        criar_notificacao(
+            tipo='InventarioDados',
+            mensagem=f'Novo Inventário criado por {self.request.user.email}',
+            gerado_por=self.request.user,
+            objeto_referencia=instance,
+            data_evento=instance.data_criacao
+        )
 
 # ViewSet para MatrizRisco
 class MatrizRiscoViewSet(viewsets.ModelViewSet):
@@ -79,9 +89,9 @@ class PlanoAcaoViewSet(viewsets.ModelViewSet):
         serializer.save() # responsavel deve vir no request.data
 
 # ViewSet para ExigenciaLGPD
-class ExigenciaLGPDViewSet(viewsets.ModelViewSet):
-    queryset = ExigenciaLGPD.objects.all().order_by('titulo')
-    serializer_class = ExigenciaLGPDSerializer
+class ExigenciasLGPDViewSet(viewsets.ModelViewSet):
+    queryset = ExigenciasLGPD.objects.all().order_by('atividade')
+    serializer_class = ExigenciasLGPDSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdminOrDPO] # Apenas Admin e DPO gerenciam exigências
 
     def perform_create(self, serializer):
@@ -102,3 +112,18 @@ class ExigenciaLGPDViewSet(viewsets.ModelViewSet):
             else:
                 return Response({'detail': 'Nenhum arquivo anexado.'}, status=status.HTTP_404_NOT_FOUND)
         return Response({'detail': 'Nenhum arquivo anexado.'}, status=status.HTTP_404_NOT_FOUND)
+
+class NotificacaoViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Notificacao.objects.all().order_by('-data_criacao')
+    serializer_class = NotificacaoSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrDPO]
+
+    def get_queryset(self):
+        return self.queryset.filter(~Q(lida_por=self.request.user))
+
+    @action(detail=True, methods=['post'])
+    def marcar_lida(self, request, pk=None):
+        notificacao = self.get_object()
+        notificacao.lida_por.add(request.user)
+        notificacao.save()
+        return Response({'status': 'Notificação marcada como lida.'})

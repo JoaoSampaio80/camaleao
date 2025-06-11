@@ -278,13 +278,13 @@ class PlanoAcao(models.Model):
     acao_mitigacao = models.TextField(verbose_name="Ação de Mitigação")
     responsavel = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='planos_responsaveis', verbose_name="Responsável pela Ação")
     data_limite = models.DateField(verbose_name="Data Limite para Conclusão")
-    status = models.CharField(max_length=50, default='Pendente', verbose_name="Status da Ação",
+    status = models.CharField(max_length=50, verbose_name="Status da Ação",
         choices=[
             ('pendente', 'Pendente'),
             ('em_andamento', 'Em Andamento'),
             ('concluido', 'Concluído'),
             ('cancelado', 'Cancelado'),
-        ]
+        ], default='', blank=True
     )
     observacoes = models.TextField(blank=True, null=True, verbose_name="Observações do Plano de Ação")
 
@@ -301,14 +301,47 @@ class PlanoAcao(models.Model):
         ordering = ['data_limite'] # Ordena por data limite
 
 
-class ExigenciaLGPD(models.Model):
+class ExigenciasLGPD(models.Model):
     """
     Modelo para o formulário de Exigências da Lei e Artigos de Referência.
     Permite registrar exigências legais e anexar evidências de cumprimento.
     """
-    titulo = models.CharField(max_length=255, verbose_name="Título da Exigência")
-    descricao = models.TextField(verbose_name="Descrição Detalhada")
-    artigos_referencia = models.CharField(max_length=255, blank=True, null=True, verbose_name="Artigos de Referência (LGPD)")
+    dimensao = models.CharField(max_length=100, verbose_name="Dimensão", choices=[
+        ('gestao_privacidade', 'Gestão de Privacidade'),
+        ('gestao_si', 'Gestão de Segurança da Informação'),
+        ('processos', 'Processos'),
+    ])
+    atividade = models.TextField(verbose_name="Atividade")
+    base_legal = models.CharField(max_length=255, blank=True, null=True, verbose_name="Base Legal")
+    evidencia = models.CharField(max_length=255, blank=True, null=True, verbose_name="Evidência")
+    proxima_revisao = models.DateField(blank=True, null=True, verbose_name="Próxima Revisão")
+    classificacao = models.CharField(max_length=20, verbose_name="Classificação", 
+        choices=[
+            ('boas_praticas', 'Boas práticas'),
+            ('baixa', 'Baixa criticidade'),
+            ('media', 'Média criticidade'),
+            ('alta', 'Alta criticidade'),
+            ('nao_aplicavel', 'Não aplicável'),
+        ], default='', blank=True
+    
+    )
+    status = models.CharField(max_length=20, verbose_name="Status", 
+        choices=[
+            ('nao_iniciado', 'Não iniciado'),
+            ('em_andamento', 'Em andamento'),
+            ('concluido', 'Concluído'),
+            ('nao_aplicavel', 'Não aplicável'),
+        ], default='', blank=True
+    )
+    acoes = models.CharField(max_length=20, verbose_name="Ações Disponíveis", 
+        choices=[
+            ('visualizar', 'Visualizar'),
+            ('editar', 'Editar'),
+            ('excluir', 'Excluir'),
+            ('upload', 'Upload'),
+            ('download', 'Download'),
+        ], default='', blank=True
+    )
 
     # Campo para o upload do arquivo de comprovação
     # Os arquivos serão salvos na pasta definida por MEDIA_ROOT/comprovantes_lgpd/
@@ -325,9 +358,68 @@ class ExigenciaLGPD(models.Model):
 
     def __str__(self):
         """Retorna o título da exigência."""
-        return self.titulo
+        return self.atividade
 
     class Meta:
         verbose_name = "Exigência da LGPD"
         verbose_name_plural = "Exigências da LGPD"
-        ordering = ['titulo'] # Ordena por título
+        ordering = ['data_upload']
+
+class Notificacao(models.Model):
+    TIPOS = [
+        ('documento_vencendo', 'Documento com vencimento próximo'),
+        ('documento_vencido', 'Documento vencido'),
+        ('acao_suspeita', 'Ação suspeita detectada'),
+        ('acao_realizada', 'Ação realizada no sistema'),
+        ('auditoria_proxima', 'Auditoria próxima'),
+        ('auditoria_hoje', 'Auditoria hoje'),
+    ]
+
+    tipo = models.CharField(max_length=30, choices=TIPOS, verbose_name="Tipo de Notificação")
+    mensagem = models.TextField(verbose_name="Mensagem da Notificação")
+
+    gerado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notificacoes_geradas',
+        verbose_name="Usuário que causou a ação"
+    )
+
+    origem_externa = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="Origem Externa (IP, Sistema Externo, etc.)"
+    )
+
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data do Alerta")
+
+    lida_por = models.ManyToManyField(
+        User,
+        blank=True,
+        related_name='notificacoes_lidas',
+        verbose_name="Usuários que leram a notificação"
+    )
+
+    objeto_referencia = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="Objeto/Documento relacionado"
+    )
+
+    data_evento = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data do Evento relacionado"
+    )
+
+    class Meta:
+        verbose_name = "Notificação"
+        verbose_name_plural = "Notificações"
+        ordering = ['-data_criacao']
+
+    def __str__(self):
+        return f"[{self.get_tipo_display()}] - {self.mensagem[:50]}"

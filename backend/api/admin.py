@@ -58,9 +58,9 @@ class PlanoAcaoAdmin(admin.ModelAdmin):
     search_fields = ('acao_mitigacao', 'risco__descricao_risco')
     raw_id_fields = ('risco', 'responsavel',)
 
-@admin.register(ExigenciaLGPD)
-class ExigenciaLGPDAdmin(admin.ModelAdmin):
-    list_display = ('titulo', 'artigos_referencia', 'upload_por', 'data_upload', 'arquivo_comprovacao')
+@admin.register(ExigenciasLGPD)
+class ExigenciasLGPDAdmin(admin.ModelAdmin):
+    list_display = ('atividade', 'base_legal', 'upload_por', 'data_upload', 'evidencia')
     list_filter = ('upload_por', 'data_upload')
-    search_fields = ('titulo', 'descricao', 'artigos_referencia')
+    search_fields = ('atividade', 'base_legal')
     raw_id_fields = ('upload_por',)
