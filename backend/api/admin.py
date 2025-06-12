@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin # Importa o UserAdmin base
 from .models import *
+from django.contrib.auth import get_user_model
 
 # Admin personalizado para o seu modelo User
 class CustomUserAdmin(BaseUserAdmin):
@@ -34,6 +35,7 @@ class CustomUserAdmin(BaseUserAdmin):
     # No entanto, para fins de admin, Django geralmente gerencia a senha.
 
 # Registra o modelo User com o seu Admin personalizado
+User = get_user_model()
 admin.site.register(User, CustomUserAdmin)
 
 # Registra os outros modelos

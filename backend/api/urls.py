@@ -11,8 +11,10 @@ router.register(r'inventarios', InventarioDadosViewSet)
 router.register(r'riscos', MatrizRiscoViewSet)
 router.register(r'planos-acao', PlanoAcaoViewSet)
 router.register(r'exigencias', ExigenciasLGPDViewSet)
+router.register(r'notificacoes', NotificacaoViewSet)
 
 urlpatterns = [
+    path('admin/', admin.site.urls),
     # URLs para autenticação JWT
     path('auth/token/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

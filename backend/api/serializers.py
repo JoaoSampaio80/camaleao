@@ -36,88 +36,77 @@ class UserSerializer(serializers.ModelSerializer):
 
 class InventarioDadosSerializer(serializers.ModelSerializer):
     # Para escrita (POST/PUT), espera o ID do usuário. Para leitura (GET), mostra o email.
-    criado_por = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(),
-        required=False, # Definido na view com perform_create
-        allow_null=True
-    )
-    criado_por_email = serializers.SerializerMethodField(read_only=True) # Campo apenas para leitura
+    criado_por = serializers.SlugRelatedField(
+    queryset=User.objects.all(),
+    slug_field='email',  # campo do usuário que será mostrado na leitura
+    required=False,
+    allow_null=True
+)
 
     class Meta:
         model = InventarioDados
         fields = '__all__'
         read_only_fields = ('data_criacao', 'data_atualizacao') # Campos gerenciados automaticamente
 
-    def get_criado_por_email(self, obj):
-        return obj.criado_por.email if obj.criado_por else None
 
 class MatrizRiscoSerializer(serializers.ModelSerializer):
-    # Campo processo_afetado: espera ID para escrita, mostra nome para leitura
-    processo_afetado = serializers.PrimaryKeyRelatedField(
+    # Para escrita, utiliza o ID (chave primária), que é seguro e único
+    processo = serializers.PrimaryKeyRelatedField(
         queryset=InventarioDados.objects.all()
     )
-    processo_afetado_nome = serializers.SerializerMethodField(read_only=True)
 
-    # Campo criado_por: espera ID para escrita, mostra email para leitura
-    criado_por = serializers.PrimaryKeyRelatedField(
+    # Campo extra para leitura — exibe o nome do processo
+    processo_nome = serializers.SerializerMethodField(read_only=True)
+
+    # Para escrita: usa o email do usuário
+    criado_por = serializers.SlugRelatedField(
         queryset=User.objects.all(),
-        required=False, # Definido na view com perform_create
+        slug_field='email',
+        required=False,
         allow_null=True
     )
+
+    # Campo extra para leitura — mostra o email de quem criou
     criado_por_email = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = MatrizRisco
         fields = '__all__'
-        read_only_fields = ('data_criacao', 'data_atualizacao', 'nivel_risco') # Nível de risco pode ser calculado
+        read_only_fields = (
+            'data_criacao',
+            'data_atualizacao',
+            'pontuacao_risco',  # este campo é calculado automaticamente no `save()`
+        )
 
-    def get_processo_afetado_nome(self, obj):
-        return obj.processo_afetado.nome_processo if obj.processo_afetado else None
+    def get_processo_nome(self, obj):
+        return obj.processo.processo if obj.processo else None
 
     def get_criado_por_email(self, obj):
         return obj.criado_por.email if obj.criado_por else None
+    
 
 class PlanoAcaoSerializer(serializers.ModelSerializer):
     # Campo risco: espera ID para escrita, mostra descrição para leitura
-    risco = serializers.PrimaryKeyRelatedField(
-        queryset=MatrizRisco.objects.all()
-    )
-    risco_descricao = serializers.SerializerMethodField(read_only=True)
+    risco = serializers.SlugRelatedField(queryset=MatrizRisco.objects.all(), slug_field='descricao_risco')
 
     # Campo responsavel: espera ID para escrita, mostra email para leitura
-    responsavel = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(),
-        allow_null=True # No seu modelo é null=True
-    )
-    responsavel_email = serializers.SerializerMethodField(read_only=True)
+    responsavel = serializers.SlugRelatedField(queryset=User.objects.all(), slug_field='email', allow_null=True)
 
     class Meta:
         model = PlanoAcao
         fields = '__all__'
         read_only_fields = ('data_criacao', 'data_atualizacao')
-
-    def get_risco_descricao(self, obj):
-        return obj.risco.descricao_risco if obj.risco else None
-
-    def get_responsavel_email(self, obj):
-        return obj.responsavel.email if obj.responsavel else None
+    
 
 class ExigenciasLGPDSerializer(serializers.ModelSerializer):
     # Campo upload_por: espera ID para escrita, mostra email para leitura
-    upload_por = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(),
-        required=False, # Definido na view com perform_create
-        allow_null=True
-    )
-    upload_por_email = serializers.SerializerMethodField(read_only=True)
+    upload_por = serializers.SlugRelatedField(queryset=User.objects.all(), slug_field='email', required=False, allow_null=True)
 
     class Meta:
         model = ExigenciasLGPD
         fields = '__all__'
         read_only_fields = ('data_upload', 'data_atualizacao') # Campos gerenciados automaticamente
-
-    def get_upload_por_email(self, obj):
-        return obj.upload_por.email if obj.upload_por else None
+    
 
 class NotificacaoSerializer(serializers.ModelSerializer):
     tipo_display = serializers.CharField(source='get_tipo_display', read_only=True)

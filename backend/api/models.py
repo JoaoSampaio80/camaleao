@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.conf import settings
 
 class User(AbstractUser):
     """
@@ -181,7 +182,7 @@ class InventarioDados(models.Model):
 
     def __str__(self):
         """Retorna o nome do processo como representação em string."""
-        return self.nome_processo
+        return self.processo
 
     class Meta:
         verbose_name = "Inventário de Dados"
@@ -257,8 +258,8 @@ class MatrizRisco(models.Model):
 
     def __str__(self):
         """Retorna a descrição do risco e o processo associado."""
-        processo_nome = self.processo.nome_processo if self.processo else "Sem processo"
-        return f"Risco: {self.descricao_risco[:50]}... (Processo: {processo.nome})"
+        processo_nome = self.processo.processo if self.processo else "Sem processo"
+        return f"Risco: {self.descricao_risco[:50]}... (Processo: {processo_nome})"
 
 
     class Meta:
@@ -373,6 +374,7 @@ class Notificacao(models.Model):
         ('acao_realizada', 'Ação realizada no sistema'),
         ('auditoria_proxima', 'Auditoria próxima'),
         ('auditoria_hoje', 'Auditoria hoje'),
+        ('solicitacao_exclusao', 'Solicitação de Exclusão'),
     ]
 
     tipo = models.CharField(max_length=30, choices=TIPOS, verbose_name="Tipo de Notificação")
