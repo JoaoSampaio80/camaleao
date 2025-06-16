@@ -51,8 +51,15 @@ class InventarioDadosSerializer(serializers.ModelSerializer):
 
 class MatrizRiscoSerializer(serializers.ModelSerializer):
     # Para escrita, utiliza o ID (chave primária), que é seguro e único
-    processo = serializers.PrimaryKeyRelatedField(
-        queryset=InventarioDados.objects.all()
+    def validate_processo(self, value):
+        if value == '':
+            return None
+        return value
+    processo = serializers.PrimaryKeyRelatedField(    
+        queryset=InventarioDados.objects.all(),
+        required=False,
+        allow_null=True,
+        default=None,
     )
 
     # Campo extra para leitura — exibe o nome do processo
@@ -68,6 +75,8 @@ class MatrizRiscoSerializer(serializers.ModelSerializer):
 
     # Campo extra para leitura — mostra o email de quem criou
     criado_por_email = serializers.SerializerMethodField(read_only=True)
+    probabilidade = serializers.IntegerField(allow_null=True, required=False)
+    impacto = serializers.IntegerField(allow_null=True, required=False)
 
     class Meta:
         model = MatrizRisco
@@ -78,8 +87,13 @@ class MatrizRiscoSerializer(serializers.ModelSerializer):
             'pontuacao_risco',  # este campo é calculado automaticamente no `save()`
         )
 
+    # def get_processo_nome(self, obj):
+    #     return obj.processo.processo if obj.processo else None
     def get_processo_nome(self, obj):
-        return obj.processo.processo if obj.processo else None
+        try:
+            return obj.processo.processo
+        except Exception:
+            return None
 
     def get_criado_por_email(self, obj):
         return obj.criado_por.email if obj.criado_por else None

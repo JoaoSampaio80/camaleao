@@ -201,11 +201,21 @@ class MatrizRisco(models.Model):
 
     descricao_risco = models.TextField(verbose_name="Descrição do Risco", default='')
 
-    probabilidade = models.CharField(max_length=1, choices=[(str(i), str(i)) for i in range(1, 6)], 
-    verbose_name="Probabilidade [1-5]", default='', blank=True)
+    probabilidade = models.IntegerField(
+    choices=[(i, str(i)) for i in range(1, 6)],
+    verbose_name="Probabilidade [1-5]",
+    null=True,
+    blank=True,
+    default=None,
+    )
 
-    impacto = models.CharField(max_length=1, choices=[(str(i), str(i)) for i in range(1, 6)], verbose_name="Impacto [1-5]", 
-    default='', blank=True)
+    impacto = models.IntegerField(
+    choices=[(i, str(i)) for i in range(1, 6)],
+    verbose_name="Impacto [1-5]",
+    null=True,
+    blank=True,
+    default=None,
+    )
 
     pontuacao_risco = models.PositiveIntegerField(editable=False, verbose_name="Pontuação do Risco", default=0)
 

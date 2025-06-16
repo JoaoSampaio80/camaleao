@@ -12,6 +12,8 @@ from django.shortcuts import get_object_or_404
 from django.http import FileResponse, Http404
 from .permissions import IsAdminOrDPO, IsAdminOrDPOOrManagerLimited, IsAdminOrReadOnly # Vamos criar estas permissões
 from .utils import criar_notificacao
+from django.utils.timezone import now
+
 
 # View para o login JWT
 class MyTokenObtainPairView(TokenObtainPairView):
