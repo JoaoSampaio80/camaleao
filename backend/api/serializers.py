@@ -1,6 +1,14 @@
 from rest_framework import serializers
 from .models import *
 from django.contrib.auth.hashers import make_password
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        # AQUI é onde a magia acontece. Por padrão, ele usa o 'username',
+        # mas você pode sobrescrever para usar o 'email'
+        attrs['username'] = attrs.get('email') # Usa o campo 'email' como 'username'
+        return super().validate(attrs)
 
 # Serializer para o modelo User (incluindo o campo 'role')
 class UserSerializer(serializers.ModelSerializer):

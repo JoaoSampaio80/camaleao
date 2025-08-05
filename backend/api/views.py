@@ -12,9 +12,7 @@ from .permissions import IsAdminOrDPO, IsDPOOrManager, IsAdminOrReadOnly # Vamos
 
 # View para o login JWT
 class MyTokenObtainPairView(TokenObtainPairView):
-    # Não precisamos de nada especial aqui por enquanto,
-    # a implementação padrão já funciona com nosso UserSerializer e JWT.
-    pass
+    serializer_class = MyTokenObtainPairSerializer
 
 # ViewSet para o modelo User
 class UserViewSet(viewsets.ModelViewSet):

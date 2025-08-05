@@ -1,13 +1,16 @@
+// PrivateRoute.jsx
 import { Navigate } from 'react-router-dom';
 
 function PrivateRoute({ children }) {
-  const user = localStorage.getItem('user');
+  // Agora está procurando por 'access_token'
+  const accessToken = localStorage.getItem('access_token');
 
-  // Se não há usuário logado, redireciona para login
-  if (!user) {
-    return <Navigate to="/Login" replace />;
+  // Se o token de acesso não existir, redireciona para a página de login
+  if (!accessToken) {
+    return <Navigate to="/login" replace />;
   }
 
+  // Se o token existir, renderiza os componentes filhos (a rota protegida)
   return children;
 }
 

@@ -19,11 +19,11 @@ function AppRoutes() {
     <BrowserRouter>
       <Routes>
         {/* Páginas públicas */}
-        <Route path="/Login" element={<Login />} />
+        <Route path="/login" element={<Login />} />
 
         {/* Páginas privadas */}
         <Route
-          path="/Home"
+          path="/"
           element={
             <PrivateRoute>
               <Home />
@@ -31,7 +31,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/Dashboard"
+          path="/dashboard"
           element={
             <PrivateRoute>
               <Dashboard />
@@ -39,7 +39,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/Relatorios"
+          path="/relatorios"
           element={
             <PrivateRoute>
               <Relatorio />
@@ -47,7 +47,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/Checklist"
+          path="/checklist"
           element={
             <PrivateRoute>
               <Checklist />
@@ -55,7 +55,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/Encarregado"
+          path="/encarregado"
           element={
             <PrivateRoute>
               <Encarregado />
@@ -63,7 +63,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/Monitoramento"
+          path="/monitoramento"
           element={
             <PrivateRoute>
               <Monitoramento />
@@ -71,7 +71,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/Documentos"
+          path="/documentos"
           element={
             <PrivateRoute>
               <Documentos />
@@ -79,7 +79,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/InventarioDados"
+          path="/inventariodados"
           element={
             <PrivateRoute>
               <Inventario />
@@ -87,7 +87,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/MatrizRisco"
+          path="/matrizrisco"
           element={
             <PrivateRoute>
               <MatrizRisco />
@@ -95,7 +95,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/Notificacao"
+          path="/notificacao"
           element={
             <PrivateRoute>
               <Notificacoes />
@@ -104,7 +104,7 @@ function AppRoutes() {
         />
 
         {/* Rota fallback */}
-        <Route path="*" element={<Navigate to="/Login" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );

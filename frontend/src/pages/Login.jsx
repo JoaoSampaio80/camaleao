@@ -1,18 +1,38 @@
-import React from 'react';
+import React, { useState } from 'react';
+import AxiosInstance from '../components/Axios';
 import { Card, Form, Button } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
 
 const Login = () => {
   const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const fakeUser = {
-      nome: 'Ana Souza',
-      email: 'ana@email.com'
-    };
-    localStorage.setItem('user', JSON.stringify(fakeUser));
-    navigate('/Home');
+
+    try {
+      // Envia os dados de email e senha para o endpoint de token da API
+      const response = await AxiosInstance.post('auth/token/', {
+        email: email,
+        password: password,
+      });
+
+      // Se o login for bem-sucedido, a API retorna os tokens de acesso e refresh
+      const { access, refresh } = response.data;
+      
+      // Armazena os tokens no localStorage para uso futuro
+      localStorage.setItem('access_token', access);
+      localStorage.setItem('refresh_token', refresh);
+      
+      // Redireciona o usuário para a página Home
+      navigate('/');
+    } catch (error) {
+      // Trata erros de requisição, como credenciais inválidas
+      console.error(email, password)
+      console.error('Falha no login:', error.response ? error.response.data : error.message);
+      alert('Credenciais inválidas. Por favor, verifique seu email e senha.');
+    }
   };
 
   return (
@@ -49,7 +69,6 @@ const Login = () => {
         <h5 style={{ fontWeight: '600', marginBottom: '5px' }}>Bem Vindo (a) de volta!</h5>
         <p style={{ maxWidth: '500px', fontSize: '1rem', fontWeight: '500' }}>
           Preencha as informações ao lado para acessar a sua conta.
-        
         </p>
       </div>
 
@@ -74,6 +93,8 @@ const Login = () => {
                   placeholder="Digite seu email"
                   required
                   size="lg"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
               </Form.Group>
               <Form.Group className="mb-4" controlId="formPassword">
@@ -83,6 +104,8 @@ const Login = () => {
                   placeholder="Digite sua senha"
                   required
                   size="lg"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                 />
               </Form.Group>
               <Button variant="primary" type="submit" className="w-100" size="lg">
@@ -101,5 +124,3 @@ const Login = () => {
 };
 
 export default Login;
-
-
