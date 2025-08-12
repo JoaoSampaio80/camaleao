@@ -11,6 +11,7 @@ import Documentos from './pages/Documentos';
 import Inventario from './pages/InventarioDados';
 import MatrizRisco from './pages/MatrizRisco';
 import Notificacoes from './pages/Notificacao';
+import Cadastro from './pages/Cadastro';
 
 import PrivateRoute from './routes/PrivateRoute';
 
@@ -35,6 +36,14 @@ function AppRoutes() {
           element={
             <PrivateRoute>
               <Dashboard />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/Cadastro"
+          element={
+            <PrivateRoute>
+              <Cadastro />
             </PrivateRoute>
           }
         />
