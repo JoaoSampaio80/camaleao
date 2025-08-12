@@ -3,14 +3,14 @@ import { Container, Row, Col, Form, Button } from 'react-bootstrap';
 import Sidebar from '../components/Sidebar';
 import { useNavigate } from 'react-router-dom';
 
-function InventarioDados() {
+function InventarioDados2() {
   const navigate = useNavigate();
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
       <Sidebar />
       <div
         style={{
-          background: '#d6f3f9', // fundo azul claro da imagem
+          background: '#d6f3f9',
           minHeight: '100vh',
           width: '100vw',
           marginTop: '56px',
@@ -21,66 +21,67 @@ function InventarioDados() {
           boxSizing: 'border-box',
         }}
       >
-        <h2 className="mb-4" style={{ color: '#071744',}}>
-          Inventário de dados
-        </h2>
+        <h2 className="mb-4"style={{color:'#071744' }}>Inventário de dados</h2>
 
         <Container fluid style={{ background: '#fff', padding: '2rem', borderRadius: '10px' }}>
           <Form>
             <Row className="mb-3">
-              <Col md={3}>
-                <Form.Label>Unidade (Matriz / Filial)</Form.Label>
-                <Form.Select>
-                  <option>Select...</option>
-                </Form.Select>
-              </Col>
-              <Col md={3}>
-                <Form.Label>Setor</Form.Label>
+              <Col md={6}>
+                <Form.Label>Pessoas com acesso</Form.Label>
                 <Form.Control placeholder="TextField" />
               </Col>
-              <Col md={3}>
-                <Form.Label>Responsável (E-mail)</Form.Label>
-                <Form.Control placeholder="TextField" />
-              </Col>
-              <Col md={3}>
-                <Form.Label>Processo de Negócio</Form.Label>
+              <Col md={6}>
+                <Form.Label>Atualizações (Quando ocorrem?)</Form.Label>
                 <Form.Control placeholder="TextField" />
               </Col>
             </Row>
 
             <Row className="mb-3">
               <Col>
-                <Form.Label>Finalidade</Form.Label>
+                <Form.Label>Transmissão Interna</Form.Label>
                 <Form.Control placeholder="TextField" />
               </Col>
             </Row>
 
             <Row className="mb-3">
               <Col>
-                <Form.Label>Dados pessoais coletados / tratados</Form.Label>
+                <Form.Label>Transmissão Externa</Form.Label>
+                <Form.Control placeholder="TextField" />
+              </Col>
+            </Row>
+
+            <Row className="mb-3">
+              <Col md={4}>
+                <Form.Label>Local de Armazenamento (Digital)</Form.Label>
+                <Form.Control placeholder="TextField" />
+              </Col>
+              <Col md={4}>
+                <Form.Label>Controlador / Operador</Form.Label>
+                <Form.Select>
+                  <option>Select...</option>
+                </Form.Select>
+              </Col>
+              <Col md={4}>
+                <Form.Label>Motivo de Retenção</Form.Label>
                 <Form.Control placeholder="TextField" />
               </Col>
             </Row>
 
             <Row className="mb-3">
               <Col md={3}>
-                <Form.Label>Tipo de dado</Form.Label>
-                <Form.Select>
-                  <option>Select...</option>
-                </Form.Select>
-              </Col>
-              <Col md={3}>
-                <Form.Label>Origem</Form.Label>
+                <Form.Label>Período de Retenção</Form.Label>
                 <Form.Control placeholder="TextField" />
               </Col>
               <Col md={3}>
-                <Form.Label>Formato</Form.Label>
-                <Form.Select>
-                  <option>Select...</option>
-                </Form.Select>
+                <Form.Label>Exclusão</Form.Label>
+                <Form.Control placeholder="TextField" />
               </Col>
               <Col md={3}>
-                <Form.Label>Impresso?</Form.Label>
+                <Form.Label>Forma de exclusão</Form.Label>
+                <Form.Control placeholder="TextField" />
+              </Col>
+              <Col md={3}>
+                <Form.Label>Ocorre transferência para terceiros?</Form.Label>
                 <Form.Select>
                   <option>Select...</option>
                 </Form.Select>
@@ -88,30 +89,30 @@ function InventarioDados() {
             </Row>
 
             <Row className="mb-3">
+              <Col md={6}>
+                <Form.Label>Quais dados são transferidos?</Form.Label>
+                <Form.Control placeholder="TextField" />
+              </Col>
+              <Col md={6}>
+                <Form.Label>Ocorre Transferência Internacional?</Form.Label>
+                <Form.Select>
+                  <option>Select...</option>
+                </Form.Select>
+              </Col>
+            </Row>
+
+            <Row className="mb-4">
               <Col>
-                <Form.Label>Titulares dos dados</Form.Label>
+                <Form.Label>Empresa terceira</Form.Label>
                 <Form.Control placeholder="TextField" />
               </Col>
             </Row>
 
-            <Row className="mb-3">
-              <Col md={3}>
-                <Form.Label>Dados de menores</Form.Label>
-                <Form.Select>
-                  <option>Select...</option>
-                </Form.Select>
-              </Col>
-              <Col md={9}>
-                <Form.Label>Base Legal</Form.Label>
-                <Form.Control placeholder="TextField" />
-              </Col>
-            </Row>
-
-            <div className="d-flex justify-content-end">
-              <Button variant="primary" onClick={() => navigate('/inventarioDados2')}>
-                Próxima Página
-              </Button>
+            <div className="d-flex justify-content-between mt-4">
+              <Button variant="primary"  onClick={() => navigate('/inventarioDados')}>Voltar</Button>
+              <Button variant="primary"  onClick={() => navigate('/inventarioDados3')}>Próxima Página</Button>
             </div>
+
           </Form>
         </Container>
       </div>
@@ -119,4 +120,4 @@ function InventarioDados() {
   );
 }
 
-export default InventarioDados;
+export default InventarioDados2;

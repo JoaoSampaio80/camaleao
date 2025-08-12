@@ -9,6 +9,8 @@ import Encarregado from './pages/Encarregado';
 import Monitoramento from './pages/Monitoramento';
 import Documentos from './pages/Documentos';
 import Inventario from './pages/InventarioDados';
+import InventarioDados2 from './pages/InventarioDados2';
+import InventarioDados3 from './pages/InventarioDados3';
 import MatrizRisco from './pages/MatrizRisco';
 import Notificacoes from './pages/Notificacao';
 import Cadastro from './pages/Cadastro';
@@ -92,6 +94,22 @@ function AppRoutes() {
           element={
             <PrivateRoute>
               <Inventario />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/InventarioDados2"
+          element={
+            <PrivateRoute>
+              <InventarioDados2 />
+            </PrivateRoute>
+          }
+        />
+         <Route
+          path="/InventarioDados3"
+          element={
+            <PrivateRoute>
+              <InventarioDados3 />
             </PrivateRoute>
           }
         />
