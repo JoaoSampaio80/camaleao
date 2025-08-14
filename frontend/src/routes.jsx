@@ -42,7 +42,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/Cadastro"
+          path="/cadastro"
           element={
             <PrivateRoute>
               <Cadastro />

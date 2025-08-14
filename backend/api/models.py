@@ -19,9 +19,9 @@ class User(AbstractUser):
     USER_ROLES = (
         ('admin', 'Administrador'),
         ('dpo', 'DPO'),
-        ('manager', 'Gerente'),
+        ('gerente', 'Gerente'),
     )
-    role = models.CharField(max_length=20, choices=USER_ROLES, default='manager', verbose_name="Função do Usuário")
+    role = models.CharField(max_length=20, choices=USER_ROLES, default='gerente', verbose_name="Função do Usuário")
 
     # Define o campo de login para ser o email
     USERNAME_FIELD = 'email'
@@ -29,10 +29,10 @@ class User(AbstractUser):
     # pois estamos usando email como USERNAME_FIELD
     # (Adicione esta linha se quiser que o username possa ser nulo,
     # caso contrário, ele será automaticamente gerado ou não usado se você não o preencher)
-    # username = None # Descomente esta linha se você não quiser usar o campo username
+    username = None # Descomente esta linha se você não quiser usar o campo username
 
     # Define os campos requeridos ao criar um superusuário via createsuperuser
-    REQUIRED_FIELDS = ['username'] # Mantemos username aqui para o createsuperuser,
+    REQUIRED_FIELDS = [] # Mantemos username aqui para o createsuperuser,
                                    # mas ele não será usado para login se USERNAME_FIELD for email.
                                    # Se você quiser que o username seja completamente opcional,
                                    # pode remover 'username' daqui e garantir que o email seja fornecido.
@@ -45,7 +45,24 @@ class User(AbstractUser):
         verbose_name = "Usuário"
         verbose_name_plural = "Usuários"
 
+class Checklist(models.Model):
+    """
+    Modelo para os itens do checklist da LGPD.
+    """
+    atividade = models.CharField(max_length=255, verbose_name="Atividade")
+    descricao = models.TextField(verbose_name="Descrição")
+    is_completed = models.BooleanField(default=False, verbose_name="Concluído")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        verbose_name = "Checklist LGPD"
+        verbose_name_plural = "Checklist LGPD"
+        ordering = ['created_at']
+
+    def __str__(self):
+        return self.atividade
+    
 class InventarioDados(models.Model):
     """
     Modelo para o formulário de Inventário de Dados.

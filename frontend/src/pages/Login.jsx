@@ -66,7 +66,7 @@ const Login = () => {
           alt="Logo"
           style={{ width: '450px', marginBottom: '5px' }}
         />
-        <h5 style={{ fontWeight: '600', marginBottom: '5px' }}>Bem Vindo (a) de volta!</h5>
+        <h5 style={{ fontWeight: '600', marginBottom: '5px' }}>Bem-vindo (a)!</h5>
         <p style={{ maxWidth: '500px', fontSize: '1rem', fontWeight: '500' }}>
           Preencha as informações ao lado para acessar a sua conta.
         </p>

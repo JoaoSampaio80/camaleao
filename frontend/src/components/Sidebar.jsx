@@ -5,7 +5,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faTachometerAlt, faBars, faRightFromBracket, faUser, faHouse,
   faUserShield, faClipboardCheck, faFileAlt, faDatabase,
-  faExclamationTriangle, faChartLine, faBell, faUserSecret
+  faExclamationTriangle, faChartLine, faBell, faUserSecret,
+  faUserPlus
 } from '@fortawesome/free-solid-svg-icons';
 import logo from '/logo.png';
 
@@ -21,7 +22,7 @@ function Sidebar() {
   const handleShow = () => setShow(true);
   const handleLogout = () => {
     localStorage.removeItem('user');
-    navigate('/');
+    navigate('/Login');
   };
 
   const navLinks = [
@@ -33,7 +34,8 @@ function Sidebar() {
     { to: "/Monitoramento", icon: faUserSecret, label: "Monitoramento" },
     { to: "/Documentos", icon: faFileAlt, label: "Documentos" },
     { to: "/InventarioDados", icon: faDatabase, label: "Inventário de Dados" },
-    { to: "/MatrizRisco", icon: faExclamationTriangle, label: "Matriz de Risco" }
+    { to: "/MatrizRisco", icon: faExclamationTriangle, label: "Matriz de Risco" },
+    { to: "/Cadastro", icon: faUserPlus, label: "Cadastro de Usuário"}
   ];
 
   return (
@@ -89,7 +91,7 @@ function Sidebar() {
               <FontAwesomeIcon icon={faBars} />
             </Button>
 
-            <Button as={Link} to="/Home" style={{
+            <Button as={Link} to="/" style={{
               backgroundColor: 'transparent',
               border: '1px solid white',
               color: 'white',

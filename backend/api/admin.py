@@ -5,16 +5,16 @@ from .models import *
 # Admin personalizado para o seu modelo User
 class CustomUserAdmin(BaseUserAdmin):
     # Campos a serem exibidos na lista de usuários no admin
-    list_display = ('email', 'username', 'role', 'job_title', 'is_staff', 'is_active')
+    list_display = ('email', 'role', 'job_title', 'is_staff', 'is_active')
     list_filter = ('role', 'is_staff', 'is_active')
-    search_fields = ('email', 'username', 'job_title')
+    search_fields = ('email', 'job_title')
     ordering = ('email',)
 
     # Define os fieldsets para organizar os campos na página de edição do usuário
     # Adapte estes fieldsets para incluir todos os campos do seu modelo User
     fieldsets = (
         (None, {'fields': ('email', 'password')}), # Informações de login
-        ('Informações Pessoais', {'fields': ('username', 'first_name', 'last_name', 'phone_number', 'job_title', 'appointment_date', 'appointment_validity')}),
+        ('Informações Pessoais', {'fields': ('first_name', 'last_name', 'phone_number', 'job_title', 'appointment_date', 'appointment_validity')}),
         ('Permissões', {'fields': ('is_active', 'is_staff', 'is_superuser', 'role', 'groups', 'user_permissions')}),
         ('Datas Importantes', {'fields': ('last_login', 'date_joined')}),
     )
@@ -26,7 +26,7 @@ class CustomUserAdmin(BaseUserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('email', 'username', 'password', 'password2', 'role', 'phone_number', 'job_title'),
+            'fields': ('email', 'password', 'password2', 'role', 'phone_number', 'job_title'),
         }),
     )
     # Garante que 'password2' esteja disponível no form de adição para confirmação de senha
@@ -64,3 +64,9 @@ class ExigenciaLGPDAdmin(admin.ModelAdmin):
     list_filter = ('upload_por', 'data_upload')
     search_fields = ('titulo', 'descricao', 'artigos_referencia')
     raw_id_fields = ('upload_por',)
+@admin.register(Checklist)
+class ChecklistAdmin(admin.ModelAdmin):
+    list_display = ('atividade', 'descricao', 'is_completed', 'created_at', 'updated_at')
+    list_filter = ('atividade', 'is_completed')
+    search_fields = ('atividade',)
+    

@@ -7,6 +7,7 @@ from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 # Crie um router para ViewSets
 router = DefaultRouter()
 router.register(r'users', UserViewSet)
+router.register(r'checklists', ChecklistViewSet)
 router.register(r'inventarios', InventarioDadosViewSet)
 router.register(r'riscos', MatrizRiscoViewSet)
 router.register(r'planos-acao', PlanoAcaoViewSet)

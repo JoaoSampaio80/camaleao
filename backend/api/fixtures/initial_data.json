@@ -1,0 +1,35 @@
+[
+  {
+    "model": "api.checklist",
+    "pk": 1,
+    "fields": {
+      "atividade": "Mapeamento do tratamento de dados pessoais",
+      "descricao": "O processo de mapeamento do tratamento de dados é uma etapa para garantir a conformidade com a LGPD. Este documento visa descrever os principais passos e considerações envolvidos no mapeamento do tratamento de dados, destacando as medidas tomadas para proteger a privacidade e a segurança das informações.",
+      "is_completed": false,
+      "created_at": "2025-08-12T10:00:00Z",
+      "updated_at": "2025-08-12T10:00:00Z"
+    }
+  },
+  {
+    "model": "api.checklist",
+    "pk": 2,
+    "fields": {
+      "atividade": "Nomeação do DPO",
+      "descricao": "O Data Protection Officer (DPO) desempenha o papel na garantia da conformidade com as leis de proteção de dados, como a Lei Geral de Proteção de Dados (LGPD).",
+      "is_completed": false,
+      "created_at": "2025-08-12T10:20:00Z",
+      "updated_at": "2025-08-12T10:20:00Z"
+    }
+  },
+  {
+    "model": "api.checklist",
+    "pk": 3,
+    "fields": {
+      "atividade": "Diagnósticos",
+      "descricao": "O diagnóstico de conformidade com a LGPD é uma etapa para garantir que uma organização esteja em conformidade com as disposições legais relacionadas à proteção de dados pessoais.",
+      "is_completed": false,
+      "created_at": "2025-08-12T10:30:00Z",
+      "updated_at": "2025-08-12T10:30:00Z"
+    }
+  }
+]

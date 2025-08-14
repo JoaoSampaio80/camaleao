@@ -30,20 +30,32 @@ class UserViewSet(viewsets.ModelViewSet):
             self.permission_classes = [permissions.IsAuthenticated] # Todos autenticados podem listar/ver detalhes
         return super().get_permissions()
 
-    # # Sobrescreve o método perform_create para definir a senha do usuário
-    # def perform_create(self, serializer):
-    #     user = serializer.save()
-    #     if 'password' in self.request.data:
-    #         user.set_password(self.request.data['password'])
-    #         user.save()
+    # Sobrescreve o método perform_create para definir a senha do usuário
+    def perform_create(self, serializer):
+        serializer.save()
+        
 
-    # # Sobrescreve o método perform_update para definir a senha do usuário
-    # def perform_update(self, serializer):
-    #     user = serializer.save()
-    #     if 'password' in self.request.data and self.request.data['password']:
-    #         user.set_password(self.request.data['password'])
-    #         user.save()
+    # Sobrescreve o método perform_update para definir a senha do usuário
+    def perform_update(self, serializer):
+        serializer.save()
+        
 
+# ViewSet para gerenciar o checklist da LGPD
+class ChecklistViewSet(viewsets.ModelViewSet):
+    queryset = Checklist.objects.all().order_by('id')
+    serializer_class = ChecklistSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    # Esta função controla as permissões de acesso para cada ação da API
+    def get_permissions(self):
+        # Permite que Administradores e DPOs criem, alterem e excluam itens
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            self.permission_classes = [IsAdminOrDPO]
+        # Para visualização (list) e leitura de um item específico (retrieve),
+        # qualquer usuário autenticado pode acessar
+        elif self.action in ['list', 'retrieve']:
+            self.permission_classes = [permissions.IsAuthenticated]
+        return super().get_permissions()
 
 # ViewSet para InventarioDados
 class InventarioDadosViewSet(viewsets.ModelViewSet):
@@ -74,7 +86,7 @@ class PlanoAcaoViewSet(viewsets.ModelViewSet):
         # Responsável pode ser setado manualmente ou via request.user dependendo da lógica
         # Por enquanto, mantemos a lógica de salvamento padrão, mas você pode modificar aqui
         # para que o responsável seja o usuário logado se for o caso
-        serializer.save() # responsavel deve vir no request.data
+        serializer.save(responsavel=self.request.user) # responsavel deve vir no request.data
 
 # ViewSet para ExigenciaLGPD
 class ExigenciaLGPDViewSet(viewsets.ModelViewSet):
