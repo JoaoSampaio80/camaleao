@@ -1,42 +1,63 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Container, Nav, Navbar, Offcanvas, Button, Dropdown } from 'react-bootstrap';
+import { Container, Nav, Navbar, Offcanvas, Button, Dropdown, Badge, } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faTachometerAlt, faBars, faRightFromBracket, faUser, faHouse,
-  faUserShield, faClipboardCheck, faFileAlt, faDatabase,
-  faExclamationTriangle, faChartLine, faBell, faUserSecret,
-  faUserPlus
-} from '@fortawesome/free-solid-svg-icons';
+  faTachometerAlt, faBars, faRightFromBracket, faUser, faHouse, faUserShield, faClipboardCheck, faFileAlt, faDatabase,
+  faExclamationTriangle, faChartLine, faBell, faUserSecret, faUserPlus } from '@fortawesome/free-solid-svg-icons';
+import { useAuth } from '../context/AuthContext';
+import { ROUTES } from '../routes';
 import logo from '/logo.png';
 
-const storedUser = localStorage.getItem('user');
-const user = storedUser ? JSON.parse(storedUser) : { nome: 'Usuário', email: '' };
+const ROLE_LABEL = {
+  admin: 'Administrador',
+  dpo: 'DPO',
+  gerente: 'Gerente',
+};
 
 function Sidebar() {
   const [show, setShow] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, logout, loading } = useAuth();
+
+  const isAdmin = !!user && user.role === 'admin'
+
+  // console.log('Cargo do usuário:', user.role);
 
   const handleClose = () => setShow(false);
   const handleShow = () => setShow(true);
+  
   const handleLogout = () => {
-    localStorage.removeItem('user');
-    navigate('/Login');
+    logout();
+    navigate(ROUTES.LOGIN, {replace: true});
   };
 
   const navLinks = [
-    { to: "/Dashboard", icon: faTachometerAlt, label: "Dashboard" },
-    { to: "/Relatorios", icon: faChartLine, label: "Relatórios" },
-    { to: "/Checklist", icon: faClipboardCheck, label: "Checklist" },
-    { to: "/Notificacao", icon: faBell, label: "Notificação" },
-    { to: "/Encarregado", icon: faUserShield, label: "Encarregado" },
-    { to: "/Monitoramento", icon: faUserSecret, label: "Monitoramento" },
-    { to: "/Documentos", icon: faFileAlt, label: "Documentos" },
-    { to: "/InventarioDados", icon: faDatabase, label: "Inventário de Dados" },
-    { to: "/MatrizRisco", icon: faExclamationTriangle, label: "Matriz de Risco" },
-    { to: "/Cadastro", icon: faUserPlus, label: "Cadastro de Usuário"}
+    { to: ROUTES.DASHBOARD, icon: faTachometerAlt, label: "Dashboard" },
+    { to: ROUTES.RELATORIOS, icon: faChartLine, label: "Relatórios" },
+    { to: ROUTES.CHECKLIST, icon: faClipboardCheck, label: "Checklist" },
+    { to: ROUTES.NOTIFICACOES, icon: faBell, label: "Notificação" },
+    { to: ROUTES.ENCARREGADO, icon: faUserShield, label: "Encarregado" },
+    { to: ROUTES.MONITORAMENTO, icon: faUserSecret, label: "Monitoramento" },
+    { to: ROUTES.DOCUMENTOS, icon: faFileAlt, label: "Documentos" },
+    // Alterado para a rota pai do inventário
+    { to: ROUTES.INVENTARIO_DADOS, icon: faDatabase, label: "Inventário de Dados" }, 
+    { to: ROUTES.MATRIZ_RISCO, icon: faExclamationTriangle, label: "Matriz de Risco" },
+    { to: ROUTES.CADASTRO, icon: faUserPlus, label: "Cadastro de Usuário", adminOnly: true },
+    { to: ROUTES.PERFIL, icon: faUser, label: "Meu Perfil" },
   ];
+
+  // Esconde itens adminOnly enquanto loading estiver true e para quem não é admin
+  const filteredNavLinks = navLinks.filter(link => {
+    return !link.adminOnly ||  (!loading && isAdmin)    
+  });
+
+  const isActive = (to) => location.pathname === to || location.pathname.startsWith(`${to}/`);
+
+  const userName = loading ? 'Carregando...' : (user?.first_name || '-');
+  const userEmail = loading ? 'carregando...' : (user?.email || '-');
+  const userRole = loading ? '' : (ROLE_LABEL[user?.role] || '');
 
   return (
     <>
@@ -91,7 +112,7 @@ function Sidebar() {
               <FontAwesomeIcon icon={faBars} />
             </Button>
 
-            <Button as={Link} to="/" style={{
+            <Button as={Link} to={ROUTES.HOME} style={{
               backgroundColor: 'transparent',
               border: '1px solid white',
               color: 'white',
@@ -115,8 +136,17 @@ function Sidebar() {
 
             <Dropdown.Menu>
               <Dropdown.Header>
-                <strong>{user.nome}</strong><br />
-                <small>{user.email}</small>
+                <div className="d-flex flex-column">
+                  <strong className="mb-1">
+                    {userName}{' '}
+                    {!loading && userRole && (
+                      <Badge bg="secondary" pill title={user?.role}>
+                        {userRole}
+                      </Badge>
+                    )}
+                  </strong>
+                  <small>{userEmail}</small>
+                </div>
               </Dropdown.Header>
               <Dropdown.Divider />
               <Dropdown.Item onClick={handleLogout}>
@@ -142,14 +172,30 @@ function Sidebar() {
         </Offcanvas.Header>
 
         <Offcanvas.Body className="px-3 py-2">
+
+          {/* info do usuário no topo do menu lateral (opcional)
+          <div className="mb-3 px-2">
+            {loading ? (
+              <div className="d-flex align-items-center gap-2 text-muted">
+                <Spinner size="sm" /> carregando usuário…
+              </div>
+            ) : (
+              <>
+                <div className="fw-semibold">{user?.first_name || '-'}</div>
+                <div className="small text-muted">{user?.email || '-'}</div>
+                {userRole && <div className="small"><Badge bg="secondary" pill>{userRole}</Badge></div>}
+              </>
+            )}
+          </div> */}
+
           <Nav className="flex-column">
-            {navLinks.map(({ to, icon, label }) => (
+            {filteredNavLinks.map(({ to, icon, label }) => (
               <Nav.Link
                 key={to}
                 as={Link}
                 to={to}
                 onClick={handleClose}
-                className={`sidebar-link d-flex align-items-center ${location.pathname === to ? 'active' : ''}`}
+                className={`sidebar-link d-flex align-items-center ${isActive(to) ? 'active' : ''}`}
               >
                 <FontAwesomeIcon icon={icon} className="fa-icon" />
                 {label}
@@ -163,11 +209,3 @@ function Sidebar() {
 }
 
 export default Sidebar;
-
-
-
-
-
-
-
-

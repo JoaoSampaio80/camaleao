@@ -1,39 +1,45 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import AxiosInstance from '../components/Axios';
-import { Card, Form, Button } from 'react-bootstrap';
-import { Link, useNavigate } from 'react-router-dom';
+import { Card, Form, Button, Alert } from 'react-bootstrap';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { ROUTES } from '../routes';
 
-const Login = () => {
-  const navigate = useNavigate();
+const Login = () => {  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const { login, loading, user } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && user){
+    navigate(ROUTES.HOME, { replace: true });
+  }
+  }, [loading, user, navigate]);  
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
 
     try {
       // Envia os dados de email e senha para o endpoint de token da API
       const response = await AxiosInstance.post('auth/token/', {
-        email: email,
+        email: email.trim().toLowerCase(),
         password: password,
       });
 
-      // Se o login for bem-sucedido, a API retorna os tokens de acesso e refresh
-      const { access, refresh } = response.data;
-      
-      // Armazena os tokens no localStorage para uso futuro
-      localStorage.setItem('access_token', access);
-      localStorage.setItem('refresh_token', refresh);
-      
-      // Redireciona o usuário para a página Home
-      navigate('/');
+      if (response.status === 200) {        
+        // Chame a função login do contexto para salvar os tokens e o usuário
+        await login(response.data);           
+      }
     } catch (error) {
-      // Trata erros de requisição, como credenciais inválidas
-      console.error(email, password)
+      const st = error?.response?.status;
       console.error('Falha no login:', error.response ? error.response.data : error.message);
-      alert('Credenciais inválidas. Por favor, verifique seu email e senha.');
+      // Exibe uma mensagem de erro mais amigável
+      setError( st === 400 || st === 401? 'Credenciais inválidas. Por favor, verifique seu email e senha.': 'Tente novamente');
     }
-  };
+  };  
 
   return (
     <div
@@ -85,6 +91,8 @@ const Login = () => {
         <Card style={{ width: '100%', maxWidth: '400px' }} className="p-4 shadow border-0 rounded-4 bg-white text-dark">
           <Card.Body>
             <h3 className="mb-4 text-center fw-bold">Login</h3>
+            {/* Adicionado um alerta para exibir a mensagem de erro */}
+            {error && <div className="text-center mb-3"><Alert variant="danger">{error}</Alert></div>}
             <Form onSubmit={handleSubmit}>
               <Form.Group className="mb-3" controlId="formEmail">
                 <Form.Label>Email</Form.Label>

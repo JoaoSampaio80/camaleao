@@ -1,3 +1,4 @@
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 import Login from './pages/Login';
@@ -8,135 +9,92 @@ import Checklist from './pages/Checklist';
 import Encarregado from './pages/Encarregado';
 import Monitoramento from './pages/Monitoramento';
 import Documentos from './pages/Documentos';
-import Inventario from './pages/InventarioDados';
+import InventarioDados from './pages/InventarioDados';
 import InventarioDados2 from './pages/InventarioDados2';
 import InventarioDados3 from './pages/InventarioDados3';
 import MatrizRisco from './pages/MatrizRisco';
 import Notificacoes from './pages/Notificacao';
 import Cadastro from './pages/Cadastro';
+import Perfil from './pages/Perfil';
 
-import PrivateRoute from './routes/PrivateRoute';
+// import PrivateRoute from './routes/PrivateRoute';
+import { useAuth, AuthProvider } from './context/AuthContext';
+
+
+// Objeto de tipagem de rotas para evitar erros de digitação
+export const ROUTES = {
+  LOGIN: '/login',
+  HOME: '/',
+  DASHBOARD: '/dashboard',
+  CADASTRO: '/cadastro',
+  RELATORIOS: '/relatorios',
+  CHECKLIST: '/checklist',
+  ENCARREGADO: '/encarregado',
+  MONITORAMENTO: '/monitoramento',
+  DOCUMENTOS: '/documentos',  
+  INVENTARIO_DADOS: '/dados',
+  INVENTARIO_DADOS2: '/dados2',
+  INVENTARIO_DADOS3: '/dados3',
+  MATRIZ_RISCO: '/matrizrisco',
+  NOTIFICACOES: '/notificacao',
+  PERFIL: '/perfil',
+  NOT_FOUND: '*'
+};
+
+function AppRouter() {
+  const { user, loading } = useAuth();
+  console.log(`AppRouter: Renderizando. User: ${user ? user.email : 'null'}, Loading: ${loading}, URL: ${window.location.pathname}`);
+  if (loading) {
+    return <div>Carregando...</div>;
+  }
+
+  if (user) {
+    console.log("AppRouter: Usuário autenticado, renderizando rotas protegidas.");
+    return (
+      <Routes>
+        <Route path={ROUTES.LOGIN} element={<Navigate to={ROUTES.HOME} replace />} />
+        <Route path={ROUTES.HOME} element={<Home />} />
+        <Route path={ROUTES.DASHBOARD} element={<Dashboard />} />
+        <Route path={ROUTES.RELATORIOS} element={<Relatorio />} />
+        <Route path={ROUTES.CHECKLIST} element={<Checklist />} />
+        <Route path={ROUTES.ENCARREGADO} element={<Encarregado />} />
+        <Route path={ROUTES.MONITORAMENTO} element={<Monitoramento />} />
+        <Route path={ROUTES.DOCUMENTOS} element={<Documentos />} />
+        <Route path={ROUTES.MATRIZ_RISCO} element={<MatrizRisco />} />
+        <Route path={ROUTES.NOTIFICACOES} element={<Notificacoes />} />                
+        <Route path={ROUTES.INVENTARIO_DADOS} element={<InventarioDados />} />
+        <Route path={ROUTES.INVENTARIO_DADOS2} element={<InventarioDados2 />} />
+        <Route path={ROUTES.INVENTARIO_DADOS3} element={<InventarioDados3 />} />
+        <Route
+          path={ROUTES.CADASTRO}
+          element={user?.role === 'admin' ? <Cadastro /> : <Navigate to={ROUTES.HOME} replace />}
+        />
+        <Route path={ROUTES.PERFIL} element={<Perfil />} />
+
+
+        <Route path={ROUTES.NOT_FOUND} element={<Navigate to={ROUTES.HOME} replace />} />
+      </Routes>
+    );
+  } else { // O retorno para usuários não logados deve estar em um bloco `else`
+    console.log("AppRouter: Usuário não autenticado, renderizando rota de login.");
+    return (
+      <Routes>
+        <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.LOGIN} replace />} />
+        <Route path={ROUTES.LOGIN} element={<Login />} />
+        <Route path={ROUTES.NOT_FOUND} element={<Navigate to={ROUTES.LOGIN} replace />} />
+      </Routes>
+    );
+  }
+}
 
 function AppRoutes() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Páginas públicas */}
-        <Route path="/login" element={<Login />} />
-
-        {/* Páginas privadas */}
-        <Route
-          path="/"
-          element={
-            <PrivateRoute>
-              <Home />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/dashboard"
-          element={
-            <PrivateRoute>
-              <Dashboard />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/cadastro"
-          element={
-            <PrivateRoute>
-              <Cadastro />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/relatorios"
-          element={
-            <PrivateRoute>
-              <Relatorio />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/checklist"
-          element={
-            <PrivateRoute>
-              <Checklist />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/encarregado"
-          element={
-            <PrivateRoute>
-              <Encarregado />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/monitoramento"
-          element={
-            <PrivateRoute>
-              <Monitoramento />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/documentos"
-          element={
-            <PrivateRoute>
-              <Documentos />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/inventariodados"
-          element={
-            <PrivateRoute>
-              <Inventario />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/InventarioDados2"
-          element={
-            <PrivateRoute>
-              <InventarioDados2 />
-            </PrivateRoute>
-          }
-        />
-         <Route
-          path="/InventarioDados3"
-          element={
-            <PrivateRoute>
-              <InventarioDados3 />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/matrizrisco"
-          element={
-            <PrivateRoute>
-              <MatrizRisco />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/notificacao"
-          element={
-            <PrivateRoute>
-              <Notificacoes />
-            </PrivateRoute>
-          }
-        />
-
-        {/* Rota fallback */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
+      <AuthProvider>
+        <AppRouter />
+      </AuthProvider>
     </BrowserRouter>
   );
 }
 
 export default AppRoutes;
-
-

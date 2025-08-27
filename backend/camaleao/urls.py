@@ -1,11 +1,18 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.http import JsonResponse
+from django.views.generic import RedirectView
 from django.conf import settings # Importe settings
 from django.conf.urls.static import static # Importe static
 
+
+def health(_): return JsonResponse({'status': 'ok'})
+
 urlpatterns = [
+    path('', RedirectView.as_view(url='/api/v1/', permanent=False)),
     path('admin/', admin.site.urls),
-    path('', include('api.urls')),
+    path('health/', health),
+    path('api/v1/', include('api.urls')),
 ]
 
 # Servir arquivos de mídia em desenvolvimento (para uploads de arquivos)

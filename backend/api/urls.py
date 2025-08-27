@@ -6,12 +6,12 @@ from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 
 # Crie um router para ViewSets
 router = DefaultRouter()
-router.register(r'users', UserViewSet)
-router.register(r'checklists', ChecklistViewSet)
-router.register(r'inventarios', InventarioDadosViewSet)
-router.register(r'riscos', MatrizRiscoViewSet)
-router.register(r'planos-acao', PlanoAcaoViewSet)
-router.register(r'exigencias', ExigenciaLGPDViewSet)
+router.register(r'users', UserViewSet, basename='users')
+router.register(r'checklists', ChecklistViewSet, basename='checklists')
+router.register(r'inventarios', InventarioDadosViewSet, basename='inventarios')
+router.register(r'riscos', MatrizRiscoViewSet, basename='riscos')
+router.register(r'planos-acao', PlanoAcaoViewSet, basename='planos-acao')
+router.register(r'exigencias', ExigenciaLGPDViewSet, basename='exigencias')
 
 urlpatterns = [
     # URLs para autenticação JWT

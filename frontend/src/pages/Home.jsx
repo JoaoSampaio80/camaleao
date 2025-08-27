@@ -1,25 +1,32 @@
+import React, { useEffect } from 'react';
 import { Card, Row, Col, Container } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faUserShield, faClipboardCheck, faFileAlt, faTachometerAlt,
-  faDatabase, faExclamationTriangle, faChartLine, faBell, faUserSecret
-} from '@fortawesome/free-solid-svg-icons';
+  faUserShield, faClipboardCheck, faFileAlt, faTachometerAlt,  faDatabase, faExclamationTriangle, 
+  faChartLine, faBell, faUserSecret} from '@fortawesome/free-solid-svg-icons';
+import { ROUTES } from '../routes';
 
-const cardData = [
-  { title: 'Encarregado', icon: faUserShield, path: '/Encarregado' },
-  { title: 'Monitoramento', icon: faUserSecret, path: '/Monitoramento' },
-  { title: 'Checklist', icon: faClipboardCheck, path: '/Checklist' },
-  { title: 'Documentos', icon: faFileAlt, path: '/Documentos' },
-  { title: 'Dashboards', icon: faTachometerAlt, path: '/Dashboard' },
-  { title: 'Inventário de Dados', icon: faDatabase, path: '/InventarioDados' },
-  { title: 'Matriz de Risco', icon: faExclamationTriangle, path: '/MatrizRisco' },
-  { title: 'Relatórios', icon: faChartLine, path: '/Relatorios' },
-  { title: 'Notificação', icon: faBell, path: '/Notificacao' }
+
+
+function Home() {
+  const navigate = useNavigate();
+
+  const cardData = [
+  { title: 'Encarregado', icon: faUserShield, path: ROUTES.ENCARREGADO },
+  { title: 'Monitoramento', icon: faUserSecret, path: ROUTES.MONITORAMENTO },
+  { title: 'Checklist', icon: faClipboardCheck, path: ROUTES.CHECKLIST },
+  { title: 'Documentos', icon: faFileAlt, path: ROUTES.DOCUMENTOS },
+  { title: 'Dashboards', icon: faTachometerAlt, path: ROUTES.DASHBOARD },
+  { title: 'Inventário de Dados', icon: faDatabase, path: ROUTES.INVENTARIO_DADOS },
+  { title: 'Matriz de Risco', icon: faExclamationTriangle, path: ROUTES.MATRIZ_RISCO },
+  { title: 'Relatórios', icon: faChartLine, path: ROUTES.RELATORIOS },
+  { title: 'Notificação', icon: faBell, path: ROUTES.NOTIFICACOES }
 ];
 
-const Home = () => {
-  const navigate = useNavigate();
+  useEffect(() => {
+    console.log('O componente Home foi renderizado!');
+  }, []);
 
   return (
     <div style={{   
@@ -95,5 +102,3 @@ const Home = () => {
 };
 
 export default Home;
-
-

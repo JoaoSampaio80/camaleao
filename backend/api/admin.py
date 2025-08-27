@@ -1,32 +1,56 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin # Importa o UserAdmin base
-from .models import *
+from django.contrib.auth.forms import UserCreationForm, UserChangeForm
+from django.utils.translation import gettext_lazy as _
+from .models import User, Checklist, InventarioDados, MatrizRisco, PlanoAcao, ExigenciaLGPD
+
+class UserCreationFormEmail(UserCreationForm):
+    class Meta(UserCreationForm.Meta):
+        model = User
+        # inclua aqui só os campos que quer pedir na criação via admin
+        fields = ("email", "role", "is_staff", "is_active")
+
+
+class UserChangeFormEmail(UserChangeForm):
+    class Meta(UserChangeForm.Meta):
+        model = User
+        fields = ("email", "first_name", "last_name", "phone_number", "job_title",
+                  "appointment_date", "appointment_validity", "role",
+                  "is_active", "is_staff", "is_superuser", "groups", "user_permissions")
 
 # Admin personalizado para o seu modelo User
-class CustomUserAdmin(BaseUserAdmin):
-    # Campos a serem exibidos na lista de usuários no admin
-    list_display = ('email', 'role', 'job_title', 'is_staff', 'is_active')
-    list_filter = ('role', 'is_staff', 'is_active')
-    search_fields = ('email', 'job_title')
-    ordering = ('email',)
+@admin.register(User)
+class UserAdmin(BaseUserAdmin):
+    add_form = UserCreationFormEmail
+    form = UserChangeFormEmail
+    model = User
 
-    # Define os fieldsets para organizar os campos na página de edição do usuário
-    # Adapte estes fieldsets para incluir todos os campos do seu modelo User
+    ordering = ("email",)
+    list_display = ("email", "first_name", "last_name", "role", "is_staff", "is_active")
+    list_filter = ("role", "is_staff", "is_active", "is_superuser", "groups")
+    search_fields = ("email", "first_name", "last_name")
+    readonly_fields = ("last_login", "date_joined")
+
+    # organização dos campos na edição
     fieldsets = (
-        (None, {'fields': ('email', 'password')}), # Informações de login
-        ('Informações Pessoais', {'fields': ('first_name', 'last_name', 'phone_number', 'job_title', 'appointment_date', 'appointment_validity')}),
-        ('Permissões', {'fields': ('is_active', 'is_staff', 'is_superuser', 'role', 'groups', 'user_permissions')}),
-        ('Datas Importantes', {'fields': ('last_login', 'date_joined')}),
+        (None, {"fields": ("email", "password")}),
+        (_("Informações pessoais"), {
+            "fields": ("first_name", "last_name", "phone_number", "job_title")
+        }),
+        (_("DPO"), {
+            "fields": ("appointment_date", "appointment_validity")
+        }),
+        (_("Permissões"), {
+            "fields": ("role", "is_active", "is_staff", "is_superuser", "groups", "user_permissions")
+        }),
+        (_("Datas importantes"), {"fields": ("last_login", "date_joined")}),
     )
-    # Se você definiu 'username = None' no seu models.py e removeu-o de REQUIRED_FIELDS,
-    # você pode precisar ajustar os fieldsets e o add_fieldsets para refletir isso.
-    # Para o propósito inicial, manter o username no fieldset é seguro.
 
-    # Campos para a página de criação de novo usuário
+    # campos na criação (note password1/password2)
     add_fieldsets = (
         (None, {
-            'classes': ('wide',),
-            'fields': ('email', 'password', 'password2', 'role', 'phone_number', 'job_title'),
+            "classes": ("wide",),
+            "fields": ("email", "password1", "password2", "role", "is_staff", "is_active"),
         }),
     )
     # Garante que 'password2' esteja disponível no form de adição para confirmação de senha
@@ -34,7 +58,13 @@ class CustomUserAdmin(BaseUserAdmin):
     # No entanto, para fins de admin, Django geralmente gerencia a senha.
 
 # Registra o modelo User com o seu Admin personalizado
-admin.site.register(User, CustomUserAdmin)
+
+
+@admin.register(Checklist)
+class ChecklistAdmin(admin.ModelAdmin):
+    list_display = ('atividade', 'descricao', 'is_completed', 'created_at', 'updated_at')
+    list_filter = ('atividade', 'is_completed')
+    search_fields = ('atividade',)
 
 # Registra os outros modelos
 @admin.register(InventarioDados)
@@ -43,6 +73,8 @@ class InventarioDadosAdmin(admin.ModelAdmin):
     list_filter = ('tipo_dado', 'base_legal', 'criado_por')
     search_fields = ('nome_processo', 'finalidade_coleta')
     raw_id_fields = ('criado_por',) # Para facilitar a seleção de usuários em massa
+    date_hierarchy = "data_criacao"
+    list_select_related = ("criado_por",)
 
 @admin.register(MatrizRisco)
 class MatrizRiscoAdmin(admin.ModelAdmin):
@@ -50,6 +82,8 @@ class MatrizRiscoAdmin(admin.ModelAdmin):
     list_filter = ('probabilidade', 'impacto', 'nivel_risco', 'criado_por')
     search_fields = ('descricao_risco', 'processo_afetado__nome_processo')
     raw_id_fields = ('processo_afetado', 'criado_por',)
+    date_hierarchy = "data_criacao"
+    list_select_related = ("criado_por",)
 
 @admin.register(PlanoAcao)
 class PlanoAcaoAdmin(admin.ModelAdmin):
@@ -57,6 +91,8 @@ class PlanoAcaoAdmin(admin.ModelAdmin):
     list_filter = ('status', 'responsavel', 'data_limite')
     search_fields = ('acao_mitigacao', 'risco__descricao_risco')
     raw_id_fields = ('risco', 'responsavel',)
+    date_hierarchy = "data_criacao"
+    list_select_related = ("criado_por",)
 
 @admin.register(ExigenciaLGPD)
 class ExigenciaLGPDAdmin(admin.ModelAdmin):
@@ -64,9 +100,5 @@ class ExigenciaLGPDAdmin(admin.ModelAdmin):
     list_filter = ('upload_por', 'data_upload')
     search_fields = ('titulo', 'descricao', 'artigos_referencia')
     raw_id_fields = ('upload_por',)
-@admin.register(Checklist)
-class ChecklistAdmin(admin.ModelAdmin):
-    list_display = ('atividade', 'descricao', 'is_completed', 'created_at', 'updated_at')
-    list_filter = ('atividade', 'is_completed')
-    search_fields = ('atividade',)
-    
+    date_hierarchy = "data_upload"
+    list_select_related = ("upload_por",)

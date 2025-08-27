@@ -1,17 +1,21 @@
 // PrivateRoute.jsx
-import { Navigate } from 'react-router-dom';
+import React from 'react';
+import { Outlet, Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { ROUTES } from '../routes';
 
-function PrivateRoute({ children }) {
-  // Agora está procurando por 'access_token'
-  const accessToken = localStorage.getItem('access_token');
+function PrivateRoute() {
+  const { user, authTokens, loading } = useAuth();
 
-  // Se o token de acesso não existir, redireciona para a página de login
-  if (!accessToken) {
-    return <Navigate to="/login" replace />;
+  if (loading) {
+    return <div style={{ padding: 24 }}>Carregando...</div>; // ou um componente de loading
   }
 
-  // Se o token existir, renderiza os componentes filhos (a rota protegida)
-  return children;
-}
+  if (user || authTokens) {
+    return <Outlet />; // ou render children
+  }
+
+  return <Navigate to="/login" replace />;
+};
 
 export default PrivateRoute;

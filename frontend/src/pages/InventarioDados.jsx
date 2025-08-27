@@ -2,6 +2,7 @@ import React from 'react';
 import { Container, Row, Col, Form, Button } from 'react-bootstrap';
 import Sidebar from '../components/Sidebar';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../routes';
 
 function InventarioDados() {
   const navigate = useNavigate();
@@ -108,7 +109,7 @@ function InventarioDados() {
             </Row>
 
             <div className="d-flex justify-content-end">
-              <Button variant="primary" onClick={() => navigate('/inventarioDados2')}>
+              <Button variant="primary" onClick={() => navigate(ROUTES.INVENTARIO_DADOS2)}>
                 Próxima Página
               </Button>
             </div>
