@@ -15,6 +15,15 @@ const ROLE_LABEL = {
   gerente: 'Gerente',
 };
 
+// Componente simples que tenta carregar a imagem e, se falhar, mostra o ícone
+function AvatarImg({ src, className, iconColor = 'white' }) {
+  const [broken, setBroken] = useState(false);
+  if (!src || broken) {
+    return <FontAwesomeIcon icon={faUser} size="lg" style={{ color: iconColor }} />;
+  }
+  return <img src={src} alt="Avatar" className={className} onError={() => setBroken(true)} />;
+}
+
 function Sidebar() {
   const [show, setShow] = useState(false);
   const location = useLocation();
@@ -97,6 +106,29 @@ function Sidebar() {
         .offcanvas-header .btn-close {
           filter: invert(1);
         }
+
+        /* Avatar styles */
+        .avatar-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: none;
+          background: transparent;
+          padding: 0;
+        }
+        .avatar-img {
+          border-radius: 50%;
+          object-fit: cover;
+          display: block;
+          width: 36px;
+          height: 36px;
+        }
+        .avatar-mini {
+          border-radius: 50%;
+          object-fit: cover;
+          width: 32px;
+          height: 32px;
+        }
       `}</style>
 
       <Navbar style={{ backgroundColor: '#071744' }} variant="dark" fixed="top">
@@ -127,27 +159,34 @@ function Sidebar() {
           <Navbar.Brand className="ms-3">Gestão de Documentos LGPD</Navbar.Brand>
 
           <Dropdown align="end">
-            <Dropdown.Toggle as="button" className="text-white border-0 p-0" style={{
-              backgroundColor: 'transparent',
-              padding: '6px 10px'
-            }}>
-              <FontAwesomeIcon icon={faUser} size="lg" />
+            {/* 👉 usa o avatar do usuário com fallback */}
+            <Dropdown.Toggle as="button" type="button" className="avatar-btn">
+              <AvatarImg src={user?.avatar} className="avatar-img" />
             </Dropdown.Toggle>
 
             <Dropdown.Menu>
               <Dropdown.Header>
-                <div className="d-flex flex-column">
-                  <strong className="mb-1">
-                    {userName}{' '}
-                    {!loading && userRole && (
-                      <Badge bg="secondary" pill title={user?.role}>
-                        {userRole}
-                      </Badge>
-                    )}
-                  </strong>
-                  <small>{userEmail}</small>
+                <div className="d-flex align-items-center gap-2">
+                  <AvatarImg src={user?.avatar} className="avatar-mini" iconColor="#6c757d" />
+                  <div className="d-flex flex-column">
+                    <strong className="mb-1">
+                      {userName}{' '}
+                      {!loading && userRole && (
+                        <Badge bg="secondary" pill title={user?.role}>
+                          {userRole}
+                        </Badge>
+                      )}
+                    </strong>
+                    <small>{userEmail}</small>
+                  </div>
                 </div>
               </Dropdown.Header>
+              <Dropdown.Divider />
+              {/* atalho útil para o perfil */}
+              <Dropdown.Item as={Link} to={ROUTES.PERFIL}>
+                <FontAwesomeIcon icon={faUser} className="me-2" />
+                Meu Perfil
+              </Dropdown.Item>
               <Dropdown.Divider />
               <Dropdown.Item onClick={handleLogout}>
                 <FontAwesomeIcon icon={faRightFromBracket} className="me-2" />

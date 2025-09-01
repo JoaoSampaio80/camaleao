@@ -3,7 +3,9 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from rest_framework.decorators import action
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from django.http import FileResponse, Http404
+from django.db import transaction
 
 from .serializers import (
     MyTokenObtainPairSerializer, UserSerializer, ChecklistSerializer,
@@ -13,6 +15,13 @@ from .serializers import (
 from .models import User, Checklist, InventarioDados, MatrizRisco, PlanoAcao, ExigenciaLGPD
 from .permissions import IsRoleAdmin, IsAdminOrDPO, IsDPOOrManager
 
+try:
+    from rest_framework_simplejwt.tokens import RefreshToken
+    from rest_framework_simplejwt.exceptions import TokenError
+    SIMPLEJWT_BLACKLIST_AVAILABLE = True
+except Exception:
+    SIMPLEJWT_BLACKLIST_AVAILABLE = False
+
 # View para o login JWT
 class MyTokenObtainPairView(TokenObtainPairView):
     permission_classes = [AllowAny]
@@ -21,6 +30,8 @@ class MyTokenObtainPairView(TokenObtainPairView):
 # ViewSet para o modelo User
 class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
+    parser_classes = (JSONParser, MultiPartParser, FormParser)
+    queryset = User.objects.none()
 
     def get_queryset(self):
         user = self.request.user
@@ -29,7 +40,16 @@ class UserViewSet(viewsets.ModelViewSet):
 
         # admin vê todos
         if user.is_superuser or getattr(user, 'role', '') == 'admin':
-            return User.objects.all().order_by('email')
+            qs = User.objects.all().order_by('email')
+            q = self.request.query_params.get('q')  # ex.: ?q=joao
+            if q:
+                from django.db.models import Q
+                qs = qs.filter(
+                    Q(email__icontains=q) |
+                    Q(first_name__icontains=q) |
+                    Q(last_name__icontains=q)
+                )
+            return qs
 
         # não-admin:
         if self.action == 'list':
@@ -54,73 +74,59 @@ class UserViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         serializer.save()
 
+    def destroy(self, request, *args, **kwargs):
+        user = self.get_object()
+        if user.pk == request.user.pk:
+            return Response({'detail': 'Você não pode excluir a si mesmo.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        # (opcional) limpar avatar do storage antes de apagar o usuário
+        if getattr(user, 'avatar', None):
+            user.avatar.delete(save=False)
+        return super().destroy(request, *args, **kwargs)
+
     # GET /users/me/ -> dados do próprio usuário
-    @action(detail=False, methods=['get', 'patch'], permission_classes=[permissions.IsAuthenticated], url_path='me')
+    @action(
+        detail=False, 
+        methods=['get', 'patch'], 
+        permission_classes=[permissions.IsAuthenticated], 
+        url_path='me', 
+        parser_classes=[JSONParser, MultiPartParser, FormParser],
+    )
     def me(self, request):
         user = request.user
 
         if request.method.lower() == 'get':
-            serializer = self.get_serializer(user)
+            serializer = self.get_serializer(user, context={'request': request})
             return Response(serializer.data)
 
-        ALLOWED_FIELDS = {
-            'first_name',
-            'last_name',
-            'phone_number',            
-            'appointment_date',
-            'appointment_validity',
-            'password',  # UserSerializer.update já faz set_password()
-            'current_password', # current_password só para verificação
-        }
-        FORBIDDEN_FIELDS = {
-            'role', 'is_staff', 'is_superuser', 'groups', 'user_permissions',
-            'last_login', 'date_joined', 'id', 'pk',
-            'email',  # permitir troca de e-mail? remova daqui e adicione em ALLOWED_FIELDS
-        }
-
-        # bloqueia se vier campo proibido
-        bad = FORBIDDEN_FIELDS.intersection(request.data.keys())
-        if bad:
-            return Response(
-                {'detail': f'Campo(s) não permitido(s): {", ".join(sorted(bad))}'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # mantém só campos permitidos
-        data = {k: v for k, v in request.data.items() if k in ALLOWED_FIELDS}
-
-        def _clean(v):
-            if isinstance(v, str):
-                v = v.strip()
-                return None if v == '' else v
-            return v
-
-        cleaned = {k: _clean(v) for k, v in data.items()}
-
-        # se estiver tentando trocar senha, exigir current_password correto
-        if cleaned.get('password') is not None:
-            current = cleaned.get('current_password')
-            if not current:
-                return Response({'current_password': 'Obrigatória para trocar a senha.'}, status=status.HTTP_400_BAD_REQUEST)
-            if not user.check_password(current):
-                return Response({'current_password': 'Senha atual incorreta.'}, status=status.HTTP_400_BAD_REQUEST)
-            
-        # datas vazias devem virar None (model permite null/blank)
-        for k in ('appointment_date', 'appointment_validity'):
-            if k in cleaned and (cleaned[k] == '' or cleaned[k] is None):
-                cleaned[k] = None
-
-        # não persistir current_password
-        cleaned.pop('current_password', None)
-
-        # se nada útil sobrou
-        if not any(v is not None for v in cleaned.values()):
-            return Response({'detail': 'Nenhum campo permitido para atualizar.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        serializer = self.get_serializer(instance=user, data=data, partial=True)
+        # Delega tudo ao serializer (avatar, remove_avatar, current_password/password, etc.)
+        serializer = self.get_serializer(
+            instance=user,
+            data=request.data,
+            partial=True,
+            context={'request': request},
+        )
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # Detecta se haverá troca de senha antes de salvar
+        password_changed = bool(serializer.validated_data.get('password'))
+
+        with transaction.atomic():
+            serializer.save()
+
+        # Blacklist opcional do refresh token ao trocar senha
+        if password_changed and SIMPLEJWT_BLACKLIST_AVAILABLE:
+            raw_refresh = request.data.get('refresh')
+            if raw_refresh:
+                try:
+                    RefreshToken(raw_refresh).blacklist()
+                except TokenError:
+                    # token inválido/expirado/ausente -> ignore
+                    pass
+
+        data_out = self.get_serializer(user, context={'request': request}).data
+        data_out['reauth_required'] = bool(password_changed)
+        return Response(data_out, status=status.HTTP_200_OK)        
     
 # ViewSet para gerenciar o checklist da LGPD
 class ChecklistViewSet(viewsets.ModelViewSet):

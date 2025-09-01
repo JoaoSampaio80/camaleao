@@ -1,9 +1,10 @@
 from rest_framework import serializers
 from .models import User, Checklist, InventarioDados, MatrizRisco, PlanoAcao, ExigenciaLGPD
-from django.contrib.auth.hashers import make_password
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.core.validators import validate_email as core_validate_email
 from django.core.exceptions import ValidationError
+from django.contrib.auth import password_validation
+
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = 'email'
@@ -23,22 +24,56 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         return t
 
 # Serializer para o modelo User (incluindo o campo 'role')
-class UserSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=False)
+class UserSerializer(serializers.ModelSerializer):    
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    current_password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    refresh = serializers.CharField(write_only=True, required=False, allow_blank=True) 
     phone_number = serializers.CharField(required=False, allow_blank=True)
     appointment_date = serializers.DateField(required=False)
     appointment_validity = serializers.DateField(required=False)
+    avatar = serializers.ImageField(required=False, allow_null=True)
+    remove_avatar = serializers.BooleanField(write_only=True, required=False)
+     
+    
     class Meta:
         model = User
         # Inclua todos os campos que você quer que sejam acessíveis via API
         # e que não sejam confidenciais (como a senha criptografada).
         fields = (
-            'id', 'email', 'first_name', 'last_name',
-            'phone_number', 'job_title', 'appointment_date',
-            'appointment_validity', 'role',
-            'is_staff', 'is_active', 'date_joined', 'last_login', 'password'
+            'id', 
+            'email', 
+            'first_name', 
+            'last_name',
+            'phone_number',            
+            'appointment_date',
+            'appointment_validity', 
+            'role',
+            'is_staff', 
+            'is_active', 
+            'date_joined', 
+            'last_login', 
+            'password', 
+            'avatar',
+            'remove_avatar', 
+            'current_password', 
+            'refresh',
         )
         read_only_fields = ('is_staff', 'is_active', 'date_joined', 'last_login')
+        extra_kwargs = {
+            'avatar': {'required': False, 'allow_null': True},
+        }
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        # Se o avatar existir e houver request, torne a URL absoluta
+        if data.get('avatar') and request:
+            try:
+                data['avatar'] = request.build_absolute_uri(data['avatar'])
+            except Exception:
+                pass
+        return data
+
     def validate(self, data):
         """
         Valida que:
@@ -63,6 +98,19 @@ class UserSerializer(serializers.ModelSerializer):
 
             if existing_dpo.exists():
                 raise serializers.ValidationError({"role": "Já existe um usuário com a função de DPO."})
+            
+        new_password = data.get('password')
+        if new_password:
+            req = self.context.get('request')
+            is_self = bool(req and req.user and self.instance and req.user.pk == self.instance.pk)
+            if is_self:
+                current = data.get('current_password') or ''
+                if not current:
+                    raise serializers.ValidationError({'current_password': 'Informe sua senha atual.'})
+                if not self.instance.check_password(current):
+                    raise serializers.ValidationError({'current_password': 'Senha atual incorreta.'})
+            # valida regras de senha do Django (sempre que houver mudança)
+            password_validation.validate_password(new_password, self.instance or (req.user if req else None))
         return data
     # Método de validação personalizado para o campo 'email'
     def validate_email(self, value):
@@ -73,7 +121,7 @@ class UserSerializer(serializers.ModelSerializer):
         
         # Lista de domínios de teste que queremos permitir
         allowed_test_domains = [
-            'test.com', 'example.com', 'ficticio.com', 'localhost'
+            'test.com', 'example.com', 'ficticio.com',
         ]
         
         # Verificamos se o e-mail termina com um dos domínios permitidos para teste
@@ -85,6 +133,24 @@ class UserSerializer(serializers.ModelSerializer):
             except ValidationError:
                 raise serializers.ValidationError("O formato do e-mail não é válido.")
 
+        return value
+    
+    def validate_avatar(self, value):
+        """
+        (Opcional) Validação de imagem: tamanho e mimetype.
+        Ajuste limites e mimetypes conforme sua necessidade.
+        """
+        if value is None:
+            return value
+
+        max_mb = 5
+        if hasattr(value, 'size') and value.size > max_mb * 1024 * 1024:
+            raise serializers.ValidationError(f"Tamanho máximo do avatar é {max_mb}MB.")
+
+        valid_types = {'image/jpeg', 'image/png', 'image/webp'}
+        content_type = getattr(value, 'content_type', None)
+        if content_type and content_type not in valid_types:
+            raise serializers.ValidationError("Formato inválido. Use JPEG, PNG ou WEBP.")
         return value   
 
     def create(self, validated_data):
@@ -92,18 +158,38 @@ class UserSerializer(serializers.ModelSerializer):
         # para o User.objects.create()
         password = validated_data.pop('password', None)
         user = User.objects.create(**validated_data)
-        if password is not None:
+        if password:
             user.set_password(password) # Define a senha de forma segura
         user.save()
         return user
 
     def update(self, instance, validated_data):
-        # Lida com a atualização da senha separadamente para segurança
-        password = validated_data.pop('password', None)
+        # Campos não-modelo (não devem ir para setattr)
+        remove = validated_data.pop('remove_avatar', False)
+        validated_data.pop('current_password', None)
+        validated_data.pop('refresh', None)
+        new_password = validated_data.pop('password', None)
+
+        # Remoção de avatar
+        if remove:
+            if instance.avatar:
+                instance.avatar.delete(save=False)
+            instance.avatar = None
+
+        # Upload de avatar (se vier)
+        if 'avatar' in validated_data:
+            new_file = validated_data.pop('avatar')
+            if new_file is not None:
+                if instance.avatar:
+                    instance.avatar.delete(save=False)
+            instance.avatar = new_file
+        
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        if password is not None:
-            instance.set_password(password)
+        # Troca de senha (se solicitada)
+        if new_password:
+            instance.set_password(new_password)
+            
         instance.save()
         return instance
 

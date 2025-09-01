@@ -2,7 +2,10 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin # Importa o UserAdmin base
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.utils.translation import gettext_lazy as _
-from .models import User, Checklist, InventarioDados, MatrizRisco, PlanoAcao, ExigenciaLGPD
+from django.shortcuts import redirect
+from django.urls import reverse
+
+from .models import (User, Checklist, InventarioDados, MatrizRisco, PlanoAcao, ExigenciaLGPD, )
 
 class UserCreationFormEmail(UserCreationForm):
     class Meta(UserCreationForm.Meta):
@@ -14,7 +17,7 @@ class UserCreationFormEmail(UserCreationForm):
 class UserChangeFormEmail(UserChangeForm):
     class Meta(UserChangeForm.Meta):
         model = User
-        fields = ("email", "first_name", "last_name", "phone_number", "job_title",
+        fields = ("email", "first_name", "last_name", "phone_number",
                   "appointment_date", "appointment_validity", "role",
                   "is_active", "is_staff", "is_superuser", "groups", "user_permissions")
 
@@ -35,7 +38,7 @@ class UserAdmin(BaseUserAdmin):
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         (_("Informações pessoais"), {
-            "fields": ("first_name", "last_name", "phone_number", "job_title")
+            "fields": ("first_name", "last_name", "phone_number", "avatar")
         }),
         (_("DPO"), {
             "fields": ("appointment_date", "appointment_validity")
@@ -92,7 +95,7 @@ class PlanoAcaoAdmin(admin.ModelAdmin):
     search_fields = ('acao_mitigacao', 'risco__descricao_risco')
     raw_id_fields = ('risco', 'responsavel',)
     date_hierarchy = "data_criacao"
-    list_select_related = ("criado_por",)
+    list_select_related = ("responsavel", "risco")
 
 @admin.register(ExigenciaLGPD)
 class ExigenciaLGPDAdmin(admin.ModelAdmin):

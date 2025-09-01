@@ -15,6 +15,13 @@ export const AuthProvider = ({ children }) => {
     const decodeSafe = (t) => { try { return jwtDecode(t); } catch { return null; } };
     const isExpired = (decoded) => !decoded?.exp || decoded.exp <= Math.floor(Date.now()/1000);
 
+    // Helpers (opcionais)
+    const getStoredTokens = () => {
+        const raw = localStorage.getItem(TOKENS_KEY);
+        if (!raw) return null;
+        try { return JSON.parse(raw); } catch { return null; }
+    };
+
     // Busca o usuário no backend (fonte da verdade)
     const fetchMe = async () => {
         try {
@@ -24,72 +31,77 @@ export const AuthProvider = ({ children }) => {
                 email: (u.email || '').toLowerCase(),
                 first_name: u.first_name || '',
                 role: u.role || '',
+                avatar: u.avatar || null,
             });
-        } catch (e) {
-        // se falhar, mantém o que veio do token
-        // console.error('fetchMe falhou:', e);
+        } catch {
+        // se falhar, mantém o que veio do token        
         }
     };
 
-    console.log('AuthContext inicializado. user:', user);
+    //console.log('AuthContext inicializado. user:', user);
     
     useEffect(() => {
         let mounted = true;
-        const loadAuthData = async () => {
+        
+        (async () => {
             setLoading(true);
             try {
-                const raw = localStorage.getItem(TOKENS_KEY);
-                if (!raw) return;
+                const tokens = getStoredTokens();
+                if (!tokens) return;                
+                
 
-                const tokens = JSON.parse(raw);
-                const decoded = decodeSafe(tokens?.access);
-                if (!decoded || isExpired(decoded)) {
-                    localStorage.removeItem(TOKENS_KEY);
-                    return;
+                setAuthTokens(tokens);
+
+                const decoded = decodeSafe(tokens.access);
+                if (decoded) {
+                    // Pré-preenche a UI com o que vier do token; avatar vem do fetchMe
+                    if (!mounted) return;
+
+                    setUser({
+                        email: (decoded.email || decoded.sub || '').toLowerCase(),
+                        first_name: decoded.first_name || decoded.given_name || '',
+                        role: decoded.role || '',
+                        avatar: null,
+                    });
                 }
 
                 if (!mounted) return;
 
-                setAuthTokens(tokens);
-                setUser({
-                    email: (decoded.email || decoded.sub || '').toLowerCase(),
-                    first_name: decoded.first_name || decoded.given_name || '',
-                    role: decoded.role || '',
-                });
-
                 await fetchMe();
 
-                    console.log("AuthContext: Tokens encontrados, usuário definido.");
-                    
-            } catch (error) {
-                // console.error("AuthContext: Falha ao carregar tokens ou decodificar:", error);                
-                localStorage.removeItem(TOKENS_KEY);
-                if (mounted) setUser(null);
+                    // console.log("AuthContext: Tokens encontrados, usuário definido.");                    
+            
             } finally {
                 if (mounted) setLoading(false);
                 // console.log("AuthContext: Carregamento inicial finalizado.");
             }
-        };
-        loadAuthData();
+        })();
+        
         return () => { mounted = false; };
     }, []); // O array de dependências vazio garante que isso rode apenas uma vez
 
     useEffect(() => {
         const onStorage = async (e) => {
             if (e.key !== TOKENS_KEY) return;
+
             const raw = e.newValue;
             if (!raw) { setAuthTokens(null); setUser(null); return; }
 
             try {
                 const tokens = JSON.parse(raw);
                 const decoded = decodeSafe(tokens?.access);
-                if (!decoded || isExpired(decoded)) { setAuthTokens(null); setUser(null); return; }
-                setAuthTokens(tokens);
-                setUser({
-                    email: (decoded.email || decoded.sub || '').toLowerCase(),
-                    first_name: decoded.first_name || decoded.given_name || '',
-                    role: decoded.role || '',
-                });
+                if (decoded && !isExpired(decoded)) {
+                    setUser({
+                        email: (decoded.email || decoded.sub || '').toLowerCase(),
+                        first_name: decoded.first_name || decoded.given_name || '',
+                        role: decoded.role || '',
+                        avatar: avatar ?? null,
+                    });
+                } else {
+                // Mesmo expirado/ilegível, mantemos tokens para o Axios tentar refresh
+                setUser((prev) => prev ?? { email: '', first_name: '', role: '', avatar: null });
+                }
+
                 // sincroniza com backend
                 await fetchMe();
             } catch {
@@ -106,30 +118,33 @@ export const AuthProvider = ({ children }) => {
             console.error("Dados de login inválidos. Token não encontrado.");
             return;
         };
-        
-        const decoded = decodeSafe(data.access);
-        if (!decoded || isExpired(decoded)) {
-            console.error("Token inválido ou expirado.");
-            localStorage.removeItem(TOKENS_KEY);
-            setAuthTokens(null);
-            setUser(null);
-            return;
-        }
 
         localStorage.setItem(TOKENS_KEY, JSON.stringify(data));
         setAuthTokens(data);
-        setUser({
-            email: (decoded.email || decoded.sub || '').toLowerCase(),
-            first_name: decoded.first_name || decoded.given_name || '',
-            role: decoded.role || '',
-        });
+        
+        const decoded = decodeSafe(data.access);
+        if (decoded) {    
+            setUser({
+                email: (decoded.email || decoded.sub || '').toLowerCase(),
+                first_name: decoded.first_name || decoded.given_name || '',
+                role: decoded.role || '',
+                avatar: null,
+            });
+        } else {
+            setUser({ email: '', first_name: '', role: '', avatar: null });
+        }
         
         // busca dados atualizados do usuário
-        await fetchMe();
+        try {
+            await fetchMe();
+            } catch {
+            // se falhar, mantém dados do token
+            }
+        };
 
-        console.log("login: Estado do usuário definido após login.");
+        // console.log("login: Estado do usuário definido após login.");
 
-    };
+    
     
     const logout = () => {
         localStorage.removeItem(TOKENS_KEY);
@@ -141,7 +156,10 @@ export const AuthProvider = ({ children }) => {
     // expõe também um refresh manual (p/ Perfil.jsx após PATCH)
     const refreshUser = fetchMe;
 
-    const value = useMemo(() => ({ user, authTokens, login, logout, refreshUser, loading }), [user, authTokens, loading]);
+    const value = useMemo(() => ({ 
+        user, authTokens, login, logout, refreshUser, loading }), 
+        [user, authTokens, loading]
+    );
 
     return (
         <AuthContext.Provider value={ value }>

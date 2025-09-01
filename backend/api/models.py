@@ -1,5 +1,39 @@
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
+import uuid, os
+
+class CustomUserManager(BaseUserManager):
+    use_in_migrations = True
+
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError("O e-mail é obrigatório.")
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        if password:
+            user.set_password(password)
+        else:
+            user.set_unusable_password()
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("is_active", True)
+
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superusuário precisa ter is_staff=True.")
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superusuário precisa ter is_superuser=True.")
+
+        return self.create_user(email, password, **extra_fields)
+    
+def avatar_upload_to(instance, filename):
+    # preserva a extensão original em minúsculo
+    ext = os.path.splitext(filename)[1].lower() or '.jpg'
+    # gera um nome único pra evitar cache preso do navegador/CDN
+    return f'avatars/{uuid.uuid4().hex}{ext}'
 
 class User(AbstractUser):
     """
@@ -7,13 +41,14 @@ class User(AbstractUser):
     Define os papéis (admin, dpo, gerente) e campos adicionais.
     """
     # Sobrescreve o campo email para garantir que seja único e não nulo
+    username = None
     email = models.EmailField(unique=True, blank=False, null=False)
 
     # Campos adicionais para o usuário
-    phone_number = models.CharField(max_length=20, blank=True, null=True, verbose_name="Telefone")
-    job_title = models.CharField(max_length=100, blank=True, null=True, verbose_name="Cargo")
+    phone_number = models.CharField(max_length=20, blank=True, null=True, verbose_name="Telefone")    
     appointment_date = models.DateField(blank=True, null=True, verbose_name="Data de Nomeação")
     appointment_validity = models.DateField(blank=True, null=True, verbose_name="Validade da Nomeação")
+    avatar = models.ImageField(upload_to=avatar_upload_to, null=True, blank=True)
 
     # Campo para definir o papel do usuário (Admin, DPO, Gerente)
     USER_ROLES = (
@@ -24,18 +59,12 @@ class User(AbstractUser):
     role = models.CharField(max_length=20, choices=USER_ROLES, default='gerente', verbose_name="Função do Usuário")
 
     # Define o campo de login para ser o email
-    USERNAME_FIELD = 'email'
-    # Remove o username padrão do AbstractUser e o torna opcional,
-    # pois estamos usando email como USERNAME_FIELD
-    # (Adicione esta linha se quiser que o username possa ser nulo,
-    # caso contrário, ele será automaticamente gerado ou não usado se você não o preencher)
-    username = None # Descomente esta linha se você não quiser usar o campo username
-
+    USERNAME_FIELD = 'email'    
+   
     # Define os campos requeridos ao criar um superusuário via createsuperuser
-    REQUIRED_FIELDS = [] # Mantemos username aqui para o createsuperuser,
-                                   # mas ele não será usado para login se USERNAME_FIELD for email.
-                                   # Se você quiser que o username seja completamente opcional,
-                                   # pode remover 'username' daqui e garantir que o email seja fornecido.
+    REQUIRED_FIELDS = []
+
+    objects = CustomUserManager()
 
     def __str__(self):
         """Retorna a representação em string do objeto User."""

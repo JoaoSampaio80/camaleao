@@ -1,11 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { Container, Form, Button, Row, Col, Alert, Card, Spinner } from 'react-bootstrap';
+import React, { useEffect, useState, useRef } from 'react';
+import { Container, Form, Button, Row, Col, Alert, Card, Spinner, Image } from 'react-bootstrap';
 import AxiosInstance from '../components/Axios';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+
+const MAX_AVATAR_MB = 5;
+const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp'];
 
 function Perfil() {
-  const {refreshUser} = useAuth();  
+  const navigate = useNavigate();
+  const { refreshUser, logout, authTokens } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -14,21 +19,31 @@ function Perfil() {
 
   const [form, setForm] = useState({
     email: '',
-    role: '',
-    first_name: '',
-    last_name: '',
-    // telefone só aparece se DPO
-    phone_number: '',
-    // campos DPO:    
-    appointment_date: '',
-    appointment_validity: '',
+    role: '',    
     // troca de senha
     current_password: '',
     password: '',
     password2: '',
+    //avatar
+    avatar: null,
+    avatar_url: '',
   });
+  
+  // refs para lidar com preview e input file
+  const fileInputRef = useRef(null);
+  const objectUrlRef = useRef(null);
 
-  const isDPO = form.role === 'dpo';
+  const revokeLocalPreview = () => {
+    if (objectUrlRef.current) {
+      try {
+        URL.revokeObjectURL(objectUrlRef.current);
+      } catch (_) {
+        // silencioso
+      } finally {
+        objectUrlRef.current = null;
+      }
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -36,33 +51,65 @@ function Perfil() {
       try {
         const resp = await AxiosInstance.get('users/me/');
         if (!mounted) return;
+
         setForm(f => ({
           ...f,
-          email: resp.data.email || '',
-          role: resp.data.role || '',
-          first_name: resp.data.first_name || '',
-          last_name: resp.data.last_name || '',
-          phone_number: resp.data.phone_number || '',          
-          appointment_date: resp.data.appointment_date || '',
-          appointment_validity: resp.data.appointment_validity || '',
+          email: resp.data?.email || '',
+          role: resp.data?.role || '',          
           current_password: '',
           password: '',
           password2: '',
+          avatar: null,
+          avatar_url: resp.data?.avatar || '',
         }));
       } catch (e) {
+        if (!mounted) return;
         setVariant('danger');
         setMessage('Falha ao carregar seu perfil.');
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     })();
-    return () => { mounted = false; };
+
+    return () => { 
+      mounted = false; 
+      revokeLocalPreview();
+    };
   }, []);
 
   const onChange = (e) => {
-    const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors(prev => ({ ...prev, [name]: undefined }));
+    const { name, value, files } = e.target;
+
+    if (name === 'avatar' && files && files[0]) {
+      const file = files[0];
+      // validação rápida no cliente
+      if (!ACCEPTED.includes(file.type)) {
+        setErrors(prev => ({...prev, avatar: 'Formato inválido. Use jpeg/png/webp'}));
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }    
+      if (file.size > MAX_AVATAR_MB * 1024 * 1024) {
+        setErrors(prev => ({...prev, avatar: `Arquivo maior que ${MAX_AVATAR_MB}MB.`}));
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
+
+      // libera preview antigo (se houver)
+      revokeLocalPreview();
+
+      const url = URL.createObjectURL(file);
+      objectUrlRef.current = url
+
+      setErrors(prev => ({...prev, avatar: undefined}));
+      setForm(prev => ({ ...prev, avatar: file, avatar_url: url }));
+
+      // permite re-selecionar o mesmo arquivo no futuro
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;      
+    }
+
+    setForm(prev => ({...prev, [name]: value}));
+    if (errors[name]) setErrors(prev => ({...prev, [name]: undefined}));    
   };
 
   const validateClient = () => {
@@ -74,18 +121,72 @@ function Perfil() {
       if (!form.password2) e.password2 = 'Confirme a nova senha.';
       if (form.password && form.password.length < 3) e.password = 'A senha deve ter pelo menos 3 caracteres.';
       if (form.password !== form.password2) e.password2 = 'As senhas não coincidem.';
-    }
-    if (isDPO) {
-      if (!form.appointment_date) e.appointment_date = 'Obrigatório para DPO.';
-      if (!form.appointment_validity) e.appointment_validity = 'Obrigatório para DPO.';
-      if (!form.phone_number) e.phone_number = 'Obrigatório para DPO.';
-    }
+    }    
     return e;
+  };
+
+  const buildFormData = ({ removeAvatar = false } = {}) => {
+    const fd = new FormData();
+
+    // troca de senha (se solicitada)
+    const wantsPasswordChange = !!(form.password || form.password2);
+    if (wantsPasswordChange) {
+      fd.append('current_password', form.current_password);
+      fd.append('password', form.password);
+      // envia refresh para blacklist (se existir)
+      const refresh = authTokens?.refresh;
+      if (refresh) {
+        fd.append('refresh', refresh);
+      }
+    }
+
+    // upload/remoção de avatar
+    if (form.avatar) {
+      fd.append('avatar', form.avatar);
+    } else if (removeAvatar) {
+      fd.append('remove_avatar', 'true');
+    }
+
+    return fd;
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (saving) return;
+    setMessage('');
+    setVariant('');
+    setErrors({});
+    setSaving(true);
+    try {
+      const fd = buildFormData({ removeAvatar: true });
+
+      const resp = await AxiosInstance.patch('users/me/', fd);
+
+      setVariant('success');
+      setMessage('Foto removida com sucesso.');
+
+      // se a URL atual for um blob local, revoga
+      revokeLocalPreview();
+
+      setForm(prev => ({ ...prev, avatar: null, avatar_url: '' }));
+      await refreshUser();
+    } catch (err) {
+      const st = err?.response?.status;
+      if (st === 413) {
+        setVariant('danger');
+        setMessage(`Arquivo muito grande. Tamanho máximo: ${MAX_AVATAR_MB}MB.`);
+      } else {
+        setVariant('danger');
+        setMessage('Falha ao remover a foto. Tente novamente.');
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   const onSubmit = async (e) => {
     e.preventDefault();
     if (saving) return;
+
     setMessage('');
     setVariant('');
     setErrors({});
@@ -98,57 +199,52 @@ function Perfil() {
       return;
     }
 
-    // Monta payload apenas com campos permitidos
-    const payload = {
-      first_name: form.first_name,
-      last_name: form.last_name,      
-    };
-    if (isDPO) {
-      payload.phone_number = form.phone_number;
-      payload.appointment_date = form.appointment_date;
-      payload.appointment_validity = form.appointment_validity;
-    }
-    if (form.password) {
-      payload.current_password = form.current_password; // usado só para verificação no backend
-      payload.password = form.password;
-    }
+    const fd = buildFormData();
 
-    // Remove chaves com string vazia/whitespace (evita erro de data ou campos vazios)
-    Object.keys(payload).forEach((k) => {
-       const v = payload[k];
-       if (typeof v === 'string' && v.trim() === '') {
-         delete payload[k];
-       }
-    });
-    // Se NÃO for DPO, garanta que não envia datas
-    if (!isDPO) {
-       delete payload.phone_number;
-       delete payload.appointment_date;
-       delete payload.appointment_validity;
+    // nada para enviar?
+    if (![...fd.keys()].length) {
+      setVariant('warning');
+      setMessage('Nenhuma alteração para salvar.');
+      return;
     }
 
     setSaving(true);
     try {
-      const resp = await AxiosInstance.patch('users/me/', payload);
+      const resp = await AxiosInstance.patch('users/me/', fd);
+
+      if (resp?.data?.reauth_required) {
+        setVariant('success');
+        setMessage('Senha alterada com sucesso. Você será redirecionado para o login.');
+        setTimeout(() => {
+          logout();
+          navigate('/login', {replace: true });
+        }, 1500);
+        return;
+      }
+
       setVariant('success');
       setMessage('Perfil atualizado com sucesso.');
       // limpa campos de senha
-      setForm(prev => ({ ...prev, current_password: '', password: '', password2: '' }));
+      setForm(prev => ({ 
+        ...prev, 
+        current_password: '', 
+        password: '', 
+        password2: '', 
+        avatar: null, 
+        avatar_url: resp.data.avatar || prev.avatar_url, 
+      }));
+
+      // se o upload foi local (blob), podemos revogar (a URL exibida passa a ser a do servidor)
+      revokeLocalPreview();
 
       // sincroniza AuthContext (Sidebar / topo da página)
-      await refreshUser();
-      // opcional: re-hidratar dados salvos (já vem no resp)
-      setForm(prev => ({
-        ...prev,
-        first_name: resp.data.first_name || '',
-        last_name: resp.data.last_name || '',
-        phone_number: resp.data.phone_number || '',        
-        appointment_date: resp.data.appointment_date || '',
-        appointment_validity: resp.data.appointment_validity || '',
-      }));
+      await refreshUser();      
+      
     } catch (err) {
+      console.log('users/me/ error payload:', err?.response?.data);
       const st = err?.response?.status;
       const data = err?.response?.data;
+      
       if (st === 400 && data && typeof data === 'object') {
         const normalized = {};
         Object.entries(data).forEach(([k, v]) => {
@@ -159,7 +255,10 @@ function Perfil() {
         setMessage('Corrija os campos destacados.');
       } else if (st === 401) {
         setVariant('danger');
-        setMessage('Sessão expirada. Faça login novamente.');  
+        setMessage('Sessão expirada. Faça login novamente.');
+      } else if (st === 413) {
+        setVariant('danger');
+        setMessage(`Arquivo muito grande. Tamanho máximo: ${MAX_AVATAR_MB}MB.`);
       } else {
         setVariant('danger');
         setMessage('Falha ao salvar. Tente novamente.');
@@ -201,84 +300,14 @@ function Perfil() {
                   <Row className="mb-3">
                     <Col md={6}>
                       <Form.Label>E-mail</Form.Label>
-                      <Form.Control value={form.email} disabled readOnly />
+                      <Form.Control value={form.email} disabled />
                       <Form.Text className="text-muted">E-mail não pode ser alterado aqui.</Form.Text>
                     </Col>
                     <Col md={6}>
                       <Form.Label>Função</Form.Label>
-                      <Form.Control value={form.role} disabled readOnly />
+                      <Form.Control value={form.role} disabled />
                     </Col>
-                  </Row>
-
-                  <Row className="mb-3">
-                    <Col md={4}>
-                      <Form.Label>Nome</Form.Label>
-                      <Form.Control
-                        name="first_name"
-                        value={form.first_name}
-                        onChange={onChange}
-                        disabled={saving}
-                        autoComplete="given-name"
-                        isInvalid={!!errors.first_name}
-                      />
-                      <Form.Control.Feedback type="invalid">{errors.first_name}</Form.Control.Feedback>
-                    </Col>
-                    <Col md={4}>
-                      <Form.Label>Sobrenome</Form.Label>
-                      <Form.Control
-                        name="last_name"
-                        value={form.last_name}
-                        onChange={onChange}
-                        autoComplete="family-name"
-                        isInvalid={!!errors.last_name}
-                      />
-                      <Form.Control.Feedback type="invalid">{errors.last_name}</Form.Control.Feedback>                  
-                    </Col>
-
-                    {isDPO && (
-                      <Col md={4}>
-                        <Form.Label>Telefone (DPO)</Form.Label>
-                        <Form.Control
-                          name="phone_number"
-                          value={form.phone_number}
-                          onChange={onChange}
-                          isInvalid={!!errors.phone_number}
-                          autoComplete="tel"
-                          disabled={saving}
-                        />
-                        <Form.Control.Feedback type="invalid">{errors.phone_number}</Form.Control.Feedback>
-                      </Col>
-                    )}
-                  </Row>
-
-                    {isDPO && (
-                    <Row className="mb-3">
-                      <Col md={3}>
-                        <Form.Label>Data de Nomeação (DPO)</Form.Label>
-                        <Form.Control
-                          type="date"
-                          name="appointment_date"
-                          value={form.appointment_date || ''}
-                          onChange={onChange}
-                          isInvalid={!!errors.appointment_date}
-                          disabled={saving}
-                        />
-                        <Form.Control.Feedback type="invalid">{errors.appointment_date}</Form.Control.Feedback>
-                      </Col>
-                      <Col md={4}>
-                        <Form.Label>Validade da Nomeação (DPO)</Form.Label>
-                        <Form.Control
-                          type="date"
-                          name="appointment_validity"
-                          value={form.appointment_validity || ''}
-                          onChange={onChange}
-                          isInvalid={!!errors.appointment_validity}
-                          disabled={saving}
-                        />
-                        <Form.Control.Feedback type="invalid">{errors.appointment_validity}</Form.Control.Feedback>
-                      </Col>
-                    </Row>
-                  )}
+                  </Row>                
 
                   {/* Seção de troca de senha */}
                   <Row className="mb-3">
@@ -322,6 +351,61 @@ function Perfil() {
                         disabled={saving}
                       />
                       <Form.Control.Feedback type="invalid">{errors.password2}</Form.Control.Feedback>
+                    </Col>
+                  </Row>
+
+                  <Row className="mb-4 align-items-center">
+                    <Col md="auto">
+                      {form.avatar_url ? (
+                        <Image
+                          src={form.avatar_url}
+                          roundedCircle
+                          width={96}
+                          height={96}
+                          alt="Avatar"
+                          style={{ objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: 96, 
+                          height: 96, 
+                          borderRadius: '50%',
+                          background: '#e9ecef', 
+                          display: 'flex',
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          fontSize: 12, 
+                          color: '#6c757d'
+                        }}>
+                          sem foto
+                        </div>
+                      )}
+                    </Col>
+                    <Col>
+                      <Form.Label>Foto de perfil</Form.Label>
+                      <Form.Control
+                        type="file"
+                        name="avatar"
+                        accept={ACCEPTED.join(',')}
+                        onChange={onChange}
+                        isInvalid={!!errors.avatar}
+                        disabled={saving}
+                        ref={fileInputRef}
+                      />
+                      <Form.Text className="text-muted">
+                        JPG/PNG/WEBP, até {MAX_AVATAR_MB}MB.
+                      </Form.Text>
+                      <Form.Control.Feedback type="invalid">{errors.avatar}</Form.Control.Feedback>
+                    </Col>
+                    <Col md="auto" className="mt-3 mt-md-0">
+                      <Button
+                        variant="outline-secondary"
+                        type="button"
+                        onClick={handleRemoveAvatar}
+                        disabled={saving || !form.avatar_url}
+                      >
+                        Remover foto
+                      </Button>
                     </Col>
                   </Row>
 

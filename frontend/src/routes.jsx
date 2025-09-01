@@ -1,6 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-
+import { BrowserRouter, Routes, Route, Navigate, } from 'react-router-dom';
 import Login from './pages/Login';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
@@ -31,7 +30,7 @@ export const ROUTES = {
   CHECKLIST: '/checklist',
   ENCARREGADO: '/encarregado',
   MONITORAMENTO: '/monitoramento',
-  DOCUMENTOS: '/documentos',  
+  DOCUMENTOS: '/documentos',
   INVENTARIO_DADOS: '/dados',
   INVENTARIO_DADOS2: '/dados2',
   INVENTARIO_DADOS3: '/dados3',
@@ -44,9 +43,8 @@ export const ROUTES = {
 function AppRouter() {
   const { user, loading } = useAuth();
   console.log(`AppRouter: Renderizando. User: ${user ? user.email : 'null'}, Loading: ${loading}, URL: ${window.location.pathname}`);
-  if (loading) {
-    return <div>Carregando...</div>;
-  }
+
+  if (loading) { return <div>Carregando...</div>; }
 
   if (user) {
     console.log("AppRouter: Usuário autenticado, renderizando rotas protegidas.");
@@ -61,28 +59,22 @@ function AppRouter() {
         <Route path={ROUTES.MONITORAMENTO} element={<Monitoramento />} />
         <Route path={ROUTES.DOCUMENTOS} element={<Documentos />} />
         <Route path={ROUTES.MATRIZ_RISCO} element={<MatrizRisco />} />
-        <Route path={ROUTES.NOTIFICACOES} element={<Notificacoes />} />                
+        <Route path={ROUTES.NOTIFICACOES} element={<Notificacoes />} />
         <Route path={ROUTES.INVENTARIO_DADOS} element={<InventarioDados />} />
         <Route path={ROUTES.INVENTARIO_DADOS2} element={<InventarioDados2 />} />
         <Route path={ROUTES.INVENTARIO_DADOS3} element={<InventarioDados3 />} />
-        <Route
-          path={ROUTES.CADASTRO}
-          element={user?.role === 'admin' ? <Cadastro /> : <Navigate to={ROUTES.HOME} replace />}
-        />
+        <Route path={ROUTES.CADASTRO} element={user?.role === 'admin' ? <Cadastro /> : <Navigate to={ROUTES.HOME} replace />} />
         <Route path={ROUTES.PERFIL} element={<Perfil />} />
-
-
         <Route path={ROUTES.NOT_FOUND} element={<Navigate to={ROUTES.HOME} replace />} />
-      </Routes>
-    );
-  } else { // O retorno para usuários não logados deve estar em um bloco `else`
+      </Routes>);
+  } else {
+    // O retorno para usuários não logados deve estar em um bloco else 
     console.log("AppRouter: Usuário não autenticado, renderizando rota de login.");
-    return (
-      <Routes>
-        <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.LOGIN} replace />} />
-        <Route path={ROUTES.LOGIN} element={<Login />} />
-        <Route path={ROUTES.NOT_FOUND} element={<Navigate to={ROUTES.LOGIN} replace />} />
-      </Routes>
+    return (<Routes>
+      <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.LOGIN} replace />} />
+      <Route path={ROUTES.LOGIN} element={<Login />} />
+      <Route path={ROUTES.NOT_FOUND} element={<Navigate to={ROUTES.LOGIN} replace />} />
+    </Routes>
     );
   }
 }
