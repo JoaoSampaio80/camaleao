@@ -147,10 +147,10 @@ class UserSerializer(serializers.ModelSerializer):
         if hasattr(value, 'size') and value.size > max_mb * 1024 * 1024:
             raise serializers.ValidationError(f"Tamanho máximo do avatar é {max_mb}MB.")
 
-        valid_types = {'image/jpeg', 'image/png', 'image/webp'}
+        valid_types = {'image/jpeg', 'image/jpg', 'image/png', 'image/webp'}
         content_type = getattr(value, 'content_type', None)
         if content_type and content_type not in valid_types:
-            raise serializers.ValidationError("Formato inválido. Use JPEG, PNG ou WEBP.")
+            raise serializers.ValidationError("Formato inválido. Use JPEG, JPG, PNG ou WEBP.")
         return value   
 
     def create(self, validated_data):

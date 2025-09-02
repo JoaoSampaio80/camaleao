@@ -14,6 +14,27 @@ function addYearsSafe(iso, years) {
   return res.toISOString();
 }
 
+function digitsOnly(s) {
+  return (s || "").replace(/\D/g, "");
+}
+
+function formatPhoneBR(value) {
+  const d = digitsOnly(value);
+  if (!d) return "";
+
+  const ddd = d.slice(0, 2);
+  if (d.length <= 6) {
+    // exibe parcialmente enquanto não completo
+    return `(${ddd}) ${d.slice(2)}`.trim();
+  }
+  if (d.length <= 10) {
+    // 10 dígitos: (XX) XXXX-XXXX
+    return `(${ddd}) ${d.slice(2, 6)}-${d.slice(6, 10)}`;
+  }
+  // 11+ dígitos: (XX) XXXXX-XXXX
+  return `(${ddd}) ${d.slice(2, 7)}-${d.slice(7, 11)}`;
+}
+
 function fmtBR(iso) {
   if (!iso) return '-';
   const dt = new Date(iso);
@@ -106,60 +127,95 @@ export default function Encarregado() {
                   <Spinner animation="border" role="status" />
                 </div>
               ) : dpo ? (
-                <>
-                  <Row className="mb-4 align-items-center">
-                    <Col md="auto">
-                      {dpo.avatar_url ? (
-                        <Image
-                          src={dpo.avatar_url}
-                          roundedCircle
-                          width={96}
-                          height={96}
-                          alt="Avatar do DPO"
-                          style={{ objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: 96,
-                            height: 96,
-                            borderRadius: '50%',
-                            background: '#e9ecef',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: 12,
-                            color: '#6c757d',
-                          }}
-                        >
-                          sem foto
-                        </div>
-                      )}
-                    </Col>
-                    <Col>
-                      <div className="mb-2">
-                        <strong>Nome:</strong>
-                        <div>{dpo.nome}</div>
-                      </div>
-                      <div className="mb-2">
-                        <strong>Email:</strong>
-                        <div>{dpo.email}</div>
-                      </div>
-                      <div className="mb-2">
-                        <strong>Telefone:</strong>
-                        <div>{dpo.telefone}</div>
-                      </div>
-                      <div className="mb-2">
-                        <strong>Data da nomeação:</strong>
-                        <div>{fmtBR(dpo.dataNomeacao)}</div>
-                      </div>
-                      <div className="mb-0">
-                        <strong>Validade da nomeação:</strong>
-                        <div>{fmtBR(dpo.validade)}</div>
-                      </div>
-                    </Col>
-                  </Row>
-                </>
+                (() => {
+                  const safe = {
+                    avatar_url: dpo?.avatar_url || '',
+                    nome: dpo?.nome || '-',
+                    email: dpo?.email || '-',
+                    telefone: dpo?.telefone || '-',
+                    dataNomeacao: dpo?.dataNomeacao || null,
+                    validade: dpo?.validade || null,
+                  };
+                  return (
+                    <>
+                      <Row className="mb-4 align-items-center">
+                        <Col md="auto">
+                          {safe.avatar_url ? (
+                            <Image
+                              src={safe.avatar_url}
+                              roundedCircle
+                              width={96}
+                              height={96}
+                              alt="Avatar do DPO"
+                              style={{ objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: 96,
+                                height: 96,
+                                borderRadius: '50%',
+                                background: '#e9ecef',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 12,
+                                color: '#6c757d',
+                              }}
+                            >
+                              sem foto
+                            </div>
+                          )}
+                        </Col>
+                        <Col>
+                          <h5 className="mb-1" style={{ color: '#071744' }}>
+                            {safe.nome} <span className="badge bg-primary">DPO</span>
+                          </h5>
+                          {/* <div className="text-muted" style={{ fontSize: 14 }}>
+                            Válido até <strong>{safe.validade ? fmtBR(safe.validade) : '-'}</strong>
+                          </div> */}
+                        </Col>
+                      </Row>
+
+                      <hr className="my-4" />
+
+                      <Row>
+                        <Col md={6}>
+                          <div className="mb-2">
+                            <small className="text-muted d-block">Email</small>
+                            {safe.email !== '-' ? (
+                              <a href={`mailto:${safe.email}`}>{safe.email}</a>
+                            ) : (
+                              <span>-</span>
+                            )}
+                          </div>
+                          <div className="mb-2">
+                            <small className="text-muted d-block">Telefone</small>
+                            {dpo?.telefone ? (
+                              (() => {
+                                const telDigits = digitsOnly(dpo.telefone);
+                                const telMasked = formatPhoneBR(dpo.telefone);
+                                return telDigits ? <a href={`tel:${telDigits}`}>{telMasked}</a> : <span>-</span>;
+                              })()                            
+                            ) : (
+                              <span>-</span>
+                            )}
+                          </div>
+                        </Col>
+                        <Col md={6}>
+                          <div className="mb-2">
+                            <small className="text-muted d-block">Data da nomeação</small>
+                            <span>{safe.dataNomeacao ? fmtBR(safe.dataNomeacao) : '-'}</span>
+                          </div>
+                          <div className="mb-2">
+                            <small className="text-muted d-block">Validade</small>
+                            <span>{safe.validade ? fmtBR(safe.validade) : '-'}</span>
+                          </div>
+                        </Col>
+                      </Row>
+                    </>
+                  );
+                })()
               ) : (
                 <div className="py-5 text-center text-muted">Nenhum DPO encontrado.</div>
               )}

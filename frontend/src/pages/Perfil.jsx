@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const MAX_AVATAR_MB = 5;
-const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp'];
+const ACCEPTED = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
 function Perfil() {
   const navigate = useNavigate();
@@ -19,7 +19,7 @@ function Perfil() {
 
   const [form, setForm] = useState({
     email: '',
-    role: '',    
+    role: '',
     // troca de senha
     current_password: '',
     password: '',
@@ -28,7 +28,7 @@ function Perfil() {
     avatar: null,
     avatar_url: '',
   });
-  
+
   // refs para lidar com preview e input file
   const fileInputRef = useRef(null);
   const objectUrlRef = useRef(null);
@@ -55,7 +55,7 @@ function Perfil() {
         setForm(f => ({
           ...f,
           email: resp.data?.email || '',
-          role: resp.data?.role || '',          
+          role: resp.data?.role || '',
           current_password: '',
           password: '',
           password2: '',
@@ -71,8 +71,8 @@ function Perfil() {
       }
     })();
 
-    return () => { 
-      mounted = false; 
+    return () => {
+      mounted = false;
       revokeLocalPreview();
     };
   }, []);
@@ -84,12 +84,12 @@ function Perfil() {
       const file = files[0];
       // validação rápida no cliente
       if (!ACCEPTED.includes(file.type)) {
-        setErrors(prev => ({...prev, avatar: 'Formato inválido. Use jpeg/png/webp'}));
+        setErrors(prev => ({ ...prev, avatar: 'Formato inválido. Use jpeg/jpg/png/webp' }));
         if (fileInputRef.current) fileInputRef.current.value = '';
         return;
-      }    
+      }
       if (file.size > MAX_AVATAR_MB * 1024 * 1024) {
-        setErrors(prev => ({...prev, avatar: `Arquivo maior que ${MAX_AVATAR_MB}MB.`}));
+        setErrors(prev => ({ ...prev, avatar: `Arquivo maior que ${MAX_AVATAR_MB}MB.` }));
         if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
@@ -100,16 +100,16 @@ function Perfil() {
       const url = URL.createObjectURL(file);
       objectUrlRef.current = url
 
-      setErrors(prev => ({...prev, avatar: undefined}));
+      setErrors(prev => ({ ...prev, avatar: undefined }));
       setForm(prev => ({ ...prev, avatar: file, avatar_url: url }));
 
       // permite re-selecionar o mesmo arquivo no futuro
       if (fileInputRef.current) fileInputRef.current.value = '';
-      return;      
+      return;
     }
 
-    setForm(prev => ({...prev, [name]: value}));
-    if (errors[name]) setErrors(prev => ({...prev, [name]: undefined}));    
+    setForm(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: undefined }));
   };
 
   const validateClient = () => {
@@ -121,7 +121,7 @@ function Perfil() {
       if (!form.password2) e.password2 = 'Confirme a nova senha.';
       if (form.password && form.password.length < 3) e.password = 'A senha deve ter pelo menos 3 caracteres.';
       if (form.password !== form.password2) e.password2 = 'As senhas não coincidem.';
-    }    
+    }
     return e;
   };
 
@@ -163,6 +163,7 @@ function Perfil() {
 
       setVariant('success');
       setMessage('Foto removida com sucesso.');
+      setTimeout(() => { setMessage(''); setVariant(''); }, 3000);
 
       // se a URL atual for um blob local, revoga
       revokeLocalPreview();
@@ -205,6 +206,7 @@ function Perfil() {
     if (![...fd.keys()].length) {
       setVariant('warning');
       setMessage('Nenhuma alteração para salvar.');
+      setTimeout(() => { setMessage(''); setVariant(''); }, 2000);
       return;
     }
 
@@ -217,34 +219,35 @@ function Perfil() {
         setMessage('Senha alterada com sucesso. Você será redirecionado para o login.');
         setTimeout(() => {
           logout();
-          navigate('/login', {replace: true });
+          navigate('/login', { replace: true });
         }, 1500);
         return;
       }
 
       setVariant('success');
       setMessage('Perfil atualizado com sucesso.');
+      setTimeout(() => { setMessage(''); setVariant(''); }, 3000);
       // limpa campos de senha
-      setForm(prev => ({ 
-        ...prev, 
-        current_password: '', 
-        password: '', 
-        password2: '', 
-        avatar: null, 
-        avatar_url: resp.data.avatar || prev.avatar_url, 
+      setForm(prev => ({
+        ...prev,
+        current_password: '',
+        password: '',
+        password2: '',
+        avatar: null,
+        avatar_url: resp.data.avatar || prev.avatar_url,
       }));
 
       // se o upload foi local (blob), podemos revogar (a URL exibida passa a ser a do servidor)
       revokeLocalPreview();
 
       // sincroniza AuthContext (Sidebar / topo da página)
-      await refreshUser();      
-      
+      await refreshUser();
+
     } catch (err) {
       console.log('users/me/ error payload:', err?.response?.data);
       const st = err?.response?.status;
       const data = err?.response?.data;
-      
+
       if (st === 400 && data && typeof data === 'object') {
         const normalized = {};
         Object.entries(data).forEach(([k, v]) => {
@@ -256,6 +259,10 @@ function Perfil() {
       } else if (st === 401) {
         setVariant('danger');
         setMessage('Sessão expirada. Faça login novamente.');
+        setTimeout(() => {
+          logout();
+          navigate('/login', { replace: true });
+        }, 1500);
       } else if (st === 413) {
         setVariant('danger');
         setMessage(`Arquivo muito grande. Tamanho máximo: ${MAX_AVATAR_MB}MB.`);
@@ -307,7 +314,7 @@ function Perfil() {
                       <Form.Label>Função</Form.Label>
                       <Form.Control value={form.role} disabled />
                     </Col>
-                  </Row>                
+                  </Row>
 
                   {/* Seção de troca de senha */}
                   <Row className="mb-3">
@@ -367,14 +374,14 @@ function Perfil() {
                         />
                       ) : (
                         <div style={{
-                          width: 96, 
-                          height: 96, 
+                          width: 96,
+                          height: 96,
                           borderRadius: '50%',
-                          background: '#e9ecef', 
+                          background: '#e9ecef',
                           display: 'flex',
-                          alignItems: 'center', 
+                          alignItems: 'center',
                           justifyContent: 'center',
-                          fontSize: 12, 
+                          fontSize: 12,
                           color: '#6c757d'
                         }}>
                           sem foto
