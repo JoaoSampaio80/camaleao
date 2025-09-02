@@ -33,6 +33,19 @@ class UserViewSet(viewsets.ModelViewSet):
     parser_classes = (JSONParser, MultiPartParser, FormParser)
     queryset = User.objects.none()
 
+    @action(
+        detail=False,
+        methods=['get'],
+        permission_classes=[permissions.IsAuthenticated],
+        url_path='dpo'
+    )
+    def dpo(self, request):
+        user = User.objects.filter(role__iexact='dpo').order_by('id').first()
+        if not user:
+            return Response({'detail': 'DPO não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        data = self.get_serializer(user, context={'request': request}).data
+        return Response(data)
+
     def get_queryset(self):
         user = self.request.user
         if not (user and user.is_authenticated):
