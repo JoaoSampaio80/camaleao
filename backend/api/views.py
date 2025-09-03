@@ -13,7 +13,7 @@ from .serializers import (
     ExigenciaLGPDSerializer
 )
 from .models import User, Checklist, InventarioDados, MatrizRisco, PlanoAcao, ExigenciaLGPD
-from .permissions import IsRoleAdmin, IsAdminOrDPO, IsDPOOrManager
+from .permissions import IsRoleAdmin, IsAdminOrDPO, IsDPOOrManager, SimpleRolePermission
 
 try:
     from rest_framework_simplejwt.tokens import RefreshToken
@@ -157,10 +157,25 @@ class ChecklistViewSet(viewsets.ModelViewSet):
 class InventarioDadosViewSet(viewsets.ModelViewSet):
     queryset = InventarioDados.objects.all().order_by('-data_criacao')
     serializer_class = InventarioDadosSerializer
-    permission_classes = [IsDPOOrManager] # Permissões para DPO e Gerente
+    permission_classes = [SimpleRolePermission]
+
+    # Campo que identifica o "dono" do registro (para escopo 'own')
+    OWN_FIELD = 'criado_por'
+
+    # Regras por ação e papel:
+    # - Admin & DPO: CRUD total
+    # - Gerente: listar/ver/criar; editar apenas os próprios; NUNCA excluir
+    ROLE_PERMS = {
+        'list':            {'admin': 'any', 'dpo': 'any', 'gerente': 'any'},
+        'retrieve':        {'admin': 'any', 'dpo': 'any', 'gerente': 'any'},
+        'create':          {'admin': 'any', 'dpo': 'any', 'gerente': 'any'},
+        'update':          {'admin': 'any', 'dpo': 'any', 'gerente': 'own'},
+        'partial_update':  {'admin': 'any', 'dpo': 'any', 'gerente': 'own'},
+        'destroy':         {'admin': 'any', 'dpo': 'any', 'gerente': None},
+    }
 
     def perform_create(self, serializer):
-        # Automaticamente define o usuário que criou o registro
+        # Define automaticamente quem criou
         serializer.save(criado_por=self.request.user)
 
 # ViewSet para MatrizRisco

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Login from './pages/Login';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
@@ -15,9 +15,11 @@ import MatrizRisco from './pages/MatrizRisco';
 import Notificacoes from './pages/Notificacao';
 import Cadastro from './pages/Cadastro';
 import Perfil from './pages/Perfil';
+import InventarioLista from './pages/InventarioLista'
 
 // import PrivateRoute from './routes/PrivateRoute';
 import { useAuth, AuthProvider } from './context/AuthContext';
+import { InventarioProvider } from './context/InventarioContext';
 
 
 // Objeto de tipagem de rotas para evitar erros de digitação
@@ -37,6 +39,7 @@ export const ROUTES = {
   MATRIZ_RISCO: '/matrizrisco',
   NOTIFICACOES: '/notificacao',
   PERFIL: '/perfil',
+  INVENTARIO_LISTA: '/dados/lista',
   NOT_FOUND: '*'
 };
 
@@ -60,9 +63,14 @@ function AppRouter() {
         <Route path={ROUTES.DOCUMENTOS} element={<Documentos />} />
         <Route path={ROUTES.MATRIZ_RISCO} element={<MatrizRisco />} />
         <Route path={ROUTES.NOTIFICACOES} element={<Notificacoes />} />
-        <Route path={ROUTES.INVENTARIO_DADOS} element={<InventarioDados />} />
-        <Route path={ROUTES.INVENTARIO_DADOS2} element={<InventarioDados2 />} />
-        <Route path={ROUTES.INVENTARIO_DADOS3} element={<InventarioDados3 />} />
+        {/* Rotas de Inventário encapsuladas com o provider */}
+        <Route element={<InventarioProvider><Outlet /></InventarioProvider>}>
+          <Route path={ROUTES.INVENTARIO_DADOS} element={<InventarioDados />} />
+          <Route path={ROUTES.INVENTARIO_DADOS2} element={<InventarioDados2 />} />
+          <Route path={ROUTES.INVENTARIO_DADOS3} element={<InventarioDados3 />} />
+          <Route path={ROUTES.INVENTARIO_LISTA} element={<InventarioLista />} />
+        </Route>
+        
         <Route path={ROUTES.CADASTRO} element={user?.role === 'admin' ? <Cadastro /> : <Navigate to={ROUTES.HOME} replace />} />
         <Route path={ROUTES.PERFIL} element={<Perfil />} />
         <Route path={ROUTES.NOT_FOUND} element={<Navigate to={ROUTES.HOME} replace />} />
