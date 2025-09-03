@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 import uuid, os
+from django.conf import settings
 
 class CustomUserManager(BaseUserManager):
     use_in_migrations = True
@@ -94,39 +95,75 @@ class Checklist(models.Model):
     
 class InventarioDados(models.Model):
     """
-    Modelo para o formulário de Inventário de Dados.
-    Registra informações sobre processos que coletam e usam dados pessoais.
+    Modelo alinhado com o frontend (3 etapas).
     """
-    nome_processo = models.CharField(max_length=255, verbose_name="Nome do Processo")
-    tipo_dado = models.CharField(max_length=100, verbose_name="Tipo de Dado Pessoal",
-        choices=[
-            ('comuns', 'Dados Pessoais Comuns'),
-            ('sensíveis', 'Dados Pessoais Sensíveis'),
-            ('anonimizados', 'Dados Anonimizados'),
-            ('pseudonimizados', 'Dados Pseudonimizados'),
-        ]
+    # Choices usados no frontend
+    UNIDADE_CHOICES = (('matriz', 'Matriz'), ('filial', 'Filial'))
+    TIPO_DADO_CHOICES = (('pessoal', 'Pessoal'), ('sensivel', 'Sensível'), ('anonimizado', 'Anonimizado'))
+    FORMATO_CHOICES = (('digital', 'Digital'), ('fisico', 'Físico'), ('hibrido', 'Físico e Digital'))
+    SIM_NAO_CHOICES = (('sim', 'Sim'), ('nao', 'Não'))
+    CONTROLADOR_OPERADOR_CHOICES = (
+        ('controlador', 'Controlador'),
+        ('operador', 'Operador'),
+        ('ambos', 'Ambos'),
     )
-    finalidade_coleta = models.TextField(verbose_name="Finalidade da Coleta")
-    base_legal = models.CharField(max_length=255, verbose_name="Base Legal da LGPD")
-    forma_coleta = models.CharField(max_length=255, verbose_name="Forma de Coleta")
-    periodo_retencao = models.CharField(max_length=100, verbose_name="Período de Retenção")
-    compartilhamento_terceiros = models.BooleanField(default=False, verbose_name="Compartilhamento com Terceiros?")
-    nome_terceiro = models.CharField(max_length=255, blank=True, null=True, verbose_name="Nome do Terceiro (se houver)")
-    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações Adicionais")
 
-    # Relacionamento com o usuário que criou o registro
-    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='inventarios_criados', verbose_name="Criado por")
+    # Metadados
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='inventarios_criados',
+        verbose_name="Criado por"
+    )
     data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
     data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Última Atualização")
 
-    def __str__(self):
-        """Retorna o nome do processo como representação em string."""
-        return self.nome_processo
+    # --------- ETAPA 1 ---------
+    unidade = models.CharField(max_length=10, choices=UNIDADE_CHOICES, blank=True, null=True)
+    setor = models.CharField(max_length=120, blank=True, null=True)
+    responsavel_email = models.EmailField(max_length=254, blank=True, null=True)
+    processo_negocio = models.CharField(max_length=200, blank=True, null=True)
+    finalidade = models.TextField(blank=True, null=True)
+    dados_pessoais = models.TextField(blank=True, null=True)
+    tipo_dado = models.CharField(max_length=12, choices=TIPO_DADO_CHOICES, blank=True, null=True)
+    origem = models.CharField(max_length=200, blank=True, null=True)
+    formato = models.CharField(max_length=16, choices=FORMATO_CHOICES, blank=True, null=True)
+    impresso = models.CharField(max_length=3, choices=SIM_NAO_CHOICES, blank=True, null=True)
+    titulares = models.TextField(blank=True, null=True)
+    dados_menores = models.CharField(max_length=3, choices=SIM_NAO_CHOICES, blank=True, null=True)
+    base_legal = models.TextField(blank=True, null=True)
+
+    # --------- ETAPA 2 ---------
+    pessoas_acesso = models.TextField(blank=True, null=True)
+    atualizacoes = models.TextField(blank=True, null=True)
+    transmissao_interna = models.TextField(blank=True, null=True)
+    transmissao_externa = models.TextField(blank=True, null=True)
+    local_armazenamento_digital = models.CharField(max_length=200, blank=True, null=True)
+    controlador_operador = models.CharField(max_length=12, choices=CONTROLADOR_OPERADOR_CHOICES, blank=True, null=True)
+    motivo_retencao = models.TextField(blank=True, null=True)
+    periodo_retencao = models.CharField(max_length=100, blank=True, null=True)
+    exclusao = models.TextField(blank=True, null=True)
+    forma_exclusao = models.TextField(blank=True, null=True)
+    transferencia_terceiros = models.CharField(max_length=3, choices=SIM_NAO_CHOICES, blank=True, null=True)
+    quais_dados_transferidos = models.TextField(blank=True, null=True)
+    transferencia_internacional = models.CharField(max_length=3, choices=SIM_NAO_CHOICES, blank=True, null=True)
+    empresa_terceira = models.CharField(max_length=200, blank=True, null=True)
+
+    # --------- ETAPA 3 ---------
+    adequado_contratualmente = models.CharField(max_length=3, choices=SIM_NAO_CHOICES, blank=True, null=True)
+    paises_tratamento = models.CharField(max_length=200, blank=True, null=True)
+    medidas_seguranca = models.TextField(blank=True, null=True)
+    consentimentos = models.TextField(blank=True, null=True)
+    observacao = models.TextField(blank=True, null=True)  # único opcional no front; aqui também opcional no BD
 
     class Meta:
         verbose_name = "Inventário de Dados"
         verbose_name_plural = "Inventários de Dados"
-        ordering = ['nome_processo'] # Ordena por nome do processo por padrão
+        ordering = ('-data_criacao',)
+
+    def __str__(self):
+        return self.processo_negocio or f"Inventário #{self.pk}"
 
 
 class MatrizRisco(models.Model):
@@ -161,7 +198,11 @@ class MatrizRisco(models.Model):
 
     def __str__(self):
         """Retorna a descrição do risco e o processo associado."""
-        return f"Risco: {self.descricao_risco[:50]}... (Processo: {self.processo_afetado.nome_processo})"
+        try:
+            proc = getattr(self.processo_afetado, 'processo_negocio', '') or ''
+        except Exception:
+            proc = ''
+        return f"Risco: {self.descricao_risco[:50]}... (Processo: {proc or 'N/D'})"
 
     class Meta:
         verbose_name = "Matriz de Risco"

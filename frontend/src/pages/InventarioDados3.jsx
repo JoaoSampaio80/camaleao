@@ -49,23 +49,27 @@ function InventarioDados3() {
     setVariant('');
     setSaving(true);
     try {
-      await saveInventario(); // valida tudo e envia (POST/PATCH)
+      const saved = await saveInventario(); // valida servidor (POST/PATCH)
+      const okMsg = recordId ? 'Inventário atualizado com sucesso.' : 'Inventário criado com sucesso.';
 
-      // sucesso
       setWarn(false);
+
       if (next === 'new') {
         reset();
+        // opcional: mostrar sucesso antes de voltar para a página 1
+        // setVariant('success'); setMsg(okMsg);
         navigate(ROUTES.INVENTARIO_DADOS);
         return;
       }
+
       if (next === 'list') {
+        // envia flash p/ a lista
         reset();
-        navigate(ROUTES.INVENTARIO_LISTA);
+        navigate(ROUTES.INVENTARIO_LISTA, { state: { flash: okMsg } });
         return;
       }
     } catch (e) {
       if (e?.type === 'validation') {
-        // validação de qualquer etapa -> alerta genérico
         setWarn(true);
         setVariant('warning');
         setMsg('Existem campos obrigatórios pendentes. Preencha os campos destacados nas etapas.');
@@ -123,7 +127,9 @@ function InventarioDados3() {
           <Form>
             <Row className="mb-3">
               <Col md={4}>
-                <Form.Label>Adequado Contratualmente? <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Adequado Contratualmente? <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Select
                   value={form.adequado_contratualmente || ''}
                   onChange={(e) => setField('adequado_contratualmente', e.target.value)}
@@ -137,7 +143,9 @@ function InventarioDados3() {
               </Col>
 
               <Col md={4}>
-                <Form.Label>Países Envolvidos no Tratamento <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Países Envolvidos no Tratamento <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.paises_tratamento || ''}
@@ -150,7 +158,9 @@ function InventarioDados3() {
 
             <Row className="mb-3">
               <Col>
-                <Form.Label>Medidas de Segurança Envolvidas <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Medidas de Segurança Envolvidas <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.medidas_seguranca || ''}
@@ -163,7 +173,9 @@ function InventarioDados3() {
 
             <Row className="mb-3">
               <Col>
-                <Form.Label>Consentimentos <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Consentimentos <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.consentimentos || ''}

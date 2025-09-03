@@ -193,7 +193,7 @@ function InventarioDados() {
                   <option value="">Select...</option>
                   <option value="digital">Digital</option>
                   <option value="fisico">Físico</option>
-                  <option value="hibrido">Híbrido</option>
+                  <option value="hibrido">Físico e Digital</option>
                 </Form.Select>
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
               </Col>

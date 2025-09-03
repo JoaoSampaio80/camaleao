@@ -4,7 +4,7 @@ import { Container, Nav, Navbar, Offcanvas, Button, Dropdown, Badge, } from 'rea
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faTachometerAlt, faBars, faRightFromBracket, faUser, faHouse, faUserShield, faClipboardCheck, faFileAlt, faDatabase,
-  faExclamationTriangle, faChartLine, faBell, faUserSecret, faUserPlus } from '@fortawesome/free-solid-svg-icons';
+  faExclamationTriangle, faChartLine, faBell, faUserSecret, faUserPlus, faList } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../context/AuthContext';
 import { ROUTES } from '../routes';
 import logo from '/logo.png';
@@ -52,6 +52,7 @@ function Sidebar() {
     { to: ROUTES.DOCUMENTOS, icon: faFileAlt, label: "Documentos" },
     // Alterado para a rota pai do inventário
     { to: ROUTES.INVENTARIO_DADOS, icon: faDatabase, label: "Inventário de Dados" }, 
+    { to: ROUTES.INVENTARIO_LISTA, icon: faList, label: "Lista Inventários" },
     { to: ROUTES.MATRIZ_RISCO, icon: faExclamationTriangle, label: "Matriz de Risco" },
     { to: ROUTES.CADASTRO, icon: faUserPlus, label: "Cadastro de Usuário", adminOnly: true },
     { to: ROUTES.PERFIL, icon: faUser, label: "Meu Perfil" },

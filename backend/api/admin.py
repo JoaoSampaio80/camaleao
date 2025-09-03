@@ -72,18 +72,66 @@ class ChecklistAdmin(admin.ModelAdmin):
 # Registra os outros modelos
 @admin.register(InventarioDados)
 class InventarioDadosAdmin(admin.ModelAdmin):
-    list_display = ('nome_processo', 'tipo_dado', 'base_legal', 'criado_por', 'data_criacao')
-    list_filter = ('tipo_dado', 'base_legal', 'criado_por')
-    search_fields = ('nome_processo', 'finalidade_coleta')
-    raw_id_fields = ('criado_por',) # Para facilitar a seleção de usuários em massa
+    # Colunas na listagem
+    list_display = (
+        'processo_negocio', 'unidade', 'setor', 'tipo_dado',
+        'formato', 'controlador_operador', 'criado_por', 'data_criacao',
+    )
+    # Filtros laterais
+    list_filter = (
+        'unidade', 'tipo_dado', 'formato', 'impresso',
+        'dados_menores', 'controlador_operador',
+        'transferencia_terceiros', 'transferencia_internacional',
+        'adequado_contratualmente', 'criado_por',
+    )
+    # Busca
+    search_fields = (
+        'processo_negocio', 'setor', 'responsavel_email',
+        'empresa_terceira', 'paises_tratamento',
+    )
+    # Otimizações
+    raw_id_fields = ('criado_por',)
     date_hierarchy = "data_criacao"
     list_select_related = ("criado_por",)
+    ordering = ('-data_criacao',)
+
+    # Campos somente leitura
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+
+    # Formulário organizado por etapas
+    fieldsets = (
+        (_("Metadados"), {
+            "fields": ("criado_por", "data_criacao", "data_atualizacao"),
+        }),
+        (_("Etapa 1 — Contexto e Coleta"), {
+            "fields": (
+                "unidade", "setor", "responsavel_email", "processo_negocio",
+                "finalidade", "dados_pessoais", "tipo_dado", "origem",
+                "formato", "impresso", "titulares", "dados_menores", "base_legal",
+            )
+        }),
+        (_("Etapa 2 — Armazenamento, Retenção e Transferências"), {
+            "fields": (
+                "pessoas_acesso", "atualizacoes", "transmissao_interna", "transmissao_externa",
+                "local_armazenamento_digital", "controlador_operador", "motivo_retencao",
+                "periodo_retencao", "exclusao", "forma_exclusao",
+                "transferencia_terceiros", "quais_dados_transferidos",
+                "transferencia_internacional", "empresa_terceira",
+            )
+        }),
+        (_("Etapa 3 — Segurança e Observações"), {
+            "fields": (
+                "adequado_contratualmente", "paises_tratamento",
+                "medidas_seguranca", "consentimentos", "observacao",
+            )
+        }),
+    )
 
 @admin.register(MatrizRisco)
 class MatrizRiscoAdmin(admin.ModelAdmin):
     list_display = ('processo_afetado', 'descricao_risco', 'probabilidade', 'impacto', 'nivel_risco', 'criado_por', 'data_criacao')
     list_filter = ('probabilidade', 'impacto', 'nivel_risco', 'criado_por')
-    search_fields = ('descricao_risco', 'processo_afetado__nome_processo')
+    search_fields = ('descricao_risco', 'processo_afetado__processo_negocio')
     raw_id_fields = ('processo_afetado', 'criado_por',)
     date_hierarchy = "data_criacao"
     list_select_related = ("criado_por",)

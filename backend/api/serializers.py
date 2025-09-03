@@ -200,17 +200,60 @@ class ChecklistSerializer(serializers.ModelSerializer):
         
 # Serializer para o modelo InventarioDados
 class InventarioDadosSerializer(serializers.ModelSerializer):
-    criado_por = serializers.ReadOnlyField(source='criado_por.email') # Exibe o email do usuário
+    criado_por = serializers.ReadOnlyField(source='criado_por.email')
 
     class Meta:
         model = InventarioDados
-        fields = '__all__' # Inclui todos os campos do modelo
+        fields = '__all__'
+        read_only_fields = ('criado_por', 'data_criacao', 'data_atualizacao')
+
+    def validate(self, attrs):
+        """
+        POST/PUT: exige todos os campos obrigatórios (todas as etapas, exceto 'observacao').
+        PATCH: valida apenas os campos enviados (edição parcial).
+        """
+        request = self.context.get('request')
+        method = (getattr(request, 'method', '') or '').upper()
+
+        required = [
+            # Etapa 1
+            'unidade', 'setor', 'responsavel_email', 'processo_negocio',
+            'finalidade', 'dados_pessoais', 'tipo_dado', 'origem', 'formato',
+            'impresso', 'titulares', 'dados_menores', 'base_legal',
+            # Etapa 2
+            'pessoas_acesso', 'atualizacoes', 'transmissao_interna', 'transmissao_externa',
+            'local_armazenamento_digital', 'controlador_operador', 'motivo_retencao',
+            'periodo_retencao', 'exclusao', 'forma_exclusao', 'transferencia_terceiros',
+            'quais_dados_transferidos', 'transferencia_internacional', 'empresa_terceira',
+            # Etapa 3
+            'adequado_contratualmente', 'paises_tratamento', 'medidas_seguranca', 'consentimentos',
+        ]
+
+        if method == 'PATCH':
+            for f, v in attrs.items():
+                if f in required and not str(v or '').strip():
+                    raise serializers.ValidationError({f: 'Campo obrigatório.'})
+            return attrs
+
+        if method in ('POST', 'PUT'):
+            instance = getattr(self, 'instance', None)
+            missing = []
+            for f in required:
+                value = attrs.get(f, None)
+                if value is None and instance is not None:
+                    value = getattr(instance, f, '')
+                if not str(value or '').strip():
+                    missing.append(f)
+            if missing:
+                # mensagem genérica (o front já destaca localmente)
+                raise serializers.ValidationError('Existem campos obrigatórios pendentes.')
+        return attrs
 
 # Serializer para o modelo MatrizRisco
 class MatrizRiscoSerializer(serializers.ModelSerializer):
     criado_por = serializers.ReadOnlyField(source='criado_por.email') # Exibe o email do usuário
     # Adiciona o nome do processo afetado para facilitar a leitura na API
-    processo_afetado_nome = serializers.ReadOnlyField(source='processo_afetado.nome_processo')
+    processo_afetado_nome = serializers.ReadOnlyField(source='processo_afetado.processo_negocio')
 
     class Meta:
         model = MatrizRisco
