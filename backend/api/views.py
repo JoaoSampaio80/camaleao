@@ -1,11 +1,22 @@
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions, status, filters
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from rest_framework.decorators import action
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, HttpResponse
 from django.db import transaction
+from django_filters.rest_framework import DjangoFilterBackend
+from django.utils import timezone
+from zoneinfo import ZoneInfo
+from io import BytesIO
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+
 
 from .serializers import (
     MyTokenObtainPairSerializer, UserSerializer, ChecklistSerializer,
@@ -14,6 +25,10 @@ from .serializers import (
 )
 from .models import User, Checklist, InventarioDados, MatrizRisco, PlanoAcao, ExigenciaLGPD
 from .permissions import IsRoleAdmin, IsAdminOrDPO, IsDPOOrManager, SimpleRolePermission
+from .pagination import DefaultPagination
+
+import csv
+import datetime
 
 try:
     from rest_framework_simplejwt.tokens import RefreshToken
@@ -155,9 +170,15 @@ class ChecklistViewSet(viewsets.ModelViewSet):
 
 # ViewSet para InventarioDados
 class InventarioDadosViewSet(viewsets.ModelViewSet):
-    queryset = InventarioDados.objects.all().order_by('-data_criacao')
+    lookup_value_regex = r'\d+'
+    queryset = (
+        InventarioDados.objects
+        .select_related('criado_por')      # evita N+1 no autor
+        .order_by('-data_criacao')         # default
+    )
     serializer_class = InventarioDadosSerializer
     permission_classes = [SimpleRolePermission]
+    pagination_class = DefaultPagination
 
     # Campo que identifica o "dono" do registro (para escopo 'own')
     OWN_FIELD = 'criado_por'
@@ -172,11 +193,263 @@ class InventarioDadosViewSet(viewsets.ModelViewSet):
         'update':          {'admin': 'any', 'dpo': 'any', 'gerente': 'own'},
         'partial_update':  {'admin': 'any', 'dpo': 'any', 'gerente': 'own'},
         'destroy':         {'admin': 'any', 'dpo': 'any', 'gerente': None},
+        'export_csv':      {'admin': 'any', 'dpo': 'any', 'gerente': 'any'},
+        'export_xlsx':     {'admin': 'any', 'dpo': 'any', 'gerente': 'any'},
+        'export_pdf':      {'admin': 'any', 'dpo': 'any', 'gerente': 'any'},
     }
+
+    # Busca e ordenação no backend (DRF)
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = [
+        'unidade',
+        'setor',
+        'responsavel_email',
+        'processo_negocio',
+        'finalidade', 
+        'dados_pessoais',
+    ]
+    ordering_fields = [
+        'id',
+        'unidade',
+        'setor',
+        'responsavel_email',
+        'processo_negocio',
+        'data_criacao',
+    ]
+    ordering = ['-data_criacao']  # default (reforço)
+
+    filterset_fields = {
+        'unidade': ['exact', 'icontains'],
+        'setor': ['exact', 'icontains'],
+        'responsavel_email': ['exact', 'icontains'],
+        'processo_negocio': ['exact', 'icontains'],
+        'controlador_operador': ['exact'],
+        'impresso': ['exact'],
+        'dados_menores': ['exact'],
+        'transferencia_terceiros': ['exact'],
+        'transferencia_internacional': ['exact'],
+        'tipo_dado': ['exact'],
+        'formato': ['exact'],
+        'adequado_contratualmente': ['exact'],
+    }
+
+    SIMPLE_FILTERS = {
+        'unidade': 'unidade',
+        'setor': 'setor',
+        'responsavel_email': 'responsavel_email',
+        'processo_negocio': 'processo_negocio',
+        'controlador_operador': 'controlador_operador',
+        'impresso': 'impresso',
+        'dados_menores': 'dados_menores',
+        'transferencia_terceiros': 'transferencia_terceiros',
+        'transferencia_internacional': 'transferencia_internacional',
+        'tipo_dado': 'tipo_dado',
+        'formato': 'formato',
+        'adequado_contratualmente': 'adequado_contratualmente',
+    }
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+
+        # aplica “escopo” por papel/ação (admin/dpo = any; gerente = own para update/partial_update)
+        user = self.request.user
+        role = getattr(user, 'role', '') or ''
+        action = getattr(self, 'action', 'list')
+        scope = self.ROLE_PERMS.get(action, {}).get(role) or self.ROLE_PERMS.get(action, {}).get('admin')
+
+        if scope == 'own':
+            qs = qs.filter(**{self.OWN_FIELD: user})
+
+        # filtros exatos pelos query params
+        params = self.request.query_params
+        for qp, field in self.SIMPLE_FILTERS.items():
+            v = params.get(qp)
+            if v is None or v == '':
+                continue
+            if field in {
+                'impresso',
+                'dados_menores',
+                'transferencia_terceiros', 
+                'transferencia_internacional', 
+                'adequado_contratualmente'
+            }:
+                # normaliza 'sim'/'nao' -> True/False
+                v = str(v).strip().lower()
+                if v in ('true', '1', 'sim', 'yes'): 
+                    v = True
+                elif v in ('false', '0', 'nao', 'não', 'no'): 
+                    v = False
+                else: 
+                    continue
+            qs = qs.filter(**{field: v})
+
+        return qs
 
     def perform_create(self, serializer):
         # Define automaticamente quem criou
         serializer.save(criado_por=self.request.user)
+
+    def _export_cols_and_rows(self, qs):
+        """Reaproveita cabeçalhos e formatação (bool/data) para todos os formatos."""
+        cols = [
+            ('id', 'ID'),
+            ('unidade', 'Unidade'),
+            ('setor', 'Setor'),
+            ('responsavel_email', 'Responsável (E-mail)'),
+            ('processo_negocio', 'Processo de Negócio'),
+            ('finalidade', 'Finalidade'),
+            ('dados_pessoais', 'Dados Pessoais'),
+            ('tipo_dado', 'Tipo de Dado'),
+            ('origem', 'Origem'),
+            ('formato', 'Formato'),
+            ('impresso', 'Impresso'),
+            ('titulares', 'Titulares'),
+            ('dados_menores', 'Dados de menores'),
+            ('base_legal', 'Base Legal'),
+            ('pessoas_acesso', 'Pessoas com Acesso'),
+            ('atualizacoes', 'Atualizações (Quando)'),
+            ('transmissao_interna', 'Transmissão Interna'),
+            ('transmissao_externa', 'Transmissão Externa'),
+            ('local_armazenamento_digital', 'Local Armazenamento (Digital)'),
+            ('controlador_operador', 'Controlador/Operador'),
+            ('motivo_retencao', 'Motivo Retenção'),
+            ('periodo_retencao', 'Período Retenção'),
+            ('exclusao', 'Exclusão'),
+            ('forma_exclusao', 'Forma Exclusão'),
+            ('transferencia_terceiros', 'Transf. a Terceiros'),
+            ('quais_dados_transferidos', 'Quais Dados Transferidos'),
+            ('transferencia_internacional', 'Transf. Internacional'),
+            ('empresa_terceira', 'Empresa Terceira'),
+            ('adequado_contratualmente', 'Adequado Contratualmente'),
+            ('paises_tratamento', 'Países Tratamento'),
+            ('medidas_seguranca', 'Medidas de Segurança'),
+            ('consentimentos', 'Consentimentos'),
+            ('observacao', 'Observação'),
+            ('criado_por', 'Criado por (email)'),
+            ('data_criacao', 'Data Criação'),
+            ('data_atualizacao', 'Última Atualização'),
+        ]
+
+        br_tz = ZoneInfo("America/Sao_Paulo")
+        rows = []
+        for obj in qs.iterator():
+            row = []
+            for field, _ in cols:
+                if field == 'criado_por':
+                    val = getattr(getattr(obj, 'criado_por', None), 'email', '') or ''
+                else:
+                    val = getattr(obj, field, '')
+
+                if isinstance(val, bool):
+                    val = 'Sim' if val else 'Não'
+                elif isinstance(val, datetime.datetime):
+                    if timezone.is_naive(val):
+                        val = timezone.make_aware(val, timezone.get_default_timezone())
+                    val = timezone.localtime(val, br_tz).strftime('%d/%m/%Y %H:%M')
+                elif isinstance(val, datetime.date):
+                    val = val.strftime('%d/%m/%Y')
+                row.append(val if val is not None else '')
+            rows.append(row)
+        return cols, rows
+    
+    @staticmethod
+    def _timestamp_br():
+        br_tz = ZoneInfo("America/Sao_Paulo")
+        dt = timezone.localtime(timezone.now(), timezone=br_tz)
+        return f"{dt.day:02d}-{dt.month:02d}-{dt.year}_{dt.hour:02d}h{dt.minute:02d}min"
+
+    @action(detail=False, methods=['get'], url_path=r'export/csv')
+    def export_csv(self, request):
+        qs = self.filter_queryset(self.get_queryset())
+        cols, rows = self._export_cols_and_rows(qs)
+        headers = [label for _, label in cols]
+
+        file_name = f"inventarios-{self._timestamp_br()}.csv"
+        resp = HttpResponse(content_type='text/csv; charset=utf-8')
+        resp['Content-Disposition'] = f"attachment; filename*=UTF-8''{file_name}; filename=\"{file_name}\""
+        resp['Access-Control-Expose-Headers'] = 'Content-Disposition'
+        resp.write('\ufeff')  # BOM para Excel abrir acentos certinho
+
+        writer = csv.writer(resp, lineterminator='\n')
+        writer.writerow(headers)
+        for row in rows:
+            writer.writerow(row)
+        return resp
+
+    @action(detail=False, methods=['get'], url_path=r'export/xlsx')
+    def export_xlsx(self, request):
+        qs = self.filter_queryset(self.get_queryset())
+        cols, rows = self._export_cols_and_rows(qs)
+        headers = [label for _, label in cols]
+
+        output = BytesIO()
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Inventários"
+
+        header_font = Font(bold=True)
+        fill = PatternFill(start_color="E6F0FF", end_color="E6F0FF", fill_type="solid")
+        for c, label in enumerate(headers, start=1):
+            cell = ws.cell(row=1, column=c, value=label)
+            cell.font = header_font
+            cell.fill = fill
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        for r, row in enumerate(rows, start=2):
+            for c, val in enumerate(row, start=1):
+                ws.cell(row=r, column=c, value=val)
+
+        for col_idx, label in enumerate(headers, start=1):
+            width = max(10, min(50, len(str(label)) + 2))
+            ws.column_dimensions[get_column_letter(col_idx)].width = width
+
+        wb.save(output)
+        output.seek(0)
+
+        file_name = f"inventarios-{self._timestamp_br()}.xlsx"
+        resp = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        resp['Content-Disposition'] = f"attachment; filename*=UTF-8''{file_name}; filename=\"{file_name}\""
+        resp['Access-Control-Expose-Headers'] = 'Content-Disposition'
+        return resp
+
+    @action(detail=False, methods=['get'], url_path=r'export/pdf')
+    def export_pdf(self, request):
+        qs = self.filter_queryset(self.get_queryset())
+        cols, rows = self._export_cols_and_rows(qs)
+        headers = [label for _, label in cols]
+
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=landscape(A4),
+            leftMargin=18, rightMargin=18, topMargin=24, bottomMargin=24
+        )
+
+        data = [headers] + rows
+        table = Table(data, repeatRows=1)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#E6F0FF")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.black),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('FONTSIZE', (0,0), (-1,0), 9),
+            ('GRID', (0,0), (-1,-1), 0.25, colors.grey),
+            ('FONTSIZE', (0,1), (-1,-1), 8),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ]))
+
+        doc.build([table])
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+
+        file_name = f"inventarios-{self._timestamp_br()}.pdf"
+        resp = HttpResponse(pdf_bytes, content_type='application/pdf')
+        resp['Content-Disposition'] = f"attachment; filename*=UTF-8''{file_name}; filename=\"{file_name}\""
+        resp['Access-Control-Expose-Headers'] = 'Content-Disposition'
+        return resp   
 
 # ViewSet para MatrizRisco
 class MatrizRiscoViewSet(viewsets.ModelViewSet):

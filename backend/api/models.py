@@ -161,6 +161,13 @@ class InventarioDados(models.Model):
         verbose_name = "Inventário de Dados"
         verbose_name_plural = "Inventários de Dados"
         ordering = ('-data_criacao',)
+        indexes = [
+            models.Index(fields=['unidade']),
+            models.Index(fields=['setor']),
+            models.Index(fields=['responsavel_email']),
+            models.Index(fields=['processo_negocio']),
+            models.Index(fields=['data_criacao']),
+        ]
 
     def __str__(self):
         return self.processo_negocio or f"Inventário #{self.pk}"
