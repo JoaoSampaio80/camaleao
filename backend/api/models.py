@@ -249,6 +249,11 @@ class Risk(models.Model):
         verbose_name = "Risco"
         verbose_name_plural = "Riscos"
 
+    def __str__(self):
+        # Mostra o texto do risco e o ID (ajuda na identificação)
+        base = (self.risco_fator or "").strip()
+        return f"{base} (#{self.pk})" if self.pk else base
+
     def save(self, *args, **kwargs):
         # calcula a pontuação inerente toda vez que salvar
         try:
@@ -316,9 +321,16 @@ class ActionPlan(models.Model):
     def __str__(self):
         return f"{self.descricao[:60]}..."
     
-    def clean(self):        
+    def clean(self):
+        errors = {}
+        if not self.risco_id:
+            errors["risco"] = "Selecione um Risco para vincular este plano de ação." 
+
         if self.prazo and self.prazo < datetime.date.today():
-            raise ValidationError({"prazo": "Prazo não pode ser no passado."})
+            errors["prazo"] = "Prazo não pode ser no passado."
+        
+        if errors:
+            raise ValidationError(errors)
 
 
 class MonitoringAction(models.Model):

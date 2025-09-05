@@ -1,3 +1,4 @@
+import datetime
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.core.validators import validate_email as core_validate_email
@@ -352,11 +353,15 @@ class ActionPlanSerializer(serializers.ModelSerializer):
         model = ActionPlan
         fields = "__all__"
 
-    def validate(self, attrs):
-        import datetime
+    def validate(self, attrs):        
         prazo = attrs.get("prazo") or (self.instance.prazo if self.instance else None)
         if prazo and prazo < datetime.date.today():
             raise serializers.ValidationError({"prazo": "Prazo não pode ser no passado."})
+        
+        risco = attrs.get("risco") or (self.instance.risco if self.instance else None)
+        if not risco:
+            raise serializers.ValidationError({"risco": "Informe o risco ao qual este plano estará vinculado."})
+        
         return attrs
 
 class MonitoringActionSerializer(serializers.ModelSerializer):

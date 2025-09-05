@@ -5,6 +5,8 @@ from django.utils.translation import gettext_lazy as _
 from django.urls import path
 from django.shortcuts import redirect
 from django.utils.html import format_html
+from django.urls import reverse
+from django import forms
 
 from .models import (
     # seus modelos
@@ -139,42 +141,171 @@ class ActionPlanInline(admin.TabularInline):
 class RiskAdmin(admin.ModelAdmin):
     list_display = ('id', 'matriz_filial', 'setor', 'processo', 'risco_fator',
                     'probabilidade', 'impacto', 'pontuacao', 'medidas_controle', 'risco_residual',
-                    'tipo_controle', 'criado_em')
+                    'tipo_controle', 'criado_em', 'add_plano_acao',)
     list_filter = ('setor', 'risco_residual', 'tipo_controle', 'probabilidade', 'impacto')
     search_fields = ('matriz_filial', 'setor', 'processo', 'risco_fator')    
     date_hierarchy = 'criado_em'
     readonly_fields = ('pontuacao',)
     autocomplete_fields = ('probabilidade','impacto','eficacia')
     inlines = [ActionPlanInline]
+    list_display_links = ('id', 'matriz_filial')
+        
+    def add_plano_acao(self, obj):
+        """
+        Botão que abre a tela de criação de ActionPlan já com o risco pré-selecionado (?risco=<id>).
+        """
+        url = reverse('admin:api_actionplan_add') + f'?risco={obj.id}'
+        return format_html('<a class="button" href="{}">➕ Plano</a>', url)
+    add_plano_acao.short_description = "Novo Plano"
 
-    # Botão “Adicionar plano” na página do risco
-    def get_urls(self):
-        urls = super().get_urls()
-        custom = [
-            path('<int:risk_id>/add-plan/', self.admin_site.admin_view(self.add_plan_redirect),
-                 name='risk-add-plan'),
+class ActionPlanAdminForm(forms.ModelForm):
+    # Campos só para exibição (não-modelo)
+    risco_display = forms.CharField(
+        label="Risco",
+        required=False,
+        disabled=True,
+        widget=forms.Textarea(attrs={
+            "rows": 3,
+            "style": "width:100%; resize:vertical; white-space:pre-wrap; overflow:auto;",
+        })
+    )
+    matriz_display = forms.CharField(
+        label="Matriz/Filial",
+        required=False,
+        disabled=True,
+        widget=forms.TextInput(attrs={"style": "width:100%;"})
+    )
+    setor_display = forms.CharField(
+        label="Setor proprietário",
+        required=False,
+        disabled=True,
+        widget=forms.TextInput(attrs={"style": "width:100%;"})
+    )
+    processo_display = forms.CharField(
+        label="Processo",
+        required=False,
+        disabled=True,
+        widget=forms.TextInput(attrs={"style": "width:100%;"})
+    )
+
+    class Meta:
+        model = ActionPlan
+        fields = [
+            # displays primeiro
+            "risco_display",
+            "matriz_display", "setor_display", "processo_display",
+            # campos reais (serão hidden no ADD via ?risco=)
+            "risco", "matriz_filial", "setor_proprietario", "processo",
+            # editáveis
+            "descricao", "como", "responsavel_execucao", "prazo", "status",
         ]
-        return custom + urls
-
-    def add_plan_link(self, obj):
-        url = f"{obj.id}/add-plan/"
-        return format_html('<a class="button" href="{}">Adicionar Plano</a>', url)
-    add_plan_link.short_description = "Ações"
-
-    def add_plan_redirect(self, request, risk_id: int):
-        return redirect(f"/admin/{ActionPlan._meta.app_label}/{ActionPlan._meta.model_name}/add/?risco={risk_id}")
 
 @admin.register(ActionPlan)
 class ActionPlanAdmin(admin.ModelAdmin):
+    form = ActionPlanAdminForm
+
     list_display = ('risco', 'matriz_filial', 'setor_proprietario', 'processo',
                     'descricao', 'responsavel_execucao', 'prazo', 'status')
     list_filter = ('status', 'prazo')
-    # busca pelo campo do relacionado (Risk.risco_fator):
     search_fields = ('risco__risco_fator', 'descricao', 'responsavel_execucao')
-    raw_id_fields = ('risco',)
+    autocomplete_fields = ('risco',)  # ok; no ADD vamos esconder widget
     date_hierarchy = "prazo"
-    # REMOVE o list_select_related de campo que não é FK:
     list_select_related = ("risco",)
+
+    fieldsets = (
+        ("Referências do Risco", {
+            "fields": (
+                # exibição
+                "risco_display",
+                "matriz_display", "setor_display", "processo_display",
+                # reais (hidden no ADD)
+                "risco", "matriz_filial", "setor_proprietario", "processo",
+            )
+        }),
+        ("Execução do Plano", {
+            "fields": (
+                "descricao",
+                "como",
+                "responsavel_execucao",
+                "prazo",
+                "status",
+            )
+        }),
+    )
+
+    def get_form(self, request, obj=None, **kwargs):
+        """
+        No ADD com ?risco=<id>:
+          - Preenche displays com dados do Risk
+          - Esconde campos reais com HiddenInput + initial
+          - Foco em 'descricao'
+        Na edição: mostra campos reais normalmente e oculta os displays.
+        """
+        base_form_class = super().get_form(request, obj, **kwargs)
+        is_add = obj is None
+        risco_id = request.GET.get("risco")
+
+        class FormWithInitials(base_form_class):
+            def __init__(self, *args, **kw):
+                initial = dict(kw.get("initial") or {})
+                r = None
+                if is_add and risco_id:
+                    try:
+                        r = Risk.objects.get(pk=risco_id)
+                    except Risk.DoesNotExist:
+                        r = None
+
+                    # Iniciais para displays
+                    initial.setdefault("risco_display", (str(r) if r else f"#{risco_id}"))
+                    if r:
+                        initial.setdefault("matriz_display", r.matriz_filial or "")
+                        initial.setdefault("setor_display", r.setor or "")
+                        initial.setdefault("processo_display", r.processo or "")
+                    # Iniciais para campos reais (irão hidden)
+                    initial.setdefault("risco", risco_id)
+                    if r:
+                        initial.setdefault("matriz_filial", r.matriz_filial or "")
+                        initial.setdefault("setor_proprietario", r.setor or "")
+                        initial.setdefault("processo", r.processo or "")
+
+                kw["initial"] = initial
+                super().__init__(*args, **kw)
+
+                # Foco em 'descricao'
+                if "descricao" in self.fields:
+                    self.fields["descricao"].widget.attrs["autofocus"] = "autofocus"
+
+                if is_add and risco_id:
+                    # esconder campos reais (mas enviar no POST)
+                    for real in ("risco", "matriz_filial", "setor_proprietario", "processo"):
+                        if real in self.fields:
+                            self.fields[real].widget = forms.HiddenInput()
+                else:
+                    # em edição: esconder os displays
+                    for disp in ("risco_display", "matriz_display", "setor_display", "processo_display"):
+                        if disp in self.fields:
+                            self.fields[disp].widget = forms.HiddenInput()
+
+        return FormWithInitials
+
+    def save_model(self, request, obj, form, change):
+        """
+        Segurança: no ADD com ?risco=<id> força vínculo e garante cópia dos campos
+        mesmo que o browser não envie (e.g., se mexer no HTML).
+        """
+        if not change:
+            risco_id = request.GET.get("risco")
+            if risco_id:
+                try:
+                    obj.risco_id = int(risco_id)
+                except ValueError:
+                    pass
+                r = getattr(obj, "risco", None)
+                if r:
+                    obj.matriz_filial = obj.matriz_filial or (r.matriz_filial or "")
+                    obj.setor_proprietario = obj.setor_proprietario or (r.setor or "")
+                    obj.processo = obj.processo or (r.processo or "")
+        super().save_model(request, obj, form, change)
 
 @admin.register(MonitoringAction)
 class MonitoringActionAdmin(admin.ModelAdmin):
