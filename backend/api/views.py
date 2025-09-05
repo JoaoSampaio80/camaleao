@@ -26,11 +26,12 @@ from collections import Counter
 
 
 from .serializers import (
-    MyTokenObtainPairSerializer, UserSerializer, ChecklistSerializer,
-    InventarioDadosSerializer, RiskSerializer, ActionPlanSerializer, MonitoringActionSerializer, IncidentSerializer,
-    ExigenciaLGPDSerializer
+    MyTokenObtainPairSerializer, UserSerializer, ChecklistSerializer, InventarioDadosSerializer, RiskSerializer, 
+    ActionPlanSerializer, MonitoringActionSerializer, IncidentSerializer, ExigenciaLGPDSerializer
 )
-from .models import User, Checklist, InventarioDados, Risk, ActionPlan, MonitoringAction, Incident, ExigenciaLGPD
+from .models import (
+    User, Checklist, InventarioDados, Risk, ActionPlan, MonitoringAction, Incident, 
+    ExigenciaLGPD, LikelihoodItem, ImpactItem)
 from .permissions import IsRoleAdmin, IsAdminOrDPO, IsDPOOrManager, SimpleRolePermission
 from .pagination import DefaultPagination
 
@@ -663,61 +664,111 @@ class RiskViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def ranking(self, request):
         """
-        Lista de riscos ordenada por pontuação (desc).
-        Aceita mesmos filtros/busca do list().
+        Lista de riscos ordenada por pontuação (desc), depois impacto e probabilidade (desc),
+        mantendo os mesmos filtros/busca do list().
+        Agora inclui labels de prob/impact e campos de controle (quando existirem).
         """
-        qs = self.filter_queryset(self.get_queryset()).order_by("-pontuacao", "-criado_em")
-        data = [
-            {
+        qs = (
+            self.filter_queryset(self.get_queryset())
+            .order_by("-pontuacao", "-impacto__value", "-probabilidade__value", "-criado_em")
+        )
+
+        data = []
+        for r in qs:
+            data.append({
                 "id": r.id,
                 "matriz_filial": r.matriz_filial,
                 "setor": r.setor,
                 "processo": r.processo,
                 "risco_fator": r.risco_fator,
-                "probabilidade": r.probabilidade.value if r.probabilidade_id else None,
-                "impacto": r.impacto.value if r.impacto_id else None,
+                "probabilidade": {
+                    "value": getattr(r.probabilidade, "value", None),
+                    "label": getattr(r.probabilidade, "label_pt", None),
+                } if r.probabilidade_id else None,
+                "impacto": {
+                    "value": getattr(r.impacto, "value", None),
+                    "label": getattr(r.impacto, "label_pt", None),
+                } if r.impacto_id else None,
                 "pontuacao": r.pontuacao,
                 "risco_residual": r.risco_residual,
-            }
-            for r in qs
-        ]
+                # campos adicionais úteis pro ranking (vêm da planilha)
+                "medidas_controle": getattr(r, "medidas_controle", "") or "",
+                "tipo_controle": r.tipo_controle or "",
+                "eficacia_label": getattr(getattr(r, "eficacia", None), "label_pt", "") or "",
+                "resposta_risco": r.resposta_risco or "",
+            })
         return Response(data)
 
     @action(detail=False, methods=["get"])
     def heatmap(self, request):
         """
-        Buckets de contagem por (probabilidade x impacto).
-        Retorna: {"buckets": {"1-1": 0, "1-2": 3, ...}}
+        Buckets e matriz para Heatmap.
+        Mantém o retorno 'buckets' (compatibilidade), e acrescenta:
+          - grid: matriz 5x5 (índices 1..5) com contagens
+          - points: lista [{prob, impact, count}]
+          - axes: rótulos para probabilidade e impacto
+          - total: quantidade total após filtros
         """
-        buckets = {}
         qs = self.filter_queryset(self.get_queryset())
+
+        # --- buckets no formato "p-i": count (compat com sua versão anterior)
+        buckets = {}
         for r in qs:
             if not (r.probabilidade_id and r.impacto_id):
                 continue
-            key = f"{r.probabilidade.value}-{r.impacto.value}"
+            p = r.probabilidade.value
+            i = r.impacto.value
+            key = f"{p}-{i}"
             buckets[key] = buckets.get(key, 0) + 1
-        return Response({"buckets": buckets})
-    
-    @action(detail=False, methods=['get'], url_path=r'export/xlsx')
-    def export_xlsx(self, request):
-        qs = self.filter_queryset(self.get_queryset()).order_by('setor', '-pontuacao', 'processo')
 
-        # Cabeçalhos no padrão da planilha “Avaliação de Riscos”
+        # --- agregados estruturados (grid/points)
+        size = 5
+        grid = [[0 for _ in range(size + 1)] for _ in range(size + 1)]  # índice 1..5
+        points = []
+        # podemos percorrer buckets para montar grid/points
+        for key, count in buckets.items():
+            p_str, i_str = key.split("-")
+            p = int(p_str); i = int(i_str)
+            if 1 <= p <= 5 and 1 <= i <= 5:
+                grid[p][i] = count
+                points.append({"prob": p, "impact": i, "count": count})
+
+        # --- eixos com labels PT (ordenados por value)
+        probs = list(LikelihoodItem.objects.order_by("value").values("value", "label_pt"))
+        imps  = list(ImpactItem.objects.order_by("value").values("value", "label_pt"))
+
+        return Response({
+            "buckets": buckets,   # compatibilidade com front já existente
+            "grid": grid,         # grid[prob][impact] -> count (prob/impact 1..5)
+            "points": points,     # pontos úteis pra heatmap baseado em scatter
+            "axes": {
+                "probabilidade": probs,  # [{value, label_pt}]
+                "impacto": imps,
+            },
+            "total": qs.count(),
+        })
+    
+    @action(detail=False, methods=['get'], url_path=r'ranking/export/xlsx')
+    def export_ranking_xlsx(self, request):
+        qs = (
+            self.filter_queryset(self.get_queryset())
+            .order_by('-pontuacao', '-impacto__value', '-probabilidade__value', '-criado_em')
+        )
+
         headers = [
-            "ID", "Matriz/Filial", "Setores", "Processo de Negócio Envolvido",
-            "Risco e Fator de Risco", "Probabilidade (1-5)", "Impacto (1-5)",
-            "Pontuação do Risco", "Medidas de Controle", "Tipo Controle (C/D)",
-            "Eficácia do Controle (rótulo)", "Risco Residual", "Resposta ao Risco",
-            "Criado em", "Atualizado em",
+            "ID", "Matriz/Filial", "Setor", "Processo",
+            "Risco e Fator de Risco",
+            "Prob (valor)", "Prob (rótulo)",
+            "Impacto (valor)", "Impacto (rótulo)",
+            "Pontuação", "Risco Residual",
+            "Medidas de Controle", "Tipo Ctrl (C/D)", "Eficácia (rótulo)",
+            "Resposta ao Risco", "Criado em",
         ]
 
-        # monta linhas
         br_tz = ZoneInfo("America/Sao_Paulo")
         rows = []
         for r in qs.iterator():
             criado = timezone.localtime(r.criado_em, br_tz).strftime('%d/%m/%Y %H:%M') if r.criado_em else ""
-            atualizado = timezone.localtime(r.atualizado_em, br_tz).strftime('%d/%m/%Y %H:%M') if r.atualizado_em else ""
-            existe = "Sim" if bool((r.medidas_controle or "").strip()) else "Não"
             rows.append([
                 r.id,
                 r.matriz_filial,
@@ -725,26 +776,25 @@ class RiskViewSet(viewsets.ModelViewSet):
                 r.processo,
                 r.risco_fator,
                 getattr(getattr(r, 'probabilidade', None), 'value', None),
+                getattr(getattr(r, 'probabilidade', None), 'label_pt', None),
                 getattr(getattr(r, 'impacto', None), 'value', None),
+                getattr(getattr(r, 'impacto', None), 'label_pt', None),
                 r.pontuacao,
+                r.risco_residual,
                 r.medidas_controle or "",
-                existe,
                 r.tipo_controle or "",
                 getattr(getattr(r, 'eficacia', None), 'label_pt', None) or "",
-                r.risco_residual,
                 r.resposta_risco or "",
                 criado,
-                atualizado,
             ])
 
-        # escreve XLSX
         output = BytesIO()
         wb = Workbook()
         ws = wb.active
-        ws.title = "Avaliação de Riscos"
+        ws.title = "Ranking de Riscos"
 
         header_font = Font(bold=True)
-        fill = PatternFill(start_color="FFF4CC", end_color="FFF4CC", fill_type="solid")
+        fill = PatternFill(start_color="E6F0FF", end_color="E6F0FF", fill_type="solid")
         for c, label in enumerate(headers, start=1):
             cell = ws.cell(row=1, column=c, value=label)
             cell.font = header_font
@@ -755,15 +805,17 @@ class RiskViewSet(viewsets.ModelViewSet):
             for c_idx, val in enumerate(row, start=1):
                 ws.cell(row=r_idx, column=c_idx, value=val)
 
+        # largura de colunas + filtro + congelar cabeçalho
         for col_idx, label in enumerate(headers, start=1):
-            width = max(10, min(60, len(str(label)) + 2))
+            width = max(12, min(60, len(str(label)) + 2))
             ws.column_dimensions[get_column_letter(col_idx)].width = width
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = f"A1:{get_column_letter(len(headers))}{len(rows)+1}"
 
         wb.save(output); output.seek(0)
 
-        # nome do arquivo
         dt = timezone.localtime(timezone.now(), timezone=br_tz)
-        file_name = f"avaliacao-riscos_{dt:%d-%m-%Y_%Hh%Mmin}.xlsx"
+        file_name = f"ranking-riscos_{dt:%d-%m-%Y_%Hh%Mmin}.xlsx"
 
         resp = HttpResponse(
             output.getvalue(),
@@ -772,6 +824,236 @@ class RiskViewSet(viewsets.ModelViewSet):
         resp['Content-Disposition'] = f"attachment; filename*=UTF-8''{file_name}; filename=\"{file_name}\""
         resp['Access-Control-Expose-Headers'] = 'Content-Disposition'
         return resp
+    
+    @action(detail=False, methods=['get'], url_path=r'ranking/export/csv')
+    def export_ranking_csv(self, request):
+        qs = (
+            self.filter_queryset(self.get_queryset())
+            .order_by('-pontuacao', '-impacto__value', '-probabilidade__value', '-criado_em')
+        )
+
+        headers = [
+            "ID","Matriz/Filial","Setor","Processo","Risco e Fator de Risco",
+            "Prob (valor)","Prob (rótulo)","Impacto (valor)","Impacto (rótulo)",
+            "Pontuação","Risco Residual","Medidas de Controle","Tipo Ctrl (C/D)",
+            "Eficácia (rótulo)","Resposta ao Risco","Criado em",
+        ]
+
+        br_tz = ZoneInfo("America/Sao_Paulo")
+        def rows_iter():
+            yield headers
+            for r in qs.iterator():
+                criado = timezone.localtime(r.criado_em, br_tz).strftime('%d/%m/%Y %H:%M') if r.criado_em else ""
+                yield [
+                    r.id,
+                    r.matriz_filial,
+                    r.setor,
+                    r.processo,
+                    r.risco_fator,
+                    getattr(getattr(r, 'probabilidade', None), 'value', None),
+                    getattr(getattr(r, 'probabilidade', None), 'label_pt', None),
+                    getattr(getattr(r, 'impacto', None), 'value', None),
+                    getattr(getattr(r, 'impacto', None), 'label_pt', None),
+                    r.pontuacao,
+                    r.risco_residual,
+                    r.medidas_controle or "",
+                    r.tipo_controle or "",
+                    getattr(getattr(r, 'eficacia', None), 'label_pt', None) or "",
+                    r.resposta_risco or "",
+                    criado,
+                ]
+
+        # CSV em memória (com BOM p/ Excel abrir acentos)
+        resp = HttpResponse(content_type='text/csv; charset=utf-8')
+        br_now = timezone.localtime(timezone.now(), timezone=br_tz)
+        file_name = f"ranking-riscos_{br_now:%d-%m-%Y_%Hh%Mmin}.csv"
+        resp['Content-Disposition'] = f"attachment; filename*=UTF-8''{file_name}; filename=\"{file_name}\""
+        resp['Access-Control-Expose-Headers'] = 'Content-Disposition'
+        resp.write('\ufeff')  # BOM
+
+        writer = csv.writer(resp, lineterminator='\n')
+        for row in rows_iter():
+            writer.writerow(row)
+        return resp
+    
+    @action(detail=False, methods=['get'], url_path=r'heatmap/export/csv')
+    def export_heatmap_csv(self, request):
+        qs = self.filter_queryset(self.get_queryset())
+        buckets = {}
+        total = 0
+        for r in qs:
+            if not (r.probabilidade_id and r.impacto_id):
+                continue
+            p = r.probabilidade.value
+            i = r.impacto.value
+            key = f"{p}-{i}"
+            buckets[key] = buckets.get(key, 0) + 1
+            total += 1
+
+        headers = ["Probabilidade (1-5)", "Impacto (1-5)", "Contagem"]
+        pairs = []
+        # ordenar por prob desc e impacto desc (como heatmap “de cima à direita”)
+        for p in range(5, 0, -1):
+            for i in range(5, 0, -1):
+                key = f"{p}-{i}"
+                pairs.append((p, i, buckets.get(key, 0)))
+
+        resp = HttpResponse(content_type='text/csv; charset=utf-8')
+        br_tz = ZoneInfo("America/Sao_Paulo")
+        br_now = timezone.localtime(timezone.now(), timezone=br_tz)
+        file_name = f"heatmap-riscos_{br_now:%d-%m-%Y_%Hh%Mmin}.csv"
+        resp['Content-Disposition'] = f"attachment; filename*=UTF-8''{file_name}; filename=\"{file_name}\""
+        resp['Access-Control-Expose-Headers'] = 'Content-Disposition'
+        resp.write('\ufeff')  # BOM
+
+        writer = csv.writer(resp, lineterminator='\n')
+        writer.writerow(headers)
+        for p, i, c in pairs:
+            writer.writerow([p, i, c])
+        writer.writerow([])
+        writer.writerow(["Total", "", total])
+        return resp
+    
+    @action(detail=False, methods=['get'], url_path=r'ranking/export/pdf')
+    def export_ranking_pdf(self, request):
+        """
+        Exporta o Ranking de Riscos em PDF (A4 paisagem) com tabela paginada.
+        Respeita os mesmos filtros do list().
+        """
+        # --- consulta (mesma ordenação do ranking) ---
+        qs = (
+            self.filter_queryset(self.get_queryset())
+            .order_by('-pontuacao', '-impacto__value', '-probabilidade__value', '-criado_em')
+        )
+
+        # --- cabeçalhos e linhas ---
+        headers = [
+            "ID", "Matriz/Filial", "Setor", "Processo",
+            "Risco e Fator de Risco",
+            "Prob", "Impacto", "Pontuação",
+            "Risco Residual",
+            "Medidas de Controle",
+            "Tipo Ctrl", "Eficácia",
+            "Resposta ao Risco", "Criado em",
+        ]
+
+        br_tz = ZoneInfo("America/Sao_Paulo")
+        rows = []
+        for r in qs.iterator():
+            criado = timezone.localtime(r.criado_em, br_tz).strftime('%d/%m/%Y %H:%M') if r.criado_em else ""
+            rows.append([
+                str(r.id or ""),
+                r.matriz_filial or "",
+                r.setor or "",
+                r.processo or "",
+                r.risco_fator or "",
+                # Prob / Impact com rótulo (valor)
+                f"{getattr(getattr(r, 'probabilidade', None), 'label_pt', '')} ({getattr(getattr(r, 'probabilidade', None), 'value', '')})",
+                f"{getattr(getattr(r, 'impacto', None), 'label_pt', '')} ({getattr(getattr(r, 'impacto', None), 'value', '')})",
+                str(r.pontuacao or ""),
+                (r.risco_residual or "").capitalize(),
+                r.medidas_controle or "",
+                r.tipo_controle or "",
+                getattr(getattr(r, 'eficacia', None), 'label_pt', '') or "",
+                r.resposta_risco or "",
+                criado,
+            ])
+
+        # --- montar PDF ---
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=landscape(A4),
+            leftMargin=18, rightMargin=18, topMargin=22, bottomMargin=22
+        )
+
+        styles = getSampleStyleSheet()
+        title = Paragraph("Ranking de Riscos", styles["Heading2"])
+
+        # Larguras aproximadas por coluna (em pontos; ~ 800 úteis em A4 paisagem com margens)
+        # Ajuste fino se quiser mais/menos espaço em alguma coluna
+        col_widths = [
+            30,   # ID
+            90,   # Matriz/Filial
+            80,   # Setor
+            100,  # Processo
+            200,  # Risco e Fator
+            80,   # Prob
+            90,   # Impacto
+            65,   # Pontuação
+            80,   # Residual
+            140,  # Medidas de Controle
+            60,   # Tipo Ctrl
+            90,   # Eficácia
+            150,  # Resposta ao Risco
+            90,   # Criado em
+        ]
+
+        # Converter linhas em células com quebra de linha
+        body_style = styles["Normal"]
+        body_style.fontSize = 8
+        body_style.leading = 10
+
+        header_style = ParagraphStyle(
+            "TblHeader",
+            parent=styles["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=9,
+            alignment=1,  # center
+        )
+
+        # Cabeçalho como Paragraph
+        header_row = [Paragraph(h, header_style) for h in headers]
+
+        table_data = [header_row]
+        for row in rows:
+            table_data.append([Paragraph(escape(str(cell)), body_style) for cell in row])
+
+        table = Table(table_data, colWidths=col_widths, repeatRows=1)
+        table.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E6F0FF")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+            ("FONTSIZE", (0, 1), (-1, -1), 8),
+            ("LEADING", (0, 1), (-1, -1), 10),
+            # padding suave
+            ("LEFTPADDING", (0, 0), (-1, -1), 3),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            # cabeçalho fixo (repeatRows=1 já cuida), mas realça borda
+            ("LINEBEFORE", (0, 0), (0, -1), 0.25, colors.grey),
+            ("LINEAFTER", (-1, 0), (-1, -1), 0.25, colors.grey),
+        ]))
+
+        # Quebra automática em múltiplas páginas graças ao flowable Table
+        story = [title, Spacer(1, 8), table]
+
+        try:
+            doc.build(story)
+        except LayoutError:
+            # fallback simples: remove título se estourar (raro), e tenta novamente
+            doc = SimpleDocTemplate(
+                buffer,
+                pagesize=landscape(A4),
+                leftMargin=18, rightMargin=18, topMargin=12, bottomMargin=18
+            )
+            story = [table]
+            doc.build(story)
+
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+
+        # Nome do arquivo
+        dt_now = timezone.localtime(timezone.now(), timezone=br_tz)
+        file_name = f"ranking-riscos_{dt_now:%d-%m-%Y_%Hh%Mmin}.pdf"
+
+        resp = HttpResponse(pdf_bytes, content_type="application/pdf")
+        resp["Content-Disposition"] = f"attachment; filename*=UTF-8''{file_name}; filename=\"{file_name}\""
+        resp['Access-Control-Expose-Headers'] = 'Content-Disposition'
+        return resp
+
 
     @action(detail=False, methods=['get'], url_path=r'stats/by-band')
     def stats_by_band(self, request):
