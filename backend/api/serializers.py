@@ -1,9 +1,11 @@
 from rest_framework import serializers
-from .models import User, Checklist, InventarioDados, MatrizRisco, PlanoAcao, ExigenciaLGPD
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.core.validators import validate_email as core_validate_email
 from django.core.exceptions import ValidationError
 from django.contrib.auth import password_validation
+from .models import (
+    User, Checklist, InventarioDados, Risk, ActionPlan, MonitoringAction, Incident, ExigenciaLGPD, 
+    LikelihoodItem, ImpactItem, ControlEffectivenessItem, RiskLevelBand, Instruction)
 
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -192,6 +194,14 @@ class UserSerializer(serializers.ModelSerializer):
             
         instance.save()
         return instance
+    
+# Serializer para o modelo ExigenciaLGPD
+class ExigenciaLGPDSerializer(serializers.ModelSerializer):
+    upload_por = serializers.ReadOnlyField(source='upload_por.email') # Exibe o email do usuário
+
+    class Meta:
+        model = ExigenciaLGPD
+        fields = '__all__'            
 
 class ChecklistSerializer(serializers.ModelSerializer):
     class Meta:
@@ -250,32 +260,136 @@ class InventarioDadosSerializer(serializers.ModelSerializer):
         return attrs
 
 # Serializer para o modelo MatrizRisco
-class MatrizRiscoSerializer(serializers.ModelSerializer):
-    criado_por = serializers.ReadOnlyField(source='criado_por.email') # Exibe o email do usuário
-    # Adiciona o nome do processo afetado para facilitar a leitura na API
-    processo_afetado_nome = serializers.ReadOnlyField(source='processo_afetado.processo_negocio')
+class RiskSerializer(serializers.ModelSerializer):
+    # valores/labels prontos para o front
+    probabilidade_value = serializers.IntegerField(source='probabilidade.value', read_only=True)
+    probabilidade_label = serializers.CharField(source='probabilidade.label_pt', read_only=True)
+    impacto_value = serializers.IntegerField(source='impacto.value', read_only=True)
+    impacto_label = serializers.CharField(source='impacto.label_pt', read_only=True)
+    eficacia_label = serializers.CharField(source='eficacia.label_pt', read_only=True, default=None)
+
+    # score residual estimado (se existir eficácia)
+    residual_pontuacao = serializers.SerializerMethodField()
 
     class Meta:
-        model = MatrizRisco
-        fields = '__all__'
+        model = Risk
+        fields = "__all__"  # inclui campos do modelo
+        # e mais os auxiliares:
+        extra_fields = (
+            'probabilidade_value', 'probabilidade_label',
+            'impacto_value', 'impacto_label',
+            'eficacia_label', 'residual_pontuacao',
+        )
+
+    existe_controle = serializers.SerializerMethodField()
+
+    def get_existe_controle(self, obj):
+        return bool((getattr(obj, "medidas_controle", "") or "").strip())
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # garantir que extras estejam presentes mesmo com fields="__all__"
+        data.update({
+            'probabilidade_value': getattr(getattr(instance, 'probabilidade', None), 'value', None),
+            'probabilidade_label': getattr(getattr(instance, 'probabilidade', None), 'label_pt', None),
+            'impacto_value': getattr(getattr(instance, 'impacto', None), 'value', None),
+            'impacto_label': getattr(getattr(instance, 'impacto', None), 'label_pt', None),
+            'eficacia_label': getattr(getattr(instance, 'eficacia', None), 'label_pt', None),
+            'residual_pontuacao': self.get_residual_pontuacao(instance),
+        })
+        return data
+
+    def get_residual_pontuacao(self, obj):
+        """
+        Estima pontuação residual com base na eficácia (média do range).
+        Se não houver eficácia, retorna a pontuação inerente.
+        """
+        if not obj.eficacia_id:
+            return obj.pontuacao
+        eff = obj.eficacia
+        try:
+            avg = (eff.reduction_min + eff.reduction_max) / 2.0
+        except Exception:
+            return obj.pontuacao
+        return int(round(obj.pontuacao * (1 - (avg / 100.0))))
+    
+    def validate(self, attrs):
+        inst = getattr(self, "instance", None)
+
+        medidas = attrs.get("medidas_controle")
+        if medidas is None and inst is not None:
+            medidas = inst.medidas_controle
+
+        tipo = attrs.get("tipo_controle")
+        if tipo is None and inst is not None:
+            tipo = inst.tipo_controle
+
+        eficacia = attrs.get("eficacia")
+        if eficacia is None and inst is not None:
+            eficacia = inst.eficacia
+
+        existe = bool((medidas or "").strip())
+        errors = {}
+        if existe:
+            if not tipo:
+                errors["tipo_controle"] = "Informe se o controle é Preventivo (C) ou Detectivo (D)."
+        else:
+            if tipo:
+                errors["tipo_controle"] = "Deixe vazio quando não existe controle."
+            if eficacia:
+                errors["eficacia"] = "Não defina eficácia quando não existe controle."
+
+        if errors:
+            raise serializers.ValidationError(errors)
+        return attrs
 
 # Serializer para o modelo PlanoAcao
-class PlanoAcaoSerializer(serializers.ModelSerializer):
-    responsavel = serializers.ReadOnlyField(source='responsavel.email') # Exibe o email do responsável
-    # Adiciona a descrição do risco associado para facilitar a leitura
-    risco_descricao = serializers.ReadOnlyField(source='risco.descricao_risco')
+class ActionPlanSerializer(serializers.ModelSerializer):
+    # ajuda o front a exibir o vínculo
+    risco_risco_fator = serializers.ReadOnlyField(source='risco.risco_fator')
 
     class Meta:
-        model = PlanoAcao
-        fields = '__all__'
+        model = ActionPlan
+        fields = "__all__"
 
-# Serializer para o modelo ExigenciaLGPD
-class ExigenciaLGPDSerializer(serializers.ModelSerializer):
-    upload_por = serializers.ReadOnlyField(source='upload_por.email') # Exibe o email do usuário
+    def validate(self, attrs):
+        import datetime
+        prazo = attrs.get("prazo") or (self.instance.prazo if self.instance else None)
+        if prazo and prazo < datetime.date.today():
+            raise serializers.ValidationError({"prazo": "Prazo não pode ser no passado."})
+        return attrs
 
+class MonitoringActionSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ExigenciaLGPD
-        fields = '__all__'
-        # Se você quiser controlar quais campos são de leitura/escrita, pode fazer:
-        # fields = ['id', 'titulo', 'descricao', 'artigos_referencia', 'arquivo_comprovacao', 'upload_por', 'data_upload']
-        # read_only_fields = ['upload_por', 'data_upload']
+        model = MonitoringAction
+        fields = "__all__"
+
+class IncidentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Incident
+        fields = "__all__"
+
+class LikelihoodItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LikelihoodItem
+        fields = ("id", "value", "label_pt")
+
+class ImpactItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ImpactItem
+        fields = ("id", "value", "label_pt")
+
+class ControlEffectivenessItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ControlEffectivenessItem
+        fields = ("id", "value", "label_pt", "reduction_min", "reduction_max")
+
+class RiskLevelBandSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RiskLevelBand
+        fields = ("id", "name", "min_score", "max_score", "color")
+
+class InstructionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Instruction
+        fields = ("id", "title", "content", "updated_at")

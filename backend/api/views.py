@@ -4,6 +4,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.decorators import action
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
+from rest_framework.views import APIView
 from django.http import FileResponse, Http404, HttpResponse
 from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
@@ -15,15 +16,19 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, PageBreak, Spacer, KeepTogether
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus.doctemplate import LayoutError
+from xml.sax.saxutils import escape
+from collections import Counter
 
 
 from .serializers import (
     MyTokenObtainPairSerializer, UserSerializer, ChecklistSerializer,
-    InventarioDadosSerializer, MatrizRiscoSerializer, PlanoAcaoSerializer,
+    InventarioDadosSerializer, RiskSerializer, ActionPlanSerializer, MonitoringActionSerializer, IncidentSerializer,
     ExigenciaLGPDSerializer
 )
-from .models import User, Checklist, InventarioDados, MatrizRisco, PlanoAcao, ExigenciaLGPD
+from .models import User, Checklist, InventarioDados, Risk, ActionPlan, MonitoringAction, Incident, ExigenciaLGPD
 from .permissions import IsRoleAdmin, IsAdminOrDPO, IsDPOOrManager, SimpleRolePermission
 from .pagination import DefaultPagination
 
@@ -154,7 +159,38 @@ class UserViewSet(viewsets.ModelViewSet):
 
         data_out = self.get_serializer(user, context={'request': request}).data
         data_out['reauth_required'] = bool(password_changed)
-        return Response(data_out, status=status.HTTP_200_OK)        
+        return Response(data_out, status=status.HTTP_200_OK)  
+
+# ViewSet para ExigenciaLGPD
+class ExigenciaLGPDViewSet(viewsets.ModelViewSet):
+    queryset = ExigenciaLGPD.objects.all().order_by('titulo')
+    serializer_class = ExigenciaLGPDSerializer
+    
+    # leitura para autenticados; escrita só admin/dpo
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminOrDPO()]
+        # leitura
+        return [permissions.IsAuthenticated()]
+    
+    def perform_create(self, serializer):
+        # Automaticamente define o usuário que fez o upload
+        serializer.save(upload_por=self.request.user)
+
+    # Action para download do arquivo
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def download(self, request, pk=None):
+        instance = self.get_object()
+        if instance.arquivo_comprovacao:
+            try:
+                return FileResponse(
+                    open(instance.arquivo_comprovacao.path, 'rb'),
+                    filename=instance.arquivo_comprovacao.name,
+                    as_attachment=True
+                )
+            except FileNotFoundError:
+                raise Http404("Arquivo não encontrado.")
+        return Response({'detail': 'Nenhum arquivo anexado.'}, status=status.HTTP_404_NOT_FOUND)          
     
 # ViewSet para gerenciar o checklist da LGPD
 class ChecklistViewSet(viewsets.ModelViewSet):
@@ -418,9 +454,85 @@ class InventarioDadosViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path=r'export/pdf')
     def export_pdf(self, request):
         qs = self.filter_queryset(self.get_queryset())
-        cols, rows = self._export_cols_and_rows(qs)
-        headers = [label for _, label in cols]
 
+        # Mapeamento de campos (reutiliza a mesma ordem dos outros exports)
+        field_map = [
+            ('id', 'ID'),
+            ('unidade', 'Unidade'),
+            ('setor', 'Setor'),
+            ('responsavel_email', 'Responsável (E-mail)'),
+            ('processo_negocio', 'Processo de Negócio'),
+            ('finalidade', 'Finalidade'),
+            ('dados_pessoais', 'Dados Pessoais'),
+            ('tipo_dado', 'Tipo de Dado'),
+            ('origem', 'Origem'),
+            ('formato', 'Formato'),
+            ('impresso', 'Impresso'),
+            ('titulares', 'Titulares'),
+            ('dados_menores', 'Dados de menores'),
+            ('base_legal', 'Base Legal'),
+            ('pessoas_acesso', 'Pessoas com Acesso'),
+            ('atualizacoes', 'Atualizações (Quando)'),
+            ('transmissao_interna', 'Transmissão Interna'),
+            ('transmissao_externa', 'Transmissão Externa'),
+            ('local_armazenamento_digital', 'Local Armazenamento (Digital)'),
+            ('controlador_operador', 'Controlador/Operador'),
+            ('motivo_retencao', 'Motivo Retenção'),
+            ('periodo_retencao', 'Período Retenção'),
+            ('exclusao', 'Exclusão'),
+            ('forma_exclusao', 'Forma Exclusão'),
+            ('transferencia_terceiros', 'Transf. a Terceiros'),
+            ('quais_dados_transferidos', 'Quais Dados Transferidos'),
+            ('transferencia_internacional', 'Transf. Internacional'),
+            ('empresa_terceira', 'Empresa Terceira'),
+            ('adequado_contratualmente', 'Adequado Contratualmente'),
+            ('paises_tratamento', 'Países Tratamento'),
+            ('medidas_seguranca', 'Medidas de Segurança'),
+            ('consentimentos', 'Consentimentos'),
+            ('observacao', 'Observação'),
+            ('criado_por', 'Criado por (email)'),
+            ('data_criacao', 'Data Criação'),
+            ('data_atualizacao', 'Última Atualização'),
+        ]
+
+        # Estilos
+        styles = getSampleStyleSheet()
+        title_style = styles['Heading3']
+        title_style.spaceAfter = 6
+
+        label_style = ParagraphStyle(
+            'Label',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=9,
+            leading=11,
+            spaceAfter=0,
+            spaceBefore=0,
+        )
+        value_style = ParagraphStyle(
+            'Value',
+            parent=styles['Normal'],
+            fontSize=9,
+            leading=11,
+            spaceAfter=0,
+            spaceBefore=0,
+        )
+
+        # Helpers de formatação        
+        br_tz = ZoneInfo("America/Sao_Paulo")
+
+        def fmt_val(v):
+            if isinstance(v, bool):
+                return 'Sim' if v else 'Não'
+            if isinstance(v, datetime.datetime):
+                if timezone.is_naive(v):
+                    v = timezone.make_aware(v, timezone.get_default_timezone())
+                return timezone.localtime(v, br_tz).strftime('%d/%m/%Y %H:%M')
+            if isinstance(v, datetime.date):
+                return v.strftime('%d/%m/%Y')
+            return '' if v is None else str(v)
+
+        # Montagem do PDF (cartões)
         buffer = BytesIO()
         doc = SimpleDocTemplate(
             buffer,
@@ -428,79 +540,344 @@ class InventarioDadosViewSet(viewsets.ModelViewSet):
             leftMargin=18, rightMargin=18, topMargin=24, bottomMargin=24
         )
 
-        data = [headers] + rows
-        table = Table(data, repeatRows=1)
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#E6F0FF")),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.black),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('ALIGN', (0,0), (-1,0), 'CENTER'),
-            ('FONTSIZE', (0,0), (-1,0), 9),
-            ('GRID', (0,0), (-1,-1), 0.25, colors.grey),
-            ('FONTSIZE', (0,1), (-1,-1), 8),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ]))
+        story = []
+        from reportlab.platypus import Table, TableStyle
+        from reportlab.lib import colors
 
-        doc.build([table])
+        # Larguras: (Label, Value, Label, Value)
+        col_widths = [90, 300, 110, 300]  # ~800pt úteis em A4 paisagem com margens
+
+        for idx, obj in enumerate(qs.iterator(), start=1):
+            # Título do cartão
+            titulo = f"Inventário #{getattr(obj, 'id', '')}"
+            subtitulo_bits = []
+            if getattr(obj, 'unidade', ''): subtitulo_bits.append(str(obj.unidade))
+            if getattr(obj, 'setor', ''): subtitulo_bits.append(str(obj.setor))
+            if subtitulo_bits:
+                titulo += f" — {' / '.join(subtitulo_bits)}"
+
+            story.append(Paragraph(escape(titulo), title_style))
+            story.append(Spacer(1, 4))
+
+            # Constrói pares (label, value)
+            pairs = []
+            for field, label in field_map:
+                if field == 'criado_por':
+                    v = getattr(getattr(obj, 'criado_por', None), 'email', '') or ''
+                else:
+                    v = getattr(obj, field, '')
+                pairs.append((
+                    Paragraph(escape(label), label_style),
+                    Paragraph(escape(fmt_val(v)).replace('\n', '<br/>'), value_style),
+                ))
+
+            # Converte para linhas com 2 pares por linha -> 4 colunas
+            data = []
+            it = iter(pairs)
+            for p in it:
+                row = [p[0], p[1]]  # label, value
+                try:
+                    p2 = next(it)
+                    row.extend([p2[0], p2[1]])
+                except StopIteration:
+                    # linha ímpar: completa com vazio
+                    row.extend(['', ''])
+                data.append(row)
+
+            table = Table(data, colWidths=col_widths, repeatRows=0)
+            table.setStyle(TableStyle([
+                # grade fina
+                ('GRID', (0,0), (-1,-1), 0.25, colors.grey),
+
+                # rótulos com leve fundo
+                ('BACKGROUND', (0,0), (-1,-1), colors.white),
+                ('BACKGROUND', (0,0), (-1,-1), colors.white),
+                ('BACKGROUND', (0,0), (0,-1), colors.HexColor('#F0F4FF')),
+                ('BACKGROUND', (2,0), (2,-1), colors.HexColor('#F0F4FF')),
+
+                # alinhamentos & padding
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ('ALIGN',  (0,0), (-1,-1), 'LEFT'),
+                ('LEFTPADDING',  (0,0), (-1,-1), 4),
+                ('RIGHTPADDING', (0,0), (-1,-1), 4),
+                ('TOPPADDING',   (0,0), (-1,-1), 2),
+                ('BOTTOMPADDING',(0,0), (-1,-1), 2),
+
+                # quebra de linha até para palavras longas
+                ('WORDWRAP', (0,0), (-1,-1), 'CJK'),
+            ]))
+
+            story.append(table)
+
+            # página nova por registro (mais legível)
+            story.append(PageBreak())
+
+        # Remove o último PageBreak se existir
+        if story and isinstance(story[-1], PageBreak):
+            story.pop()
+
+        doc.build(story)
+
+        # Nome do arquivo “03-09-2025_16h33min”
+        dt_now = timezone.localtime(timezone.now(), timezone=br_tz)
+        ts = f"{dt_now.day:02d}-{dt_now.month:02d}-{dt_now.year}_{dt_now.hour:02d}h{dt_now.minute:02d}min"
+        file_name = f"inventarios-{ts}.pdf"
+
         pdf_bytes = buffer.getvalue()
         buffer.close()
 
-        file_name = f"inventarios-{self._timestamp_br()}.pdf"
         resp = HttpResponse(pdf_bytes, content_type='application/pdf')
         resp['Content-Disposition'] = f"attachment; filename*=UTF-8''{file_name}; filename=\"{file_name}\""
         resp['Access-Control-Expose-Headers'] = 'Content-Disposition'
-        return resp   
+        return resp
+
+   
 
 # ViewSet para MatrizRisco
-class MatrizRiscoViewSet(viewsets.ModelViewSet):
-    queryset = MatrizRisco.objects.all().order_by('-data_criacao')
-    serializer_class = MatrizRiscoSerializer
+class RiskViewSet(viewsets.ModelViewSet):
+    queryset = Risk.objects.all().select_related("probabilidade", "impacto", "eficacia")
+    serializer_class = RiskSerializer
     permission_classes = [IsDPOOrManager]
 
+    # filtros/busca/ordenação padrão
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = {
+        "matriz_filial": ["exact", "icontains"],
+        "setor": ["exact", "icontains"],
+        "processo": ["exact", "icontains"],
+        "risco_residual": ["exact"],
+        "tipo_controle": ["exact"],
+        "probabilidade": ["exact"],
+        "impacto": ["exact"],
+    }
+    search_fields = ["risco_fator", "processo", "setor", "matriz_filial"]
+    ordering_fields = ["pontuacao", "criado_em", "atualizado_em"]
+    ordering = ["-criado_em"]
+
     def perform_create(self, serializer):
-        serializer.save(criado_por=self.request.user)
+        # não passar 'criado_por' (o modelo Risk não tem esse campo)
+        serializer.save()
+
+    @action(detail=False, methods=["get"])
+    def ranking(self, request):
+        """
+        Lista de riscos ordenada por pontuação (desc).
+        Aceita mesmos filtros/busca do list().
+        """
+        qs = self.filter_queryset(self.get_queryset()).order_by("-pontuacao", "-criado_em")
+        data = [
+            {
+                "id": r.id,
+                "matriz_filial": r.matriz_filial,
+                "setor": r.setor,
+                "processo": r.processo,
+                "risco_fator": r.risco_fator,
+                "probabilidade": r.probabilidade.value if r.probabilidade_id else None,
+                "impacto": r.impacto.value if r.impacto_id else None,
+                "pontuacao": r.pontuacao,
+                "risco_residual": r.risco_residual,
+            }
+            for r in qs
+        ]
+        return Response(data)
+
+    @action(detail=False, methods=["get"])
+    def heatmap(self, request):
+        """
+        Buckets de contagem por (probabilidade x impacto).
+        Retorna: {"buckets": {"1-1": 0, "1-2": 3, ...}}
+        """
+        buckets = {}
+        qs = self.filter_queryset(self.get_queryset())
+        for r in qs:
+            if not (r.probabilidade_id and r.impacto_id):
+                continue
+            key = f"{r.probabilidade.value}-{r.impacto.value}"
+            buckets[key] = buckets.get(key, 0) + 1
+        return Response({"buckets": buckets})
+    
+    @action(detail=False, methods=['get'], url_path=r'export/xlsx')
+    def export_xlsx(self, request):
+        qs = self.filter_queryset(self.get_queryset()).order_by('setor', '-pontuacao', 'processo')
+
+        # Cabeçalhos no padrão da planilha “Avaliação de Riscos”
+        headers = [
+            "ID", "Matriz/Filial", "Setores", "Processo de Negócio Envolvido",
+            "Risco e Fator de Risco", "Probabilidade (1-5)", "Impacto (1-5)",
+            "Pontuação do Risco", "Medidas de Controle", "Tipo Controle (C/D)",
+            "Eficácia do Controle (rótulo)", "Risco Residual", "Resposta ao Risco",
+            "Criado em", "Atualizado em",
+        ]
+
+        # monta linhas
+        br_tz = ZoneInfo("America/Sao_Paulo")
+        rows = []
+        for r in qs.iterator():
+            criado = timezone.localtime(r.criado_em, br_tz).strftime('%d/%m/%Y %H:%M') if r.criado_em else ""
+            atualizado = timezone.localtime(r.atualizado_em, br_tz).strftime('%d/%m/%Y %H:%M') if r.atualizado_em else ""
+            existe = "Sim" if bool((r.medidas_controle or "").strip()) else "Não"
+            rows.append([
+                r.id,
+                r.matriz_filial,
+                r.setor,
+                r.processo,
+                r.risco_fator,
+                getattr(getattr(r, 'probabilidade', None), 'value', None),
+                getattr(getattr(r, 'impacto', None), 'value', None),
+                r.pontuacao,
+                r.medidas_controle or "",
+                existe,
+                r.tipo_controle or "",
+                getattr(getattr(r, 'eficacia', None), 'label_pt', None) or "",
+                r.risco_residual,
+                r.resposta_risco or "",
+                criado,
+                atualizado,
+            ])
+
+        # escreve XLSX
+        output = BytesIO()
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Avaliação de Riscos"
+
+        header_font = Font(bold=True)
+        fill = PatternFill(start_color="FFF4CC", end_color="FFF4CC", fill_type="solid")
+        for c, label in enumerate(headers, start=1):
+            cell = ws.cell(row=1, column=c, value=label)
+            cell.font = header_font
+            cell.fill = fill
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        for r_idx, row in enumerate(rows, start=2):
+            for c_idx, val in enumerate(row, start=1):
+                ws.cell(row=r_idx, column=c_idx, value=val)
+
+        for col_idx, label in enumerate(headers, start=1):
+            width = max(10, min(60, len(str(label)) + 2))
+            ws.column_dimensions[get_column_letter(col_idx)].width = width
+
+        wb.save(output); output.seek(0)
+
+        # nome do arquivo
+        dt = timezone.localtime(timezone.now(), timezone=br_tz)
+        file_name = f"avaliacao-riscos_{dt:%d-%m-%Y_%Hh%Mmin}.xlsx"
+
+        resp = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        resp['Content-Disposition'] = f"attachment; filename*=UTF-8''{file_name}; filename=\"{file_name}\""
+        resp['Access-Control-Expose-Headers'] = 'Content-Disposition'
+        return resp
+
+    @action(detail=False, methods=['get'], url_path=r'stats/by-band')
+    def stats_by_band(self, request):
+        """
+        Contagem por faixa de risco residual (baixo/medio/alto/critico).
+        """
+        qs = self.filter_queryset(self.get_queryset())
+        counter = Counter((r.risco_residual or '').lower() for r in qs)
+        data = {
+            "baixo": counter.get("baixo", 0),
+            "medio": counter.get("medio", 0),
+            "alto": counter.get("alto", 0),
+            "critico": counter.get("critico", 0),
+        }
+        return Response(data)
 
 # ViewSet para PlanoAcao
-class PlanoAcaoViewSet(viewsets.ModelViewSet):
-    queryset = PlanoAcao.objects.all().order_by('data_limite')
-    serializer_class = PlanoAcaoSerializer
+class ActionPlanViewSet(viewsets.ModelViewSet):
+    queryset = ActionPlan.objects.all().select_related("risco")
+    serializer_class = ActionPlanSerializer
     permission_classes = [IsDPOOrManager]
 
-    def perform_create(self, serializer):
-        # Responsável pode ser setado manualmente ou via request.user dependendo da lógica
-        # Por enquanto, mantemos a lógica de salvamento padrão, mas você pode modificar aqui
-        # para que o responsável seja o usuário logado se for o caso
-        # Se quiser permitir enviar 'responsavel' no corpo, troque para:
-        # serializer.save(responsavel=self.request.data.get('responsavel', self.request.user))
-        serializer.save(responsavel=self.request.user) # responsavel deve vir no request.data
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = {
+        "status": ["exact"],
+        "setor_proprietario": ["exact", "icontains"],
+        "matriz_filial": ["exact", "icontains"],
+        "risco": ["exact"],
+    }
+    search_fields = ["descricao", "responsavel_execucao", "processo", "risco__risco_fator"]
+    ordering_fields = ["prazo", "id"]
+    ordering = ["prazo"]
 
-# ViewSet para ExigenciaLGPD
-class ExigenciaLGPDViewSet(viewsets.ModelViewSet):
-    queryset = ExigenciaLGPD.objects.all().order_by('titulo')
-    serializer_class = ExigenciaLGPDSerializer
-    
-    # leitura para autenticados; escrita só admin/dpo
-    def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminOrDPO()]
-        # leitura
-        return [permissions.IsAuthenticated()]
-    
     def perform_create(self, serializer):
-        # Automaticamente define o usuário que fez o upload
-        serializer.save(upload_por=self.request.user)
+        # NÃO passar 'responsavel' (não existe no modelo). Deixe o payload popular 'responsavel_execucao'.
+        serializer.save()
 
-    # Action para download do arquivo
-    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
-    def download(self, request, pk=None):
-        instance = self.get_object()
-        if instance.arquivo_comprovacao:
-            try:
-                return FileResponse(
-                    open(instance.arquivo_comprovacao.path, 'rb'),
-                    filename=instance.arquivo_comprovacao.name,
-                    as_attachment=True
-                )
-            except FileNotFoundError:
-                raise Http404("Arquivo não encontrado.")
-        return Response({'detail': 'Nenhum arquivo anexado.'}, status=status.HTTP_404_NOT_FOUND)
+    @action(detail=False, methods=['get'], url_path=r'stats/overdue')
+    def stats_overdue(self, request):
+        """
+        Planos atrasados (não concluídos e com prazo < hoje).
+        """
+        today = timezone.localdate()
+        qs = self.filter_queryset(self.get_queryset()).filter(
+            status__in=["nao_iniciado", "andamento"],
+            prazo__lt=today,
+        ).select_related("risco")
+
+        items = []
+        for ap in qs:
+            dias = (today - ap.prazo).days
+            items.append({
+                "id": ap.id,
+                "risco_id": ap.risco_id,
+                "risco_risco_fator": getattr(ap.risco, "risco_fator", ""),
+                "setor_proprietario": ap.setor_proprietario,
+                "prazo": ap.prazo.strftime("%Y-%m-%d"),
+                "dias_atraso": dias,
+                "status": ap.status,
+            })
+
+        return Response({"count": len(items), "items": items})
+
+class MonitoringActionViewSet(viewsets.ModelViewSet):
+    queryset = MonitoringAction.objects.all()
+    serializer_class = MonitoringActionSerializer
+    permission_classes = [IsDPOOrManager]
+
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["framework_requisito", "responsavel", "escopo"]
+    ordering_fields = ["data_monitoramento", "data_conclusao", "id"]
+    ordering = ["-data_monitoramento"]
+
+class IncidentViewSet(viewsets.ModelViewSet):
+    queryset = Incident.objects.all()
+    serializer_class = IncidentSerializer
+    permission_classes = [IsDPOOrManager]
+
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["descricao", "fonte", "responsavel_analise", "decisoes_resolucao"]
+    ordering_fields = ["data_registro", "data_encerramento", "numero_registro"]
+    ordering = ["-data_registro"]
+
+class RiskConfigView(APIView):
+    """
+    Retorna a parametrização usada pela Matriz de Riscos.
+    GET /risk-config/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from .models import LikelihoodItem, ImpactItem, ControlEffectivenessItem, RiskLevelBand, Instruction
+        from .serializers import (
+            LikelihoodItemSerializer, ImpactItemSerializer,
+            ControlEffectivenessItemSerializer, RiskLevelBandSerializer,
+            InstructionSerializer
+        )
+        likelihood = LikelihoodItem.objects.all().order_by("value")
+        impact = ImpactItem.objects.all().order_by("value")
+        effectiveness = ControlEffectivenessItem.objects.all().order_by("value")
+        bands = RiskLevelBand.objects.all().order_by("min_score")
+        instructions = Instruction.objects.all().order_by("updated_at")
+
+        data = {
+            "likelihood": LikelihoodItemSerializer(likelihood, many=True).data,
+            "impact": ImpactItemSerializer(impact, many=True).data,
+            "effectiveness": ControlEffectivenessItemSerializer(effectiveness, many=True).data,
+            "bands": RiskLevelBandSerializer(bands, many=True).data,
+            "instructions": InstructionSerializer(instructions, many=True).data,
+        }
+        return Response(data)

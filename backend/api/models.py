@@ -1,7 +1,10 @@
+import uuid, os
+import datetime
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
-import uuid, os
 from django.conf import settings
+from django.core.exceptions import ValidationError
+
 
 class CustomUserManager(BaseUserManager):
     use_in_migrations = True
@@ -171,84 +174,190 @@ class InventarioDados(models.Model):
 
     def __str__(self):
         return self.processo_negocio or f"Inventário #{self.pk}"
-
-
-class MatrizRisco(models.Model):
-    """
-    Modelo para o formulário de Matriz de Risco.
-    Avalia riscos associados a processos de tratamento de dados.
-    """
-    # Relaciona o risco a um registro de inventário de dados
-    processo_afetado = models.ForeignKey(InventarioDados, on_delete=models.CASCADE, related_name='riscos', verbose_name="Processo Afetado")
-
-    descricao_risco = models.TextField(verbose_name="Descrição do Risco")
-    probabilidade = models.CharField(max_length=50, verbose_name="Probabilidade",
-        choices=[
-            ('baixa', 'Baixa'),
-            ('media', 'Média'),
-            ('alta', 'Alta'),
-        ]
-    )
-    impacto = models.CharField(max_length=50, verbose_name="Impacto",
-        choices=[
-            ('baixo', 'Baixo'),
-            ('medio', 'Médio'),
-            ('alto', 'Alto'),
-        ]
-    )
-    nivel_risco = models.CharField(max_length=50, blank=True, null=True, verbose_name="Nível de Risco Calculado")
-    # Pode ser calculado no backend ou preenchido manualmente
-
-    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='riscos_criados', verbose_name="Criado por")
-    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
-    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Última Atualização")
-
+    
+class LikelihoodItem(models.Model):
+    value = models.PositiveSmallIntegerField(unique=True)   # 1..5
+    label_pt = models.CharField(max_length=60)
+    class Meta:
+        ordering = ["-value"]
+        verbose_name = "Probabilidade"
+        verbose_name_plural = "Probabilidade (itens)"
     def __str__(self):
-        """Retorna a descrição do risco e o processo associado."""
-        try:
-            proc = getattr(self.processo_afetado, 'processo_negocio', '') or ''
-        except Exception:
-            proc = ''
-        return f"Risco: {self.descricao_risco[:50]}... (Processo: {proc or 'N/D'})"
+        return f"{self.value} - {self.label_pt}"
+
+class ImpactItem(models.Model):
+    value = models.PositiveSmallIntegerField(unique=True)   # 1..5
+    label_pt = models.CharField(max_length=60)
+    class Meta:
+        ordering = ["-value"]
+        verbose_name = "Impacto"
+        verbose_name_plural = "Impacto (itens)"
+    def __str__(self):
+        return f"{self.value} - {self.label_pt}"
+
+class ControlEffectivenessItem(models.Model):
+    value = models.PositiveSmallIntegerField(unique=True)   # 1..5
+    label_pt = models.CharField(max_length=60)              # "Muito efetivo", etc.
+    reduction_min = models.PositiveSmallIntegerField()      # 0..100
+    reduction_max = models.PositiveSmallIntegerField()
+    class Meta:
+        ordering = ["-value"]
+        verbose_name = "Efetividade do Controle"
+        verbose_name_plural = "Efetividade do Controle (itens)"
+    def __str__(self):
+        return f"{self.value} - {self.label_pt} ({self.reduction_min}-{self.reduction_max}%)"
+
+class RiskLevelBand(models.Model):
+    name = models.CharField(max_length=40)                  # Baixo/Médio/Alto/Crítico
+    color = models.CharField(max_length=7)                  # "#C00000"
+    min_score = models.PositiveSmallIntegerField()
+    max_score = models.PositiveSmallIntegerField()
+    class Meta:
+        ordering = ["min_score"]
+        verbose_name = "Nível de Risco (faixa)"
+        verbose_name_plural = "Níveis de Risco (faixas)"
+    def __str__(self):
+        return f"{self.name} ({self.min_score}-{self.max_score})"
+
+class Instruction(models.Model):
+    title = models.CharField(max_length=120)
+    body_md = models.TextField()                            # markdown
+    updated_at = models.DateTimeField(auto_now=True)
+    def __str__(self):
+        return self.title
+
+
+class Risk(models.Model):
+    matriz_filial = models.CharField(max_length=120)
+    setor = models.CharField(max_length=120)
+    processo = models.CharField(max_length=200)
+    risco_fator = models.TextField()  # "Risco e Fator de Risco"
+    # chave/parametrização
+    probabilidade = models.ForeignKey("LikelihoodItem", on_delete=models.PROTECT)
+    impacto = models.ForeignKey("ImpactItem", on_delete=models.PROTECT)
+    pontuacao = models.IntegerField(editable=False, default=0)  # prob * impacto (calculado)
+    medidas_controle = models.TextField(blank=True)
+    tipo_controle = models.CharField(max_length=1, choices=[("C","Preventivo"),("D","Detectivo")], blank=True)
+    eficacia = models.ForeignKey("ControlEffectivenessItem", null=True, blank=True, on_delete=models.SET_NULL)
+    risco_residual = models.CharField(max_length=20, choices=[("baixo","Baixo"),("medio","Médio"),("alto","Alto")], blank=True )
+    resposta_risco = models.TextField(blank=True)  # plano de ação
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Matriz de Risco"
-        verbose_name_plural = "Matrizes de Risco"
-        ordering = ['-data_criacao'] # Ordena por data de criação decrescente
+        ordering = ["-criado_em"]
+        verbose_name = "Risco"
+        verbose_name_plural = "Riscos"
 
+    def save(self, *args, **kwargs):
+        # calcula a pontuação inerente toda vez que salvar
+        try:
+            p = int(self.probabilidade.value)
+            i = int(self.impacto.value)
+            self.pontuacao = p * i
+        except Exception:
+            # em caso de criação incompleta (FKs ainda não setadas)
+            self.pontuacao = self.pontuacao or 0
 
-class PlanoAcao(models.Model):
-    """
-    Modelo para o formulário de Plano de Ação.
-    Define ações para mitigar riscos identificados.
-    """
-    # Relaciona o plano de ação a um risco específico
-    risco = models.ForeignKey(MatrizRisco, on_delete=models.CASCADE, related_name='planos_acao', verbose_name="Risco Associado")
-
-    acao_mitigacao = models.TextField(verbose_name="Ação de Mitigação")
-    responsavel = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='planos_responsaveis', verbose_name="Responsável pela Ação")
-    data_limite = models.DateField(verbose_name="Data Limite para Conclusão")
-    status = models.CharField(max_length=50, default='Pendente', verbose_name="Status da Ação",
-        choices=[
-            ('pendente', 'Pendente'),
-            ('em_andamento', 'Em Andamento'),
-            ('concluido', 'Concluído'),
-            ('cancelado', 'Cancelado'),
-        ]
-    )
-    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações do Plano de Ação")
-
-    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
-    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Última Atualização")
+        # se o residual não foi informado, tenta deduzir pelas faixas
+        if not self.risco_residual:
+            try:
+                from .models import RiskLevelBand  # import local para evitar ordem de import
+                band = RiskLevelBand.objects.filter(
+                    min_score__lte=self.pontuacao,
+                    max_score__gte=self.pontuacao
+                ).first()
+                if band:
+                    nome = band.name.strip().lower()
+                    mapa = {"baixo":"baixo", "médio":"medio", "medio":"medio", "alto":"alto", "crítico":"critico", "critico":"critico"}
+                    self.risco_residual = mapa.get(nome, self.risco_residual)
+            except Exception:
+                pass    
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        """Retorna a ação de mitigação e o status."""
-        return f"Ação: {self.acao_mitigacao[:50]}... (Status: {self.status})"
+        return f"{self.risco_fator[:60]}..."
+    
+
+    def clean(self):
+        errors = {}
+        # "Existe controle" = True se houver texto nas medidas
+        existe_controle = bool((self.medidas_controle or "").strip())
+
+        if existe_controle:
+            if not self.tipo_controle:
+                errors["tipo_controle"] = "Informe se o controle é Preventivo (C) ou Detectivo (D)."
+        else:
+            if self.tipo_controle:
+                errors["tipo_controle"] = "Deixe vazio quando não existe controle."
+            if self.eficacia_id:
+                errors["eficacia"] = "Não defina eficácia quando não existe controle."
+
+        if errors:
+            raise ValidationError(errors)
+
+
+class ActionPlan(models.Model):
+    risco = models.ForeignKey(Risk, on_delete=models.CASCADE, related_name="planos")
+    matriz_filial = models.CharField(max_length=120)
+    setor_proprietario = models.CharField(max_length=120)
+    processo = models.CharField(max_length=200)
+    descricao = models.TextField()  # "Plano de Ação adicional"
+    como = models.TextField(blank=True)
+    responsavel_execucao = models.CharField(max_length=120)
+    prazo = models.DateField()
+    status = models.CharField(max_length=20, choices=[("nao_iniciado","Não iniciado"),("andamento","Em andamento"),("concluido","Concluído")])
 
     class Meta:
         verbose_name = "Plano de Ação"
         verbose_name_plural = "Planos de Ação"
-        ordering = ['data_limite'] # Ordena por data limite
+        ordering = ["prazo"]
+
+    def __str__(self):
+        return f"{self.descricao[:60]}..."
+    
+    def clean(self):        
+        if self.prazo and self.prazo < datetime.date.today():
+            raise ValidationError({"prazo": "Prazo não pode ser no passado."})
+
+
+class MonitoringAction(models.Model):
+    framework_requisito = models.CharField(max_length=200)
+    escopo = models.TextField()
+    data_monitoramento = models.DateField()
+    criterio_avaliacao = models.CharField(max_length=200)
+    responsavel = models.CharField(max_length=120)
+    data_conclusao = models.DateField(null=True, blank=True)
+    deficiencias = models.TextField(blank=True)
+    corretivas = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = "Ação de Monitoramento"
+        verbose_name_plural = "Ações de Monitoramento"
+
+    def __str__(self):
+        return f"{self.framework_requisito} - {self.data_monitoramento}"
+
+class Incident(models.Model):
+    numero_registro = models.AutoField(primary_key=True)
+    descricao = models.TextField()
+    fonte = models.CharField(max_length=120)
+    data_registro = models.DateField()
+    responsavel_analise = models.CharField(max_length=120)
+    data_final_analise = models.DateField(null=True, blank=True)
+    acao_recomendada = models.TextField(blank=True)
+    recomendacoes_reportadas = models.CharField(max_length=200, blank=True)
+    data_reporte = models.DateField(null=True, blank=True)
+    decisoes_resolucao = models.TextField(blank=True)
+    data_encerramento = models.DateField(null=True, blank=True)
+    fonte_informada = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = "Incidente"
+        verbose_name_plural = "Incidentes"
+
+    def __str__(self):
+        return f"Incidente #{self.numero_registro}"
 
 
 class ExigenciaLGPD(models.Model):
