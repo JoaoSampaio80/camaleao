@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Container, Form, Button, Row, Col, Alert, Table, Spinner, Card } from 'react-bootstrap';
+import React, { useEffect, useState, useMemo } from 'react';
+import { Container, Form, Button, Row, Col, Alert, Table, Spinner, Card, Badge, Pagination } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import AxiosInstance from '../components/Axios';
 import Sidebar from '../components/Sidebar';
@@ -8,9 +8,14 @@ const NameMax = 60;
 
 const sanitizeName = (s) =>
   (s || '')
-    .replace(/[^\p{L}\s]/gu, '')   // remove tudo que não for letra ou espaço
-    .replace(/\s{2,}/g, ' ')       // colapsa espaços repetidos
-    .replace(/^\s+/, '')
+    // permite letras unicode, espaço, hífen, apóstrofo ASCII (') e apóstrofo tipográfico (’)
+    .replace(/[^\p{L}\s\-'\u2019]/gu, '')
+    // colapsa repetições
+    .replace(/\s{2,}/g, ' ')
+    .replace(/-{2,}/g, '-')
+    .replace(/['\u2019]{2,}/g, "'")
+    // remove espaços/apóstrofos/hífens do início
+    .replace(/^[\s'\u2019-]+/, '')
     .slice(0, NameMax);
 
 const addYearsToISODate = (yyyy_mm_dd, years = 2) => {
@@ -70,9 +75,16 @@ function Cadastro() {
   const [mode, setMode] = useState('create'); // 'create' | 'edit'
   const [selectedId, setSelectedId] = useState(null);
 
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState([]);        // lista normalizada
   const [listLoading, setListLoading] = useState(true);
   const [query, setQuery] = useState('');
+
+  // paginação
+  const [page, setPage] = useState(1);           // página atual
+  const [pageSize, setPageSize] = useState(10);  // itens por página
+  const [count, setCount] = useState(0);         // total de itens (quando paginado)
+  const [next, setNext] = useState(null);
+  const [previous, setPrevious] = useState(null);
 
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState('');
@@ -81,21 +93,50 @@ function Cadastro() {
 
   const [originalRole, setOriginalRole] = useState(null);
 
-  // ------- Lista de usuários -------
+  const totalPages = useMemo(() => {
+    const base = count || users.length || 0;
+    return Math.max(1, Math.ceil(base / pageSize));
+  }, [count, users.length, pageSize]);
+
+  // ------- Lista de usuários (com normalização e paginação) -------
   const fetchUsers = async () => {
     setListLoading(true);
-    // setMessage(''); setVariant('');
     try {
-      const resp = await AxiosInstance.get('users/', { params: query ? { q: query } : {} });
-      setUsers(resp.data || []);
+      const params = {};
+      if (query) params.q = query;
+
+      // Suporta PageNumberPagination padrão do DRF: page / page_size
+      params.page = page;
+      params.page_size = pageSize;
+
+      const resp = await AxiosInstance.get('users/', { params });
+      const data = resp?.data;
+
+      // Aceita: [ {...}, {...} ]  ou  { results: [ {...} ], count, next, previous }
+      const list = Array.isArray(data) ? data : (Array.isArray(data?.results) ? data.results : []);
+      setUsers(list);
+
+      if (Array.isArray(data)) {
+        // sem paginação no backend -> finge uma página única
+        setCount(data.length);
+        setNext(null);
+        setPrevious(null);
+      } else {
+        setCount(Number.isFinite(data?.count) ? data.count : list.length);
+        setNext(data?.next ?? null);
+        setPrevious(data?.previous ?? null);
+      }
     } catch (e) {
-      setVariant('danger'); setMessage('Falha ao carregar usuários.');
+      setUsers([]); // garante array mesmo em erro
+      setVariant('danger');
+      setMessage('Falha ao carregar usuários.');
     } finally {
       setListLoading(false);
     }
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { fetchUsers(); /* eslint-disable-next-line */ }, [page, pageSize]); // atualiza ao trocar página/tamanho
+  useEffect(() => { fetchUsers(); /* eslint-disable-next-line */ }, []); // primeira carga
 
   // ------- Handlers -------
   const handleChange = (e) => {
@@ -154,11 +195,11 @@ function Cadastro() {
       }
     }
 
-    if (formData.first_name && /[^\p{L}\s]/u.test(formData.first_name)) {
-      e.first_name = 'Use apenas letras e espaços.';
+    if (formData.first_name && /[^\p{L}\s\-'\u2019]/u.test(formData.first_name)) {
+      e.first_name = 'Use apenas letras, espaços, hífen e apóstrofo.';
     }
-    if (formData.last_name && /[^\p{L}\s]/u.test(formData.last_name)) {
-      e.last_name = 'Use apenas letras e espaços.';
+    if (formData.last_name && /[^\p{L}\s\-'\u2019]/u.test(formData.last_name)) {
+      e.last_name = 'Use apenas letras, espaços, hífen e apóstrofo.';
     }
 
     // Campos obrigatórios para DPO
@@ -168,7 +209,6 @@ function Cadastro() {
       else if (!(len === 10 || len === 11)) e.phone_number = 'Telefone deve ter 10 ou 11 dígitos.';
 
       if (!formData.appointment_date) e.appointment_date = 'Data de nomeação é obrigatória para DPO.';
-      // if (!formData.appointment_validity) e.appointment_validity = 'Validade da nomeação é obrigatória para DPO.';
     }
     return e;
   };
@@ -185,13 +225,11 @@ function Cadastro() {
 
     if (formData.role === 'dpo') {
       const date = formData.appointment_date || null;
-      // Se já houver validade, usa a informada; senão, sugere a partir da data
       const validity = date ? addYearsToISODate(date, 2) : null;
 
       data.appointment_date = date;
       data.appointment_validity = validity;
     } else {
-      // só limpa explicitamente se estiver saindo de DPO
       if (mode === 'edit' && originalRole === 'dpo' && formData.role !== 'dpo') {
         data.appointment_date = null;
         data.appointment_validity = null;
@@ -269,11 +307,6 @@ function Cadastro() {
       const resp = await AxiosInstance.get(`users/${id}/`);
       const u = resp.data || {};
 
-      const computedValidity =
-        u.role === 'dpo' && u.appointment_date && !u.appointment_validity
-          ? addYearsToISODate(u.appointment_date, 2)
-          : (u.appointment_validity || '');
-
       setFormData({
         email: u.email || '',
         first_name: u.first_name || '',
@@ -283,7 +316,7 @@ function Cadastro() {
         appointment_date: u.appointment_date || '',
         appointment_validity: (u.role === 'dpo' && u.appointment_date)
           ? addYearsToISODate(u.appointment_date, 2)
-          : '', // fora de DPO, não exibimos esse campo
+          : '',
         password: '',
         password2: '',
       });
@@ -317,7 +350,6 @@ function Cadastro() {
     if (errors.last_name) setErrors((prev) => ({ ...prev, last_name: undefined }));
   };
 
-
   const handleDelete = async (id) => {
     if (!window.confirm('Tem certeza que deseja excluir este usuário?')) return;
     try {
@@ -334,6 +366,7 @@ function Cadastro() {
 
   const onFilter = async (e) => {
     e.preventDefault();
+    setPage(1); // sempre volta pra primeira página ao filtrar
     await fetchUsers();
   };
 
@@ -351,6 +384,28 @@ function Cadastro() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.role, formData.appointment_date]);
 
+  // ===== helpers de paginação (UI) =====
+  const canPrev = Boolean(previous) || page > 1;
+  const canNext = Boolean(next) || page < totalPages;
+
+  const goTo = (p) => {
+    if (p < 1 || p > totalPages) return;
+    setPage(p);
+  };
+
+  // cria um range curto de páginas (para não poluir a UI)
+  const pageItems = useMemo(() => {
+    const maxAround = 2; // páginas vizinhas ao redor da atual
+    const start = Math.max(1, page - maxAround);
+    const end = Math.min(totalPages, page + maxAround);
+    const arr = [];
+    for (let i = start; i <= end; i++) arr.push(i);
+    return arr;
+  }, [page, totalPages]);
+
+  const editClass = mode === 'edit' ? 'edit-highlight' : '';
+  const cardEditClass = mode === 'edit' ? 'edit-mode-card' : '';
+
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
       <Sidebar />
@@ -367,21 +422,27 @@ function Cadastro() {
           boxSizing: 'border-box',
         }}
       >
-        <h2 className="mb-4" style={{ color: '#071744' }}>
-          {mode === 'create' ? 'Cadastro de Usuário' : 'Editar Usuário'}
-        </h2>
+        <div className="d-flex align-items-center gap-3 mb-2" style={{ width: '100%', maxWidth: 1100 }}>
+          <h2 className="mb-0" style={{ color: '#071744' }}>
+            {mode === 'create' ? 'Cadastro de Usuário' : 'Editar Usuário'}
+          </h2>
+          {mode === 'edit' && (
+            <Badge bg="warning" text="dark">Modo edição ativo</Badge>
+          )}
+        </div>
 
         {message && <Alert variant={variant}>{message}</Alert>}
 
         <Container fluid style={{ maxWidth: 1100 }}>
           {/* ========= CARD: FORMULÁRIO ========= */}
-          <Card className="mb-4 shadow-sm">
+          <Card className={`mb-4 shadow-sm ${cardEditClass}`}>
             <Card.Body>
               <Form onSubmit={handleSubmit} noValidate>
                 <Row className="mb-3">
                   <Col md={6}>
                     <Form.Label>E-mail</Form.Label>
                     <Form.Control
+                      className={editClass}
                       type="email"
                       name="email"
                       placeholder="Digite o e-mail"
@@ -389,7 +450,7 @@ function Cadastro() {
                       onChange={handleChange}
                       isInvalid={!!errors.email}
                       autoComplete="email"
-                      required
+                      required                      
                     />
                     <Form.Control.Feedback type="invalid">{errors.email}</Form.Control.Feedback>
                   </Col>
@@ -397,6 +458,7 @@ function Cadastro() {
                   <Col md={3}>
                     <Form.Label>Nome</Form.Label>
                     <Form.Control
+                      className={editClass}
                       type="text"
                       name="first_name"
                       placeholder="Digite o nome"
@@ -405,7 +467,6 @@ function Cadastro() {
                       onKeyDown={(e) => {
                         const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End', ' '];
                         if (allowedKeys.includes(e.key)) return;
-                        // bloqueia números rapidamente; o resto a sanitização tira no onChange
                         if (/^\d$/.test(e.key)) e.preventDefault();
                       }}
                       maxLength={NameMax}
@@ -418,6 +479,7 @@ function Cadastro() {
                   <Col md={3}>
                     <Form.Label>Sobrenome</Form.Label>
                     <Form.Control
+                      className={editClass}
                       type="text"
                       name="last_name"
                       placeholder="Digite o sobrenome"
@@ -440,6 +502,7 @@ function Cadastro() {
                   <Col md={6}>
                     <Form.Label>Tipo Usuário</Form.Label>
                     <Form.Select
+                      className={editClass}
                       name="role"
                       required
                       value={formData.role}
@@ -460,17 +523,18 @@ function Cadastro() {
                     <Col md={4}>
                       <Form.Label>Telefone</Form.Label>
                       <Form.Control
+                        className={editClass}
                         type="tel"
                         name="phone_number"
                         placeholder="(xx) xxxx-xxxx ou (xx) xxxxx-xxxx"
-                        value={formatPhoneBR(formData.phone_number)}   // mostra mascarado
-                        onChange={handlePhoneChange}                   // salva só dígitos
+                        value={formatPhoneBR(formData.phone_number)}
+                        onChange={handlePhoneChange}
                         onKeyDown={(e) => {
                           const allowed = ['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'];
                           if (allowed.includes(e.key)) return;
-                          if (!/^\d$/.test(e.key)) e.preventDefault(); // bloqueia não-numérico
+                          if (!/^\d$/.test(e.key)) e.preventDefault();
                         }}
-                        inputMode="numeric"                            // teclado numérico no mobile
+                        inputMode="numeric"
                         isInvalid={!!errors.phone_number}
                         autoComplete="tel"
                       />
@@ -480,6 +544,7 @@ function Cadastro() {
                     <Col md={4}>
                       <Form.Label>Data da Nomeação</Form.Label>
                       <Form.Control
+                        className={editClass}
                         type="date"
                         name="appointment_date"
                         value={formData.appointment_date || ''}
@@ -502,8 +567,6 @@ function Cadastro() {
                             readOnly
                             plaintext
                           />
-
-                          // <Form.Control.Feedback type="invalid">{errors.appointment_validity}</Form.Control.Feedback>
                         );
                       })()}
                     </Col>
@@ -514,6 +577,7 @@ function Cadastro() {
                   <Col md={4}>
                     <Form.Label>{mode === 'create' ? 'Senha' : 'Nova Senha (opcional)'}</Form.Label>
                     <Form.Control
+                      className={editClass}
                       type="password"
                       name="password"
                       placeholder={mode === 'create' ? 'Digite a senha' : 'Preencha para alterar'}
@@ -529,6 +593,7 @@ function Cadastro() {
                   <Col md={4}>
                     <Form.Label>Confirmar {mode === 'create' ? 'Senha' : 'Nova Senha'}</Form.Label>
                     <Form.Control
+                      className={editClass}
                       type="password"
                       name="password2"
                       placeholder="Repita a senha"
@@ -562,6 +627,7 @@ function Cadastro() {
             </Card.Body>
           </Card>
 
+          {/* ========= CARD: LISTA + FILTRO + PAGINAÇÃO ========= */}
           <Card className="shadow-sm">
             <Card.Header className="bg-white">
               <Form onSubmit={onFilter}>
@@ -578,62 +644,109 @@ function Cadastro() {
                     <Button type="submit">Filtrar</Button>
                   </Col>
                   <Col md="auto">
-                    <Button variant="outline-secondary" onClick={() => { setQuery(''); fetchUsers(); }}>
+                    <Button variant="outline-secondary" onClick={() => { setQuery(''); setPage(1); fetchUsers(); }}>
                       Limpar
                     </Button>
+                  </Col>
+                  <Col md="auto" className="ms-auto">
+                    <Form.Label>Tamanho da página</Form.Label>
+                    <Form.Select
+                      value={pageSize}
+                      onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+                      style={{ width: 120 }}
+                    >
+                      {[5, 10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                    </Form.Select>
                   </Col>
                 </Row>
               </Form>
             </Card.Header>
+
             <Card.Body className="pt-0">
               {listLoading ? (
                 <div className="py-5 text-center">
                   <Spinner animation="border" role="status" />
                 </div>
               ) : (
-                <Table striped hover responsive className="mt-3">
-                  <thead>
-                    <tr>
-                      <th>E-mail</th>
-                      <th>Nome</th>
-                      <th>Função</th>
-                      <th style={{ width: 160 }}>Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.map((u) => (
-                      <tr key={u.id}>
-                        <td>{u.email}</td>
-                        <td>{[u.first_name, u.last_name].filter(Boolean).join(' ')}</td>
-                        <td>{u.role}</td>
-                        <td>
-                          <Button
-                            size="sm"
-                            variant="outline-primary"
-                            className="me-2"
-                            onClick={() => handleEdit(u.id)}
-                          >
-                            Editar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline-danger"
-                            onClick={() => handleDelete(u.id)}
-                          >
-                            Excluir
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                    {users.length === 0 && (
+                <>
+                  <Table striped hover responsive className="mt-3">
+                    <thead>
                       <tr>
-                        <td colSpan={4} className="text-center text-muted py-4">
-                          Nenhum usuário encontrado.
-                        </td>
+                        <th>E-mail</th>
+                        <th>Nome</th>
+                        <th>Função</th>
+                        <th style={{ width: 160 }}>Ações</th>
                       </tr>
-                    )}
-                  </tbody>
-                </Table>
+                    </thead>
+                    <tbody>
+                      {(Array.isArray(users) ? users : []).map((u) => (
+                        <tr key={u.id}>
+                          <td>{u.email}</td>
+                          <td>{[u.first_name, u.last_name].filter(Boolean).join(' ')}</td>
+                          <td>{u.role}</td>
+                          <td>
+                            <Button
+                              size="sm"
+                              variant="outline-primary"
+                              className="me-2"
+                              onClick={() => handleEdit(u.id)}
+                            >
+                              Editar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline-danger"
+                              onClick={() => handleDelete(u.id)}
+                            >
+                              Excluir
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                      {(!users || users.length === 0) && (
+                        <tr>
+                          <td colSpan={4} className="text-center text-muted py-4">
+                            Nenhum usuário encontrado.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </Table>
+
+                  {/* ====== Paginação ====== */}
+                  <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div className="text-muted">
+                      Total: <strong>{count || users.length}</strong> •
+                      {' '}Página <strong>{page}</strong> de <strong>{totalPages}</strong>
+                    </div>
+
+                    <Pagination className="mb-0">
+                      <Pagination.First disabled={!canPrev} onClick={() => goTo(1)} />
+                      <Pagination.Prev disabled={!canPrev} onClick={() => goTo(page - 1)} />
+
+                      {/* elipse inicial */}
+                      {pageItems[0] > 1 && <>
+                        <Pagination.Item onClick={() => goTo(1)}>{1}</Pagination.Item>
+                        <Pagination.Ellipsis disabled />
+                      </>}
+
+                      {pageItems.map(p => (
+                        <Pagination.Item key={p} active={p === page} onClick={() => goTo(p)}>
+                          {p}
+                        </Pagination.Item>
+                      ))}
+
+                      {/* elipse final */}
+                      {pageItems[pageItems.length - 1] < totalPages && <>
+                        <Pagination.Ellipsis disabled />
+                        <Pagination.Item onClick={() => goTo(totalPages)}>{totalPages}</Pagination.Item>
+                      </>}
+
+                      <Pagination.Next disabled={!canNext} onClick={() => goTo(page + 1)} />
+                      <Pagination.Last disabled={!canNext} onClick={() => goTo(totalPages)} />
+                    </Pagination>
+                  </div>
+                </>
               )}
             </Card.Body>
           </Card>

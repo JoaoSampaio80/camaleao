@@ -262,7 +262,7 @@ class InventarioDadosSerializer(serializers.ModelSerializer):
 
 # Serializer para o modelo MatrizRisco
 class RiskSerializer(serializers.ModelSerializer):
-    # valores/labels prontos para o front
+    # ------- extras de leitura p/ o front (mantidos) -------
     probabilidade_value = serializers.IntegerField(source='probabilidade.value', read_only=True)
     probabilidade_label = serializers.CharField(source='probabilidade.label_pt', read_only=True)
     impacto_value = serializers.IntegerField(source='impacto.value', read_only=True)
@@ -272,33 +272,21 @@ class RiskSerializer(serializers.ModelSerializer):
     # score residual estimado (se existir eficácia)
     residual_pontuacao = serializers.SerializerMethodField()
 
-    class Meta:
-        model = Risk
-        fields = "__all__"  # inclui campos do modelo
-        # e mais os auxiliares:
-        extra_fields = (
-            'probabilidade_value', 'probabilidade_label',
-            'impacto_value', 'impacto_label',
-            'eficacia_label', 'residual_pontuacao',
-        )
-
+    # “existe_controle” como você já tinha
     existe_controle = serializers.SerializerMethodField()
 
-    def get_existe_controle(self, obj):
-        return bool((getattr(obj, "medidas_controle", "") or "").strip())
+    class Meta:
+        model = Risk
+        fields = "__all__"
+        # os extras acima já entram porque foram declarados no serializer
 
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        # garantir que extras estejam presentes mesmo com fields="__all__"
-        data.update({
-            'probabilidade_value': getattr(getattr(instance, 'probabilidade', None), 'value', None),
-            'probabilidade_label': getattr(getattr(instance, 'probabilidade', None), 'label_pt', None),
-            'impacto_value': getattr(getattr(instance, 'impacto', None), 'value', None),
-            'impacto_label': getattr(getattr(instance, 'impacto', None), 'label_pt', None),
-            'eficacia_label': getattr(getattr(instance, 'eficacia', None), 'label_pt', None),
-            'residual_pontuacao': self.get_residual_pontuacao(instance),
-        })
-        return data
+    # ---------- helpers ----------
+    @staticmethod
+    def _norm(v):
+        return (v or "").strip()
+
+    def get_existe_controle(self, obj):
+        return bool(self._norm(getattr(obj, "medidas_controle", "")))
 
     def get_residual_pontuacao(self, obj):
         """
@@ -310,30 +298,51 @@ class RiskSerializer(serializers.ModelSerializer):
         eff = obj.eficacia
         try:
             avg = (eff.reduction_min + eff.reduction_max) / 2.0
+            return int(round(obj.pontuacao * (1 - (avg / 100.0))))
         except Exception:
             return obj.pontuacao
-        return int(round(obj.pontuacao * (1 - (avg / 100.0))))
-    
+
+    # ---------- validação ----------
     def validate(self, attrs):
         inst = getattr(self, "instance", None)
+        request = self.context.get("request")
+        method = (getattr(request, "method", "") or "").upper()
 
-        medidas = attrs.get("medidas_controle")
-        if medidas is None and inst is not None:
-            medidas = inst.medidas_controle
+        # normaliza strings
+        for f in ("matriz_filial", "setor", "processo", "risco_fator", "resposta_risco", "medidas_controle"):
+            if f in attrs:
+                attrs[f] = self._norm(attrs.get(f))
 
-        tipo = attrs.get("tipo_controle")
-        if tipo is None and inst is not None:
-            tipo = inst.tipo_controle
+        # matriz_filial restrita às três opções usadas no front (se enviada)
+        if "matriz_filial" in attrs and attrs["matriz_filial"]:
+            if attrs["matriz_filial"] not in {"matriz", "filial", "matriz/filial"}:
+                raise serializers.ValidationError({
+                    "matriz_filial": 'Valor inválido. Use "matriz", "filial" ou "matriz/filial".'
+                })
 
-        eficacia = attrs.get("eficacia")
-        if eficacia is None and inst is not None:
-            eficacia = inst.eficacia
+        # obrigatórios em POST/PUT (em PATCH valida só o que vier)
+        required = ["matriz_filial", "setor", "processo", "risco_fator", "probabilidade", "impacto", "risco_residual"]
+        if method in ("POST", "PUT"):
+            missing = []
+            for f in required:
+                val = attrs.get(f, None)
+                if val is None and inst is not None:
+                    val = getattr(inst, f, "")
+                if not self._norm(val if isinstance(val, str) else str(val or "")):
+                    missing.append(f)
+            if missing:
+                raise serializers.ValidationError("Existem campos obrigatórios pendentes.")
 
-        existe = bool((medidas or "").strip())
+        # coerência das medidas de controle com tipo/eficacia (sua lógica, mantida)
+        medidas = attrs.get("medidas_controle", getattr(inst, "medidas_controle", ""))
+        tipo = attrs.get("tipo_controle", getattr(inst, "tipo_controle", ""))
+        eficacia = attrs.get("eficacia", getattr(inst, "eficacia", None))
+
+        existe = bool(self._norm(medidas))
         errors = {}
         if existe:
-            if not tipo:
-                errors["tipo_controle"] = "Informe se o controle é Preventivo (C) ou Detectivo (D)."
+            if tipo and tipo not in ("C", "D"):
+                errors["tipo_controle"] = 'Use "C" (Preventivo) ou "D" (Detectivo).'
         else:
             if tipo:
                 errors["tipo_controle"] = "Deixe vazio quando não existe controle."
@@ -343,6 +352,32 @@ class RiskSerializer(serializers.ModelSerializer):
         if errors:
             raise serializers.ValidationError(errors)
         return attrs
+
+    # ---------- create/update: recálculo e saneamento ----------
+    def _recalc_and_sanitize(self, instance):
+        # recalcula pontuação sempre que tiver prob/impact
+        if instance.probabilidade_id and instance.impacto_id:
+            instance.pontuacao = int(instance.probabilidade.value) * int(instance.impacto.value)
+        else:
+            instance.pontuacao = 0
+
+        # se não há medidas de controle, zera campos dependentes
+        if not self._norm(instance.medidas_controle):
+            instance.tipo_controle = ""
+            instance.eficacia = None
+
+        instance.save(update_fields=["pontuacao", "tipo_controle", "eficacia"])
+
+    def create(self, validated_data):
+        obj = super().create(validated_data)
+        self._recalc_and_sanitize(obj)
+        return obj
+
+    def update(self, instance, validated_data):
+        obj = super().update(instance, validated_data)
+        self._recalc_and_sanitize(obj)
+        return obj
+
 
 # Serializer para o modelo PlanoAcao
 class ActionPlanSerializer(serializers.ModelSerializer):

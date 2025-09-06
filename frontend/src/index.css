@@ -97,3 +97,15 @@ button:focus-visible {
   background-color: #007bff;
   color: white;
 }
+
+/* borda/sombra suave para inputs em modo edição */
+.edit-highlight {
+  border-color: #11d72b !important;               /* amarelinho */
+  box-shadow: 0 0 0 .15rem rgba(241, 196, 15, .35) !important;
+}
+
+/* leve realce no card do formulário quando em modo edição */
+.edit-mode-card {
+  border-color: #11d72b !important;
+  box-shadow: 0 0 0 .2rem rgba(241, 196, 15, .15) !important;
+}

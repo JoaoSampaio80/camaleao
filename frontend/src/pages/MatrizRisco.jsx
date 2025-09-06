@@ -15,18 +15,21 @@ function MatrizRisco() {
   const [effs, setEffs] = useState([]);               // [{id, value, label_pt}]
   const [bands, setBands] = useState([]);             // [{name, min_score, max_score, color}]
 
+  // erros por campo
+  const [fieldErrors, setFieldErrors] = useState({});
+
   // estado do form
   const [form, setForm] = useState({
-    matriz_filial: '',
+    matriz_filial: '',            // agora será select
     setor: '',
     processo: '',
     risco_fator: '',
-    probabilidade: '', // id
-    impacto: '',       // id
+    probabilidade: '',            // id
+    impacto: '',                  // id
     medidas_controle: '',
-    tipo_controle: '', // 'C'|'D'
-    eficacia: '',      // id (opcional)
-    risco_residual: '',// 'baixo'|'medio'|'alto'
+    tipo_controle: '',            // 'C'|'D'
+    eficacia: '',                 // id (opcional)
+    risco_residual: '',           // 'baixo'|'medio'|'alto'
     resposta_risco: '',
   });
 
@@ -37,9 +40,9 @@ function MatrizRisco() {
         const { data } = await AxiosInstance.get('risk-config/');
 
         const like = Array.isArray(data.likelihood) ? [...data.likelihood] : [];
-        const imp = Array.isArray(data.impact) ? [...data.impact] : [];
-        const eff = Array.isArray(data.effectiveness) ? [...data.effectiveness] : [];
-        const b = Array.isArray(data.bands) ? [...data.bands] : [];
+        const imp  = Array.isArray(data.impact) ? [...data.impact] : [];
+        const eff  = Array.isArray(data.effectiveness) ? [...data.effectiveness] : [];
+        const b    = Array.isArray(data.bands) ? [...data.bands] : [];
 
         like.sort((a, b) => a.value - b.value);
         imp.sort((a, b) => a.value - b.value);
@@ -70,21 +73,18 @@ function MatrizRisco() {
     return (p?.value || 0) * (i?.value || 0);
   }, [form.probabilidade, form.impacto, likelihoods, impacts]);
 
-  // FAIXAS DE COR (exibição) — SUA REGRA: <=6 verde, <=12 amarelo, <=16 laranja, >16 vermelho
+  // FAIXAS (exibição): <=6 verde, <=12 amarelo, <=16 laranja, >16 vermelho
   const uiBand = useMemo(() => {
     const s = computedPontuacao || 0;
     if (s === 0) return null;
-    if (s <= 6) return { name: 'Baixo', color: '#00B050' };   // green-500
-    if (s <= 12) return { name: 'Médio', color: '#FFC000' };   // yellow-500
-    if (s <= 16) return { name: 'Alto', color: '#ED7D31' };   // orange-500
-    return { name: 'Crítico', color: '#C00000' };                // red-500
+    if (s <= 6)  return { name: 'Baixo',  color: '#00B050' };
+    if (s <= 12) return { name: 'Médio',  color: '#FFC000' };
+    if (s <= 16) return { name: 'Alto',   color: '#ED7D31' };
+    return { name: 'Crítico', color: '#C00000' };
   }, [computedPontuacao]);
 
-  // helper pra gerar um fundo suave (20% de opacidade)
-  const bandBgStyle = uiBand
-    ? { backgroundColor: 'rgba(' + hexToRgb(uiBand.color) + ',0.18)' }
-    : {};
-
+  // fundo suave conforme a banda
+  const bandBgStyle = uiBand ? { backgroundColor: 'rgba(' + hexToRgb(uiBand.color) + ',0.18)' } : {};
   function hexToRgb(hex) {
     const m = hex.replace('#', '');
     const bigint = parseInt(m, 16);
@@ -99,6 +99,9 @@ function MatrizRisco() {
     setForm(prev => ({ ...prev, [name]: value }));
     setOkMsg('');
     setError('');
+    if (fieldErrors[name]) {
+      setFieldErrors(prev => ({ ...prev, [name]: undefined }));
+    }
   };
 
   const resetForm = () => {
@@ -107,7 +110,7 @@ function MatrizRisco() {
       setor: '',
       processo: '',
       risco_fator: '',
-      probabilidade: prev.probabilidade, // mantém combos
+      probabilidade: prev.probabilidade, // mantém os selects
       impacto: prev.impacto,
       medidas_controle: '',
       tipo_controle: '',
@@ -115,6 +118,22 @@ function MatrizRisco() {
       risco_residual: '',
       resposta_risco: '',
     }));
+    setFieldErrors({});
+  };
+
+  const required = (v) => String(v ?? '').trim().length > 0;
+
+  const validateForm = () => {
+    const errs = {};
+    if (!required(form.matriz_filial))  errs.matriz_filial  = 'Selecione Matriz/Filial.';
+    if (!required(form.setor))          errs.setor          = 'Informe o Setor.';
+    if (!required(form.processo))       errs.processo       = 'Informe o Processo.';
+    if (!required(form.risco_fator))    errs.risco_fator    = 'Descreva o risco/fator.';
+    if (!required(form.probabilidade))  errs.probabilidade  = 'Selecione a Probabilidade.';
+    if (!required(form.impacto))        errs.impacto        = 'Selecione o Impacto.';
+    if (!required(form.risco_residual)) errs.risco_residual = 'Selecione a classificação do risco residual.';
+    if ((computedPontuacao ?? 0) <= 0)  errs.pontuacao      = 'Defina probabilidade e impacto válidos.';
+    return errs;
   };
 
   const onSubmit = async (e) => {
@@ -122,10 +141,30 @@ function MatrizRisco() {
     setSaving(true);
     setOkMsg('');
     setError('');
+    setFieldErrors({});
 
+    // validação client-side
+    const errs = validateForm();
+    if (Object.keys(errs).length) {
+      setSaving(false);
+      setFieldErrors(errs);
+      const first = Object.keys(errs)[0];
+      const el = document.querySelector(`[name="${first}"]`);
+      if (el?.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    // normaliza payload
     const payload = {
       ...form,
-      pontuacao: computedPontuacao, // backend também recalcula
+      matriz_filial: form.matriz_filial, // já é um dos três valores do select
+      setor: form.setor.trim(),
+      processo: form.processo.trim(),
+      risco_fator: form.risco_fator.trim(),
+      medidas_controle: form.medidas_controle?.trim() || '',
+      tipo_controle: form.tipo_controle || '',
+      resposta_risco: form.resposta_risco?.trim() || '',
+      pontuacao: computedPontuacao,
       probabilidade: form.probabilidade ? Number(form.probabilidade) : null,
       impacto: form.impacto ? Number(form.impacto) : null,
       eficacia: form.eficacia ? Number(form.eficacia) : null,
@@ -137,10 +176,25 @@ function MatrizRisco() {
       resetForm();
     } catch (e) {
       const data = e?.response?.data;
+      // mapeia erros do DRF por campo
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const mapped = {};
+        Object.entries(data).forEach(([k, v]) => {
+          if (Array.isArray(v)) mapped[k] = v.join(' ');
+          else if (typeof v === 'string') mapped[k] = v;
+        });
+        if (Object.keys(mapped).length) {
+          setFieldErrors(mapped);
+          const first = Object.keys(mapped)[0];
+          const el = document.querySelector(`[name="${first}"]`);
+          if (el?.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setSaving(false);
+          return;
+        }
+      }
       const msg =
         (typeof data === 'string' && data) ||
         data?.detail ||
-        JSON.stringify(data || {}) ||
         e.message ||
         'Falha ao criar risco.';
       setError(msg);
@@ -159,7 +213,7 @@ function MatrizRisco() {
         style={{
           background: 'linear-gradient(to right, #e6f0f7, #f7fafd)',
           minHeight: '100vh',
-          width: '100vw',          
+          width: '100vw',
           marginTop: '56px',
           display: 'flex',
           flexDirection: 'column',
@@ -168,13 +222,11 @@ function MatrizRisco() {
           boxSizing: 'border-box',
         }}
       >
-
         <h2 className="mb-4" style={{ color: '#071744' }}>
           Matriz de Risco
         </h2>
 
-        {/* mais largo: até 1800px ou 92vw */}
-        <Container fluid className="px-4" style={{ width: '100%',  margin: '0 auto' }}>
+        <Container fluid className="px-4" style={{ width: '100%', margin: '0 auto' }}>
           {error && <Alert variant="danger" className="mb-3">{error}</Alert>}
           {okMsg && <Alert variant="success" className="mb-3">{okMsg}</Alert>}
 
@@ -197,34 +249,52 @@ function MatrizRisco() {
                 <Row className="mb-3">
                   <Col lg={4} md={6}>
                     <Form.Label>Matriz/Filial</Form.Label>
-                    <Form.Control
+                    <Form.Select
                       name="matriz_filial"
                       value={form.matriz_filial}
                       onChange={onChange}
-                      placeholder="Ex.: Matriz SP"
-                    />
+                      isInvalid={!!fieldErrors.matriz_filial}
+                    >
+                      <option value="">Selecione...</option>
+                      <option value="matriz">Matriz</option>
+                      <option value="filial">Filial</option>
+                      <option value="matriz/filial">Matriz / Filial</option>
+                    </Form.Select>
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.matriz_filial}
+                    </Form.Control.Feedback>
                   </Col>
+
                   <Col lg={4} md={6}>
                     <Form.Label>Setor</Form.Label>
                     <Form.Control
                       name="setor"
                       value={form.setor}
                       onChange={onChange}
+                      isInvalid={!!fieldErrors.setor}
                       placeholder="Ex.: TI"
                     />
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.setor}
+                    </Form.Control.Feedback>
                   </Col>
+
                   <Col lg={4} md={12}>
                     <Form.Label>Processo de Negócio Envolvido</Form.Label>
                     <Form.Control
                       name="processo"
                       value={form.processo}
                       onChange={onChange}
+                      isInvalid={!!fieldErrors.processo}
                       placeholder="Ex.: Gestão de Acessos"
                     />
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.processo}
+                    </Form.Control.Feedback>
                   </Col>
                 </Row>
 
-                {/* 2ª linha: Risco/Fator (texto) */}
+                {/* 2ª linha: Risco/Fator */}
                 <Row className="mb-3">
                   <Col>
                     <Form.Label>Risco e Fator de Risco</Form.Label>
@@ -234,12 +304,16 @@ function MatrizRisco() {
                       name="risco_fator"
                       value={form.risco_fator}
                       onChange={onChange}
+                      isInvalid={!!fieldErrors.risco_fator}
                       placeholder="Descreva o risco e seus fatores"
                     />
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.risco_fator}
+                    </Form.Control.Feedback>
                   </Col>
                 </Row>
 
-                {/* 3ª linha: Prob, Impacto, Pontuação (readonly com cor da banda) */}
+                {/* 3ª linha: Prob, Impacto, Pontuação */}
                 <Row className="mb-3">
                   <Col lg={4} md={6}>
                     <Form.Label>Probabilidade (1–5)</Form.Label>
@@ -247,6 +321,7 @@ function MatrizRisco() {
                       name="probabilidade"
                       value={form.probabilidade}
                       onChange={onChange}
+                      isInvalid={!!fieldErrors.probabilidade}
                     >
                       <option value="">Selecione...</option>
                       {likelihoods.map(l => (
@@ -255,13 +330,18 @@ function MatrizRisco() {
                         </option>
                       ))}
                     </Form.Select>
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.probabilidade}
+                    </Form.Control.Feedback>
                   </Col>
+
                   <Col lg={4} md={6}>
                     <Form.Label>Impacto (1–5)</Form.Label>
                     <Form.Select
                       name="impacto"
                       value={form.impacto}
                       onChange={onChange}
+                      isInvalid={!!fieldErrors.impacto}
                     >
                       <option value="">Selecione...</option>
                       {impacts.map(i => (
@@ -270,6 +350,9 @@ function MatrizRisco() {
                         </option>
                       ))}
                     </Form.Select>
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.impacto}
+                    </Form.Control.Feedback>
                   </Col>
 
                   <Col lg={4} md={12}>
@@ -279,6 +362,7 @@ function MatrizRisco() {
                     <Form.Control
                       value={computedPontuacao || ''}
                       readOnly
+                      isInvalid={!!fieldErrors.pontuacao}
                       style={{
                         ...bandBgStyle,
                         borderLeft: uiBand ? `6px solid ${uiBand.color}` : undefined,
@@ -286,10 +370,15 @@ function MatrizRisco() {
                       }}
                       title={uiBand ? `${uiBand.name}` : ''}
                     />
+                    {fieldErrors.pontuacao ? (
+                      <div className="invalid-feedback d-block">
+                        {fieldErrors.pontuacao}
+                      </div>
+                    ) : null}
                   </Col>
                 </Row>
 
-                {/* 4ª linha: Medidas de controle (texto) */}
+                {/* 4ª linha: Medidas de controle */}
                 <Row className="mb-3">
                   <Col>
                     <Form.Label>Medidas de Controle (existentes)</Form.Label>
@@ -304,7 +393,7 @@ function MatrizRisco() {
                   </Col>
                 </Row>
 
-                {/* 5ª linha: Tipo de controle, Eficácia, Residual */}
+                {/* 5ª linha: Tipo controle, Eficácia, Residual */}
                 <Row className="mb-3">
                   <Col lg={4} md={6}>
                     <Form.Label>Tipo de Controle</Form.Label>
@@ -318,6 +407,7 @@ function MatrizRisco() {
                       <option value="D">Detectivo</option>
                     </Form.Select>
                   </Col>
+
                   <Col lg={4} md={6}>
                     <Form.Label>Avaliação de Eficácia do Controle</Form.Label>
                     <Form.Select
@@ -333,18 +423,23 @@ function MatrizRisco() {
                       ))}
                     </Form.Select>
                   </Col>
+
                   <Col lg={4} md={12}>
                     <Form.Label>Risco Residual</Form.Label>
                     <Form.Select
                       name="risco_residual"
                       value={form.risco_residual}
                       onChange={onChange}
+                      isInvalid={!!fieldErrors.risco_residual}
                     >
                       <option value="">Selecione...</option>
                       <option value="baixo">Baixo</option>
                       <option value="medio">Médio</option>
                       <option value="alto">Alto</option>
                     </Form.Select>
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.risco_residual}
+                    </Form.Control.Feedback>
                   </Col>
                 </Row>
 
@@ -365,7 +460,6 @@ function MatrizRisco() {
                   <Button type="submit" variant="primary" disabled={saving}>
                     {saving ? (<><Spinner size="sm" className="me-2" /> Salvando...</>) : 'Salvar Risco'}
                   </Button>
-
                   <Button
                     variant="outline-secondary"
                     onClick={() => {
