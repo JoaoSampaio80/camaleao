@@ -1,12 +1,69 @@
-# React + Vite
+🦎 Camaleão – Sistema de Apoio à LGPD
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+O Camaleão é um sistema web desenvolvido como parte do Trabalho de Conclusão de Curso (TCC) na AEDB, com foco em auxiliar empresas na adequação à Lei Geral de Proteção de Dados (LGPD).
 
-Currently, two official plugins are available:
+O projeto oferece módulos para gerenciamento de usuários, checklist de conformidade, inventário de dados, matriz de risco e plano de ação, tudo em uma interface intuitiva.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+🚀 Tecnologias utilizadas
+Backend
 
-## Expanding the ESLint configuration
+Django
+ + Django REST Framework
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Autenticação JWT (com refresh automático)
+
+PostgreSQL / SQLite (dependendo do ambiente)
+
+WhiteNoise para servir arquivos estáticos em produção
+
+Separação de ambientes (dev e prod)
+
+Frontend
+
+React
+ com Vite
+
+React-Bootstrap
+ para componentes de UI
+
+Axios com interceptors (refresh automático de tokens)
+
+Variáveis de ambiente (.env.development e .env.production)
+
+📂 Estrutura principal
+camaleao/
+├── backend/
+│   ├── camaleao/        # Projeto Django (settings base/dev/prod)
+│   ├── api/             # Aplicação principal (endpoints da API)
+│   └── requirements.txt # Dependências do backend
+├── frontend/
+│   ├── src/             # Código React
+│   ├── public/          # Arquivos públicos
+│   └── .env.*           # Variáveis de ambiente
+└── COMANDOS.md          # Guia rápido de comandos
+
+⚙️ Como rodar o projeto
+
+👉 Consulte o COMANDOS.md
+ para ver todos os passos de instalação, dependências e execução do projeto em desenvolvimento e produção simulada.
+
+📜 Autores
+
+👤 [JOÃO SAMPAIO] – Desenvolvimento Backend
+👤 [ANA CRISTINA] - Desenvolvimento Frontend
+👤 [ANNA CLARA]- Documentação
+
+
+🎓 Projeto orientado pela professora Mônica – AEDB
+
+🛡️ Objetivo
+
+Auxiliar pequenas e médias empresas a se adequarem à LGPD, fornecendo um sistema prático para:
+
+Gestão de usuários e papéis (Admin, DPO, Gerente)
+
+Monitoramento de conformidade (checklists e planos de ação)
+
+Inventário de dados pessoais
+
+Análise de riscos e mitigação
