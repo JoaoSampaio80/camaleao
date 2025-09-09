@@ -121,6 +121,8 @@ class UserSerializer(serializers.ModelSerializer):
         # Aqui, vamos garantir que o e-mail não seja de um domínio proibido.
         # No seu caso, se o Django estava rejeitando domínios de teste,
         # podemos ser mais flexíveis.
+
+        value = (value or "").strip().lower()  # <- normaliza para minúsculas
         
         # Lista de domínios de teste que queremos permitir
         allowed_test_domains = [

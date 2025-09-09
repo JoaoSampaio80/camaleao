@@ -1,0 +1,4 @@
+Bem-vindo(a), {{ first_name|default:username|default:"usuário(a)" }}!
+
+Sua conta no Camaleão foi criada com sucesso.
+Se não foi você, desconsidere este e-mail.

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import AxiosInstance from '../components/Axios';
-import { Card, Form, Button, Alert } from 'react-bootstrap';
+import { Card, Form, Button, Alert, Collapse, InputGroup } from 'react-bootstrap';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ROUTES } from '../routes';
@@ -11,6 +11,13 @@ const Login = () => {
   const [error, setError] = useState('');
   const { login, loading, user } = useAuth();
   const navigate = useNavigate();
+
+// --- estados para "esqueci a senha" ---
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetMsg, setResetMsg] = useState('');
+  const [resetVariant, setResetVariant] = useState('success');
+  const [resetSubmitting, setResetSubmitting] = useState(false);
 
   useEffect(() => {
     if (!loading && user){
@@ -39,7 +46,35 @@ const Login = () => {
       // Exibe uma mensagem de erro mais amigável
       setError( st === 400 || st === 401? 'Credenciais inválidas. Por favor, verifique seu email e senha.': 'Tente novamente');
     }
-  };  
+  };
+  
+  const handleResetSubmit = async (e) => {
+    e.preventDefault();
+    setResetMsg('');
+    setResetVariant('success');
+
+    const eMail = (resetEmail || '').trim().toLowerCase();
+    if (!eMail) {
+      setResetMsg('Informe um e-mail.');
+      setResetVariant('danger');
+      return;
+    }
+
+    setResetSubmitting(true);
+    try {
+      // Sempre retorna 200 (não revela se o e-mail existe)
+      await AxiosInstance.post('auth/password-reset/', { email: eMail });
+      setResetMsg('Se o e-mail existir, enviaremos instruções de redefinição.');
+      setResetVariant('success');
+    } catch (err) {
+      console.error('Falha no reset:', err?.response?.data || err?.message);
+      // Mesmo em erro, não expomos nada sensível
+      setResetMsg('Se o e-mail existir, enviaremos instruções de redefinição.');
+      setResetVariant('success');
+    } finally {
+      setResetSubmitting(false);
+    }
+  };
 
   return (
     <div
@@ -120,10 +155,52 @@ const Login = () => {
                 Entrar
               </Button>
             </Form>
+            {/* Link / Toggle Esqueci a senha */}
             <div className="mt-3 text-center">
-              <span className="text-muted">Esqueceu a senha? </span>
-              <Link to="">Recupere-a</Link>
+              <button
+                type="button"
+                className="btn btn-link p-0"
+                onClick={() => {
+                  setResetOpen((v) => !v);
+                  setResetMsg('');
+                }}
+              >
+                Esqueceu a senha?
+              </button>
             </div>
+
+            {/* Área recolhível para solicitar o reset */}
+            <Collapse in={resetOpen}>
+              <div>
+                <hr className="my-3" />
+                <h6 className="mb-2 text-center">Recuperar senha</h6>
+                {resetMsg && (
+                  <Alert variant={resetVariant} className="py-2">
+                    {resetMsg}
+                  </Alert>
+                )}
+                <Form onSubmit={handleResetSubmit}>
+                  <InputGroup className="mb-2">
+                    <Form.Control
+                      type="email"
+                      placeholder="Informe seu e-mail"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      autoComplete="email"
+                    />
+                    <Button type="submit" variant="outline-primary" disabled={resetSubmitting}>
+                      {resetSubmitting ? 'Enviando...' : 'Enviar link'}
+                    </Button>
+                  </InputGroup>
+                  <div className="text-end">
+                    {/* opcional: link direto para a tela de redefinição, caso o usuário já tenha um link */}
+                    <small className="text-muted">
+                      Já tem um link? <Link to={ROUTES.RESET_PASSWORD}>Abrir tela de redefinição</Link>
+                    </small>
+                  </div>
+                </Form>
+              </div>
+            </Collapse>
           </Card.Body>
         </Card>
       </div>

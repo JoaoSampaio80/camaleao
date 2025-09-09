@@ -23,12 +23,16 @@ const pickEnvBase = () => {
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) ||
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL);
 
-  const fallback = 'http://127.0.0.1:8000/api/v1/';
+  const fallback = 'http://localhost:8000/api/v1/';
   const chosen = fromVite || fallback;
   return ensureTrailingSlash(chosen);
 };
 
 const baseUrl = pickEnvBase();
+
+if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
+  console.debug('[Axios] API baseURL =', baseUrl);
+}
 
 // ===== Helpers de JWT =====
 const TOKENS_KEY = 'authTokens';

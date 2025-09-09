@@ -13,6 +13,8 @@ from .views import (
     RiskConfigView,
     MonitoringActionViewSet,
     IncidentViewSet,
+    PasswordResetRequestView,
+    PasswordResetConfirmView,
     
 )
 
@@ -33,6 +35,9 @@ urlpatterns = [
     path('auth/token/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('auth/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
+
+    path("auth/password-reset/", PasswordResetRequestView.as_view(), name="password-reset"),
+    path("auth/password-reset/confirm/", PasswordResetConfirmView.as_view(), name="password-reset-confirm"),
 
     path('risk-config/', RiskConfigView.as_view(), name='risk-config'),
 

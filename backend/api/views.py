@@ -6,11 +6,16 @@ from rest_framework.decorators import action
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from rest_framework.views import APIView
+from django.conf import settings
+from django.contrib.auth import get_user_model, password_validation
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.http import FileResponse, Http404, HttpResponse
 from django.db import transaction
 from django.db.models import Count, F, Q
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
 from zoneinfo import ZoneInfo
 from io import BytesIO
 from openpyxl import Workbook
@@ -35,6 +40,8 @@ from .models import (
 from .permissions import IsRoleAdmin, IsAdminOrDPO, IsDPOOrManager, SimpleRolePermission
 from .pagination import DefaultPagination
 
+from .utils.email import send_html_email
+
 import csv
 import datetime
 
@@ -49,6 +56,8 @@ except Exception:
 class MyTokenObtainPairView(TokenObtainPairView):
     permission_classes = [AllowAny]
     serializer_class = MyTokenObtainPairSerializer
+
+
 
 # ViewSet para o modelo User
 class UserViewSet(viewsets.ModelViewSet):
@@ -1165,3 +1174,87 @@ class RiskConfigView(APIView):
             "instructions": InstructionSerializer(instructions, many=True).data,
         }
         return Response(data)
+    
+# ===========================
+# Esqueci minha senha / Reset
+# ===========================
+
+User = get_user_model()
+_token_generator = PasswordResetTokenGenerator()
+
+class PasswordResetRequestView(APIView):
+    """
+    POST { "email": "alguem@example.com" }
+    Sempre responde 200 (não revela existência do e-mail).
+    Se o e-mail existir, envia link com uid/token para o FRONTEND_URL.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = (request.data.get("email") or "").strip().lower()
+
+        # resposta neutra (evita enumeração de e-mails)
+        ok = Response({"detail": "Link enviado para o e-mail informado."}, status=status.HTTP_200_OK)
+        if not email:
+            return ok
+
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            return ok  # não revela
+
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = _token_generator.make_token(user)
+
+        frontend = getattr(settings, "FRONTEND_URL", "http://127.0.0.1:5173").rstrip("/")
+        reset_url = f"{frontend}/reset-password?uid={uid}&token={token}"
+
+        send_html_email(
+            subject="Redefinição de senha - Camaleão",
+            to_email=user.email,
+            template_name="emails/password_reset",  # backend/templates/emails/password_reset.(html|txt)
+            context={"reset_url": reset_url},
+        )
+        return ok
+
+
+class PasswordResetConfirmView(APIView):
+    """
+    POST { "uid": "...", "token": "...", "new_password": "...", "new_password2": "..." }
+    Valida token e define a nova senha.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        uid = request.data.get("uid") or ""
+        token = request.data.get("token") or ""
+        p1 = request.data.get("new_password") or ""
+        p2 = request.data.get("new_password2") or ""
+
+        if not (uid and token and p1 and p2):
+            return Response({"detail": "Dados incompletos."}, status=status.HTTP_400_BAD_REQUEST)
+        if p1 != p2:
+            return Response({"new_password2": "As senhas não coincidem."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # resolve usuário
+        try:
+            user_id = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(pk=user_id)
+        except Exception:
+            return Response({"detail": "Link inválido."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # valida token
+        if not _token_generator.check_token(user, token):
+            return Response({"detail": "Link inválido ou expirado."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # valida regras de senha do Django
+        try:
+            password_validation.validate_password(p1, user)
+        except Exception as e:
+            return Response({"new_password": [str(err) for err in e.error_list]}, status=status.HTTP_400_BAD_REQUEST)
+
+        # aplica nova senha
+        user.set_password(p1)
+        user.save()
+
+        return Response({"detail": "Senha redefinida com sucesso."}, status=status.HTTP_200_OK)
