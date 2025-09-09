@@ -1,3 +1,23 @@
+#backend
+# Virtualenv
+venv/
+*/venv/
+**/__pycache__/
+*.pyc
+
+# Django
+db.sqlite3
+db.*.sqlite3
+/media/
+backend/media/
+backend/staticfiles/
+
+# Env files
+.env
+.env.*
+!*.example
+
+#frontend
 # Logs
 logs
 *.log
@@ -28,3 +48,7 @@ dist-ssr
 .env
 .env.*
 !*.example
+
+# ---- Arquivos temporários do projeto
+alias_power_shell_test_e-mail.md
+cheklist_django_dev_prod.txt
