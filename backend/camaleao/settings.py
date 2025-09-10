@@ -121,6 +121,10 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@localhost")
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "5"))
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 

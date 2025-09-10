@@ -10,6 +10,7 @@ ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]").split(",
 # E-mail: console em dev (pode sobrescrever no .env se quiser)
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@localhost")
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "5"))
 
 # Toggle global de e-mail (mantém compatível com seu helper)
 EMAIL_ENABLED = os.getenv("EMAIL_ENABLED", "True").lower() == "true"

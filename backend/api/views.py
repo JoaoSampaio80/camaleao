@@ -172,6 +172,34 @@ class UserViewSet(viewsets.ModelViewSet):
         data_out = self.get_serializer(user, context={'request': request}).data
         data_out['reauth_required'] = bool(password_changed)
         return Response(data_out, status=status.HTTP_200_OK)  
+    
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def resend_welcome(self, request, pk=None):
+        """
+        Reenvia o e-mail de boas-vindas para o usuário alvo.
+        Restrito a admin/superuser.
+        """
+        if not (request.user.is_superuser or getattr(request.user, 'role', '') == 'admin'):
+            return Response({'detail': 'Sem permissão.'}, status=status.HTTP_403_FORBIDDEN)
+
+        user = self.get_object()
+        if not user.email:
+            return Response({'detail': 'Usuário sem e-mail.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        ctx = {
+            "first_name": getattr(user, "first_name", "") or None,
+            "username": getattr(user, "username", "") or None,
+        }
+        sent = send_html_email(
+            subject="Bem-vindo(a) ao Camaleão",
+            to_email=user.email,
+            template_name="emails/welcome",
+            context=ctx,
+        )
+        if sent:
+            return Response({'detail': 'E-mail de boas-vindas reenviado.'})
+        return Response({'detail': 'Falha ao enviar.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # ViewSet para ExigenciaLGPD
 class ExigenciaLGPDViewSet(viewsets.ModelViewSet):

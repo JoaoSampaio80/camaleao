@@ -6,4 +6,6 @@ class ApiConfig(AppConfig):
     name = 'api'
 
     def ready(self):
-        import api.signals
+        # Import necessário para registrar os receivers dos signals
+        # Evite mover este import para o topo do módulo.
+        from . import signals

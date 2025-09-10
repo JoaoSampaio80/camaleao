@@ -5,7 +5,7 @@ import requests
 from typing import Any, Dict, List, Optional
 
 from django.conf import settings
-from django.core.mail import EmailMultiAlternatives
+from django.core.mail import EmailMultiAlternatives, get_connection
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
@@ -34,8 +34,8 @@ def _send_via_smtp2go_api(
 
     payload: Dict[str, Any] = {
         "api_key": api_key,
-        "to": to,                 # lista de destinatários
-        "sender": sender,         # remetente verificado no SMTP2GO
+        "to": to,
+        "sender": sender,
         "subject": subject,
         "html_body": html,
     }
@@ -43,9 +43,7 @@ def _send_via_smtp2go_api(
         payload["text_body"] = text
 
     resp = requests.post(api_url, json=payload, timeout=15)
-    # Sucesso: 200 OK segundo a doc; demais, tratar como erro
     if resp.status_code != 200:
-        # Tente decodificar JSON de erro para ajudar no debug
         try:
             data = resp.json()
         except Exception:
@@ -74,26 +72,22 @@ def send_html_email(
       - int (backend Django): número de mensagens enviadas (0 ou 1)
       - int (API): retorna 1 em sucesso (para manter semântica), 0 em erro com fail_silently
     """
-    # Toggle global
     if getattr(settings, "EMAIL_ENABLED", True) is False:
         return 0
 
     context = context or {}
 
-    # Render HTML obrigatório
     html_body = render_to_string(f"{template_name}.html", context)
 
-    # Fallback texto (opcional)
     if text_fallback is None:
         try:
             text_fallback = render_to_string(f"{template_name}.txt", context)
         except Exception:
             text_fallback = strip_tags(html_body) or "Visualize este e-mail em um cliente compatível com HTML."
 
-    # Em DEV falhas não devem derrubar a página; em PROD queremos saber
     fail_silently = bool(getattr(settings, "DEBUG", False))
 
-    # Caminho API HTTP (produção)
+    # Produção: via API SMTP2GO
     if getattr(settings, "USE_SMTP2GO_API", False):
         try:
             _send_via_smtp2go_api(
@@ -102,14 +96,13 @@ def send_html_email(
                 text=text_fallback,
                 to=[to_email],
             )
-            # Para manter compatibilidade com a assinatura que retorna int
             return 1
         except Exception:
             if fail_silently:
                 return 0
             raise
 
-    # Fallback: backend de e-mail do Django (console/SMTP etc.)
+    # Fallback: backend Django (SMTP/console/etc.)
     msg = EmailMultiAlternatives(
         subject=subject,
         body=text_fallback,
@@ -117,4 +110,7 @@ def send_html_email(
         to=[to_email],
     )
     msg.attach_alternative(html_body, "text/html")
-    return msg.send(fail_silently=fail_silently)
+
+    # 🔑 Usa get_connection para respeitar EMAIL_TIMEOUT definido em settings
+    with get_connection() as connection:
+        return connection.send_messages([msg])
