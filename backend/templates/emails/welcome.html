@@ -1,9 +1,11 @@
 <!doctype html>
 <html lang="pt-br">
   <body style="font-family: Arial, Helvetica, sans-serif;">
-    <h2>Bem-vindo(a), {{ first_name|default:username|default:"usuário(a)" }}!</h2>
-    <p>Sua conta no <strong>Camaleão</strong> foi criada com sucesso.</p>
-    <p>Se não foi você, desconsidere este e-mail.</p>
+    <h2>Olá{% if first_name %} {{ first_name }}{% endif %},</h2>
+    <p>Bem-vindo(a) ao Camaleão! Para acessar, defina sua senha no link abaixo:</p>    
+    <p><a href="{{ reset_url }}" target="_blank" rel="noopener">Definir minha senha</a></p>
+    <p>Este link expira em {{ expires_hours }} horas.</p>
+    <p>Em caso de dúvida, procure o DPO ou o administrador do sistema.</p>
     <hr>
     <small>Este é um e-mail automático. Não responda.</small>
   </body>

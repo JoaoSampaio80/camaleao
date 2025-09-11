@@ -1,4 +1,12 @@
-Bem-vindo(a), {{ first_name|default:username|default:"usuário(a)" }}!
+Olá{% if first_name %} {{ first_name }}{% endif %},
 
-Sua conta no Camaleão foi criada com sucesso.
-Se não foi você, desconsidere este e-mail.
+Bem-vindo(a) ao Camaleão! Para acessar, defina sua senha no link abaixo:
+
+{{ reset-url }}
+
+Este link expira em {{ expire-hours }} horas.
+
+Em caso de dúvida, procure o DPO ou o administrador do sistema.
+
+---
+Este é um e-mail automático. Não responda.

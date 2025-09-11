@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Login from './pages/Login';
+import DefinirSenha from './pages/DefinirSenha';
 import ResetPassword from './pages/ResetPassword';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
@@ -26,6 +27,7 @@ import { InventarioProvider } from './context/InventarioContext';
 // Objeto de tipagem de rotas para evitar erros de digitação
 export const ROUTES = {
   LOGIN: '/login',
+  DEFINIR_SENHA: '/definir-senha',
   RESET_PASSWORD: '/reset-password',
   HOME: '/',
   DASHBOARD: '/dashboard',
@@ -56,6 +58,7 @@ function AppRouter() {
     return (
       <Routes>
         <Route path={ROUTES.LOGIN} element={<Navigate to={ROUTES.HOME} replace />} />
+        <Route path={ROUTES.DEFINIR_SENHA} element={<DefinirSenha />} />
         <Route path={ROUTES.RESET_PASSWORD} element={<ResetPassword />} />
         <Route path={ROUTES.HOME} element={<Home />} />
         <Route path={ROUTES.DASHBOARD} element={<Dashboard />} />
@@ -84,6 +87,7 @@ function AppRouter() {
     return (<Routes>
       <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.LOGIN} replace />} />
       <Route path={ROUTES.LOGIN} element={<Login />} />
+      <Route path={ROUTES.DEFINIR_SENHA} element={<DefinirSenha />} />
       <Route path={ROUTES.NOT_FOUND} element={<Navigate to={ROUTES.LOGIN} replace />} />
       <Route path={ROUTES.RESET_PASSWORD} element={<ResetPassword />} />
     </Routes>

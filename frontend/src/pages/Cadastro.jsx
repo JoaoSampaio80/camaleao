@@ -71,6 +71,9 @@ const INITIAL = {
 function Cadastro() {
   const navigate = useNavigate();
 
+  const APP_ENV = String(import.meta.env.VITE_APP_ENV || '').toLowerCase();
+  const isProdLike = APP_ENV === 'production';
+
   const [formData, setFormData] = useState(INITIAL);
   const [mode, setMode] = useState('create'); // 'create' | 'edit'
   const [selectedId, setSelectedId] = useState(null);
@@ -183,17 +186,27 @@ function Cadastro() {
     if (!formData.role) e.role = 'Selecione o tipo de usuário.';
 
     if (mode === 'create') {
-      if (!formData.password) e.password = 'Senha é obrigatória.';
-      if (formData.password && formData.password.length < 3) e.password = 'A senha deve ter pelo menos 3 caracteres.';
-      if (formData.password2 !== formData.password) e.password2 = 'As senhas não coincidem.';
-    } else {
-      if (formData.password || formData.password2) {
-        if (!formData.password) e.password = 'Informe a nova senha.';
-        if (!formData.password2) e.password2 = 'Confirme a nova senha.';
+      if (!isProdLike) {
+        // DEV: exige e pode ser mais flexível (3+)
+        if (!formData.password) e.password = 'Senha é obrigatória.';
         if (formData.password && formData.password.length < 3) e.password = 'A senha deve ter pelo menos 3 caracteres.';
         if (formData.password2 !== formData.password) e.password2 = 'As senhas não coincidem.';
       }
+    } else {
+      // EDIÇÃO: se for trocar a senha, aplique critérios
+      if (formData.password || formData.password2) {
+        if (!formData.password) e.password = 'Informe a nova senha.';
+        if (!formData.password2) e.password2 = 'Confirme a nova senha.';
+        // Em produção, seja mais rígido (8+); em dev mantenha 3+
+        const minLen = isProdLike ? 8 : 3;
+        if (formData.password && formData.password.length < minLen) {
+          e.password = `A senha deve ter pelo menos ${minLen} caracteres.`;
+        }
+        if (formData.password2 !== formData.password) e.password2 = 'As senhas não coincidem.';
+      }
     }
+
+
 
     if (formData.first_name && /[^\p{L}\s\-'\u2019]/u.test(formData.first_name)) {
       e.first_name = 'Use apenas letras, espaços, hífen e apóstrofo.';
@@ -237,10 +250,13 @@ function Cadastro() {
     }
 
     if (mode === 'create') {
-      data.password = formData.password;
+      if (!isProdLike) {
+        data.password = formData.password;
+      }
     } else if (formData.password) {
       data.password = formData.password;
     }
+
 
     return data;
   };
@@ -450,7 +466,7 @@ function Cadastro() {
                       onChange={handleChange}
                       isInvalid={!!errors.email}
                       autoComplete="email"
-                      required                      
+                      required
                     />
                     <Form.Control.Feedback type="invalid">{errors.email}</Form.Control.Feedback>
                   </Col>
@@ -573,39 +589,45 @@ function Cadastro() {
                   </Row>
                 )}
 
-                <Row className="mb-3">
-                  <Col md={4}>
-                    <Form.Label>{mode === 'create' ? 'Senha' : 'Nova Senha (opcional)'}</Form.Label>
-                    <Form.Control
-                      className={editClass}
-                      type="password"
-                      name="password"
-                      placeholder={mode === 'create' ? 'Digite a senha' : 'Preencha para alterar'}
-                      value={formData.password}
-                      onChange={handleChange}
-                      isInvalid={!!errors.password}
-                      autoComplete="new-password"
-                      required={mode === 'create'}
-                    />
-                    <Form.Control.Feedback type="invalid">{errors.password}</Form.Control.Feedback>
-                  </Col>
+                {mode === 'create' && isProdLike ? (
+                  <Alert variant="info" className="mb-3">
+                    A senha será definida pelo próprio usuário via e-mail de convite.
+                  </Alert>
+                ) : (
+                  <Row className="mb-3">
+                    <Col md={4}>
+                      <Form.Label>{mode === 'create' ? 'Senha' : 'Nova Senha (opcional)'}</Form.Label>
+                      <Form.Control
+                        className={editClass}
+                        type="password"
+                        name="password"
+                        placeholder={mode === 'create' ? 'Digite a senha' : 'Preencha para alterar'}
+                        value={formData.password}
+                        onChange={handleChange}
+                        isInvalid={!!errors.password}
+                        autoComplete="new-password"
+                        required={mode === 'create' && !isProdLike}  // só exige em dev
+                      />
+                      <Form.Control.Feedback type="invalid">{errors.password}</Form.Control.Feedback>
+                    </Col>
 
-                  <Col md={4}>
-                    <Form.Label>Confirmar {mode === 'create' ? 'Senha' : 'Nova Senha'}</Form.Label>
-                    <Form.Control
-                      className={editClass}
-                      type="password"
-                      name="password2"
-                      placeholder="Repita a senha"
-                      value={formData.password2}
-                      onChange={handleChange}
-                      isInvalid={!!errors.password2}
-                      autoComplete="new-password"
-                      required={mode === 'create'}
-                    />
-                    <Form.Control.Feedback type="invalid">{errors.password2}</Form.Control.Feedback>
-                  </Col>
-                </Row>
+                    <Col md={4}>
+                      <Form.Label>Confirmar {mode === 'create' ? 'Senha' : 'Nova Senha'}</Form.Label>
+                      <Form.Control
+                        className={editClass}
+                        type="password"
+                        name="password2"
+                        placeholder="Repita a senha"
+                        value={formData.password2}
+                        onChange={handleChange}
+                        isInvalid={!!errors.password2}
+                        autoComplete="new-password"
+                        required={mode === 'create' && !isProdLike}  // só exige em dev
+                      />
+                      <Form.Control.Feedback type="invalid">{errors.password2}</Form.Control.Feedback>
+                    </Col>
+                  </Row>
+                )}
 
                 <div className="d-flex justify-content-between mt-3">
                   {mode === 'edit' ? (

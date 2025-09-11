@@ -1286,3 +1286,71 @@ class PasswordResetConfirmView(APIView):
         user.save()
 
         return Response({"detail": "Senha redefinida com sucesso."}, status=status.HTTP_200_OK)
+    
+class InviteSetPasswordView(APIView):
+    """
+    Fluxo de convite (conta recém-criada sem senha):
+      - GET  /auth/set-password/?uid=...&token=...
+           -> valida o par uid/token (front decide se mostra o formulário)
+      - POST /auth/set-password/
+           body: { "uid": "...", "token": "...", "password": "...", "password2": "..." }
+           -> define a senha se token válido.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        uidb64 = request.query_params.get("uid") or ""
+        token = request.query_params.get("token") or ""
+        if not (uidb64 and token):
+            return Response({"detail": "Parâmetros ausentes."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Resolve usuário a partir do uid
+        try:
+            user_id = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=user_id)
+        except Exception:
+            return Response({"detail": "Link inválido."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Valida token (expiração considerada pelo generator)
+        if not _token_generator.check_token(user, token):
+            return Response({"detail": "Token inválido ou expirado."}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"detail": "Token válido."}, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        uidb64 = request.data.get("uid") or ""
+        token = request.data.get("token") or ""
+        p1 = request.data.get("password") or ""
+        p2 = request.data.get("password2") or ""
+
+        if not (uidb64 and token and p1 and p2):
+            return Response({"detail": "Dados incompletos."}, status=status.HTTP_400_BAD_REQUEST)
+        if p1 != p2:
+            return Response({"password2": "As senhas não coincidem."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Resolve usuário
+        try:
+            user_id = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=user_id)
+        except Exception:
+            return Response({"detail": "Link inválido."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Valida token
+        if not _token_generator.check_token(user, token):
+            return Response({"detail": "Token inválido ou expirado."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Valida força da senha pelas regras do Django (mantém consistência)
+        try:
+            password_validation.validate_password(p1, user)
+        except Exception as e:
+            # Converte mensagens dos validadores em uma saída amigável
+            msgs = getattr(e, "messages", None)
+            return Response({"password": (msgs[0] if msgs else str(e))}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Define a senha e salva
+        user.set_password(p1)
+        # Se você quiser ativar a conta somente após definir a senha:
+        # user.is_active = True
+        user.save()
+
+        return Response({"detail": "Senha definida com sucesso."}, status=status.HTTP_200_OK)

@@ -1,40 +1,64 @@
 # backend/api/signals.py
-from django.apps import apps
+import logging
 from django.conf import settings
 from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
 
 from .utils.email import send_html_email
 
+logger = logging.getLogger(__name__)
+User = get_user_model()
 
-# Resolve o modelo concreto do usuário a partir de AUTH_USER_MODEL
-UserModel = apps.get_model(settings.AUTH_USER_MODEL)
-
-@receiver(post_save, sender=UserModel)
+@receiver(post_save, sender=User)
 def send_welcome_on_user_created(sender, instance, created: bool, **kwargs):
-    """
-    Envia o e-mail de boas-vindas somente na criação do usuário.
-    Usa transaction.on_commit para garantir que o registro já existe no banco
-    antes de tentar enviar (evita edge-cases com transações).
-    """
+    # Só em criação
     if not created:
+        return
+
+    # Evita spam em DEV (em DEV você já define a senha no cadastro)
+    if settings.DEBUG:
+        logger.info("DEBUG=True: não enviar welcome para %s", getattr(instance, "email", None))
         return
 
     email = getattr(instance, "email", None)
     if not email:
+        logger.info("Usuário criado sem e-mail; welcome não enviado.")
         return
 
     def _send():
-        ctx = {
-            "first_name": getattr(instance, "first_name", "") or None,
-            "username": getattr(instance, "username", "") or None,
-        }
-        send_html_email(
-            subject="Bem-vindo(a) ao Camaleão",
-            to_email=email,
-            template_name="emails/welcome",  # templates/emails/welcome.(html|txt)
-            context=ctx,
-        )
+        try:
+            uid = urlsafe_base64_encode(force_bytes(instance.pk))
+            token = default_token_generator.make_token(instance)
 
+            frontend = (
+                getattr(settings, "FRONTEND_URL", None)
+                or getattr(settings, "FRONTEND_BASE_URL", None)
+                or "http://127.0.0.1:5173"
+            ).rstrip("/")
+
+            reset_url = f"{frontend}/definir-senha?uid={uid}&token={token}"
+
+            expires_seconds = int(getattr(settings, "PASSWORD_RESET_TIMEOUT", 60 * 60 * 24 * 3))
+            expires_hours = expires_seconds // 3600
+
+            sent = send_html_email(
+                subject="Bem-vindo(a) ao Camaleão — defina sua senha",
+                to_email=email,
+                template_name="emails/welcome",  # usa welcome.(html|txt)
+                context={
+                    "first_name": getattr(instance, "first_name", "") or "",
+                    "reset_url": reset_url,
+                    "expires_hours": expires_hours,
+                },
+            )
+            logger.info("Welcome enviado para %s (sent=%s)", email, sent)
+        except Exception as exc:
+            logger.exception("Falha ao enviar welcome para %s: %s", email, exc)
+
+    # Garante que o email só vá após a transação confirmar
     transaction.on_commit(_send)

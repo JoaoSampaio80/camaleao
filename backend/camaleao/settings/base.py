@@ -44,6 +44,8 @@ EMAIL_ENABLED = os.getenv("EMAIL_ENABLED", "True").lower() == "true"
 # URL do frontend usada em e-mails/links
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173/")
 
+PASSWORD_RESET_TIMEOUT = int(os.getenv("PASSWORD_RESET_TIMEOUT", 60 * 60 * 24 * 3))
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 

@@ -1,12 +1,15 @@
 import datetime
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from django.conf import settings
+from django.contrib.auth.tokens import default_token_generator
 from django.core.validators import validate_email as core_validate_email
 from django.core.exceptions import ValidationError
 from django.contrib.auth import password_validation
 from .models import (
     User, Checklist, InventarioDados, Risk, ActionPlan, MonitoringAction, Incident, ExigenciaLGPD, 
     LikelihoodItem, ImpactItem, ControlEffectivenessItem, RiskLevelBand, Instruction)
+
 
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -102,18 +105,38 @@ class UserSerializer(serializers.ModelSerializer):
             if existing_dpo.exists():
                 raise serializers.ValidationError({"role": "Já existe um usuário com a função de DPO."})
             
+        # --- Regras de senha ---
+        request = self.context.get('request')
+        method = (getattr(request, 'method', '') or '').upper()
+        in_dev = bool(settings.DEBUG)
+
         new_password = data.get('password')
-        if new_password:
-            req = self.context.get('request')
-            is_self = bool(req and req.user and self.instance and req.user.pk == self.instance.pk)
-            if is_self:
-                current = data.get('current_password') or ''
-                if not current:
-                    raise serializers.ValidationError({'current_password': 'Informe sua senha atual.'})
-                if not self.instance.check_password(current):
-                    raise serializers.ValidationError({'current_password': 'Senha atual incorreta.'})
-            # valida regras de senha do Django (sempre que houver mudança)
-            password_validation.validate_password(new_password, self.instance or (req.user if req else None))
+
+        # Criação
+        if method == 'POST':
+            if in_dev:
+                # DEV: mantém comportamento — exige senha e valida com os validadores do Django
+                if not new_password:
+                    raise serializers.ValidationError({'password': 'Informe uma senha em ambiente de desenvolvimento.'})
+                password_validation.validate_password(new_password, self.instance or (request.user if request else None))
+            else:
+                # PROD: ignoramos qualquer senha enviada na criação -> será link por e-mail
+                data.pop('password', None)
+
+        # Edição
+        else:
+            if new_password:
+                # Se o próprio usuário está alterando a própria senha, exigir current_password
+                is_self = bool(request and request.user and self.instance and request.user.pk == self.instance.pk)
+                if is_self:
+                    current = data.get('current_password') or ''
+                    if not current:
+                        raise serializers.ValidationError({'current_password': 'Informe sua senha atual.'})
+                    if not self.instance.check_password(current):
+                        raise serializers.ValidationError({'current_password': 'Senha atual incorreta.'})
+                # força da senha (sempre que houver mudança)
+                password_validation.validate_password(new_password, self.instance or (request.user if request else None))
+
         return data
     # Método de validação personalizado para o campo 'email'
     def validate_email(self, value):
@@ -159,12 +182,27 @@ class UserSerializer(serializers.ModelSerializer):
         return value   
 
     def create(self, validated_data):
-        # Remove a senha dos dados validados para que não seja passada diretamente
-        # para o User.objects.create()
+        """
+        DEV: usa a senha informada (já validada acima).
+        PROD: cria com senha inutilizável e envia link de definição de senha por e-mail.
+        """
+        in_dev = bool(settings.DEBUG)
         password = validated_data.pop('password', None)
-        user = User.objects.create(**validated_data)
-        if password:
-            user.set_password(password) # Define a senha de forma segura
+
+        # Campos não-modelo
+        validated_data.pop('current_password', None)
+        validated_data.pop('refresh', None)
+        validated_data.pop('remove_avatar', False)
+
+        # NÃO salvar ainda
+        user = User(**validated_data)
+
+        if in_dev:
+            user.set_password(password or "")
+        else:
+            user.set_unusable_password()
+
+        # Primeiro save já no estado final de senha
         user.save()
         return user
 
