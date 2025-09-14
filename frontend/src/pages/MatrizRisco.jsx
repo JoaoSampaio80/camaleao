@@ -1,5 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Container, Row, Col, Form, Button, Alert, Spinner, Badge } from 'react-bootstrap';
+import {
+  Container,
+  Row,
+  Col,
+  Form,
+  Button,
+  Alert,
+  Spinner,
+  Badge,
+} from 'react-bootstrap';
 import Sidebar from '../components/Sidebar';
 import AxiosInstance from '../components/Axios';
 
@@ -11,25 +20,25 @@ function MatrizRisco() {
 
   // opções vindas do backend
   const [likelihoods, setLikelihoods] = useState([]); // [{id, value, label_pt}]
-  const [impacts, setImpacts] = useState([]);         // idem
-  const [effs, setEffs] = useState([]);               // [{id, value, label_pt}]
-  const [bands, setBands] = useState([]);             // [{name, min_score, max_score, color}]
+  const [impacts, setImpacts] = useState([]); // idem
+  const [effs, setEffs] = useState([]); // [{id, value, label_pt}]
+  const [bands, setBands] = useState([]); // [{name, min_score, max_score, color}]
 
   // erros por campo
   const [fieldErrors, setFieldErrors] = useState({});
 
   // estado do form
   const [form, setForm] = useState({
-    matriz_filial: '',            // agora será select
+    matriz_filial: '', // agora será select
     setor: '',
     processo: '',
     risco_fator: '',
-    probabilidade: '',            // id
-    impacto: '',                  // id
+    probabilidade: '', // id
+    impacto: '', // id
     medidas_controle: '',
-    tipo_controle: '',            // 'C'|'D'
-    eficacia: '',                 // id (opcional)
-    risco_residual: '',           // 'baixo'|'medio'|'alto'
+    tipo_controle: '', // 'C'|'D'
+    eficacia: '', // id (opcional)
+    risco_residual: '', // 'baixo'|'medio'|'alto'
     resposta_risco: '',
   });
 
@@ -40,9 +49,9 @@ function MatrizRisco() {
         const { data } = await AxiosInstance.get('risk-config/');
 
         const like = Array.isArray(data.likelihood) ? [...data.likelihood] : [];
-        const imp  = Array.isArray(data.impact) ? [...data.impact] : [];
-        const eff  = Array.isArray(data.effectiveness) ? [...data.effectiveness] : [];
-        const b    = Array.isArray(data.bands) ? [...data.bands] : [];
+        const imp = Array.isArray(data.impact) ? [...data.impact] : [];
+        const eff = Array.isArray(data.effectiveness) ? [...data.effectiveness] : [];
+        const b = Array.isArray(data.bands) ? [...data.bands] : [];
 
         like.sort((a, b) => a.value - b.value);
         imp.sort((a, b) => a.value - b.value);
@@ -54,10 +63,13 @@ function MatrizRisco() {
         setBands(b);
 
         if (!like.length || !imp.length) {
-          setError('Recebi o risk-config, mas as listas de Probabilidade/Impacto vieram vazias.');
+          setError(
+            'Recebi o risk-config, mas as listas de Probabilidade/Impacto vieram vazias.'
+          );
         }
       } catch (e) {
-        const msg = e?.response?.data?.detail || e.message || 'Falha ao carregar parametrizações.';
+        const msg =
+          e?.response?.data?.detail || e.message || 'Falha ao carregar parametrizações.';
         setError(msg);
       } finally {
         setLoadingCfg(false);
@@ -68,8 +80,8 @@ function MatrizRisco() {
 
   // pontuação = prob.value * impact.value
   const computedPontuacao = useMemo(() => {
-    const p = likelihoods.find(x => String(x.id) === String(form.probabilidade));
-    const i = impacts.find(x => String(x.id) === String(form.impacto));
+    const p = likelihoods.find((x) => String(x.id) === String(form.probabilidade));
+    const i = impacts.find((x) => String(x.id) === String(form.impacto));
     return (p?.value || 0) * (i?.value || 0);
   }, [form.probabilidade, form.impacto, likelihoods, impacts]);
 
@@ -77,14 +89,16 @@ function MatrizRisco() {
   const uiBand = useMemo(() => {
     const s = computedPontuacao || 0;
     if (s === 0) return null;
-    if (s <= 6)  return { name: 'Baixo',  color: '#00B050' };
-    if (s <= 12) return { name: 'Médio',  color: '#FFC000' };
-    if (s <= 16) return { name: 'Alto',   color: '#ED7D31' };
+    if (s <= 6) return { name: 'Baixo', color: '#00B050' };
+    if (s <= 12) return { name: 'Médio', color: '#FFC000' };
+    if (s <= 16) return { name: 'Alto', color: '#ED7D31' };
     return { name: 'Crítico', color: '#C00000' };
   }, [computedPontuacao]);
 
   // fundo suave conforme a banda
-  const bandBgStyle = uiBand ? { backgroundColor: 'rgba(' + hexToRgb(uiBand.color) + ',0.18)' } : {};
+  const bandBgStyle = uiBand
+    ? { backgroundColor: 'rgba(' + hexToRgb(uiBand.color) + ',0.18)' }
+    : {};
   function hexToRgb(hex) {
     const m = hex.replace('#', '');
     const bigint = parseInt(m, 16);
@@ -96,16 +110,16 @@ function MatrizRisco() {
 
   const onChange = (e) => {
     const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
+    setForm((prev) => ({ ...prev, [name]: value }));
     setOkMsg('');
     setError('');
     if (fieldErrors[name]) {
-      setFieldErrors(prev => ({ ...prev, [name]: undefined }));
+      setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
     }
   };
 
   const resetForm = () => {
-    setForm(prev => ({
+    setForm((prev) => ({
       matriz_filial: '',
       setor: '',
       processo: '',
@@ -125,14 +139,16 @@ function MatrizRisco() {
 
   const validateForm = () => {
     const errs = {};
-    if (!required(form.matriz_filial))  errs.matriz_filial  = 'Selecione Matriz/Filial.';
-    if (!required(form.setor))          errs.setor          = 'Informe o Setor.';
-    if (!required(form.processo))       errs.processo       = 'Informe o Processo.';
-    if (!required(form.risco_fator))    errs.risco_fator    = 'Descreva o risco/fator.';
-    if (!required(form.probabilidade))  errs.probabilidade  = 'Selecione a Probabilidade.';
-    if (!required(form.impacto))        errs.impacto        = 'Selecione o Impacto.';
-    if (!required(form.risco_residual)) errs.risco_residual = 'Selecione a classificação do risco residual.';
-    if ((computedPontuacao ?? 0) <= 0)  errs.pontuacao      = 'Defina probabilidade e impacto válidos.';
+    if (!required(form.matriz_filial)) errs.matriz_filial = 'Selecione Matriz/Filial.';
+    if (!required(form.setor)) errs.setor = 'Informe o Setor.';
+    if (!required(form.processo)) errs.processo = 'Informe o Processo.';
+    if (!required(form.risco_fator)) errs.risco_fator = 'Descreva o risco/fator.';
+    if (!required(form.probabilidade)) errs.probabilidade = 'Selecione a Probabilidade.';
+    if (!required(form.impacto)) errs.impacto = 'Selecione o Impacto.';
+    if (!required(form.risco_residual))
+      errs.risco_residual = 'Selecione a classificação do risco residual.';
+    if ((computedPontuacao ?? 0) <= 0)
+      errs.pontuacao = 'Defina probabilidade e impacto válidos.';
     return errs;
   };
 
@@ -187,7 +203,8 @@ function MatrizRisco() {
           setFieldErrors(mapped);
           const first = Object.keys(mapped)[0];
           const el = document.querySelector(`[name="${first}"]`);
-          if (el?.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          if (el?.scrollIntoView)
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
           setSaving(false);
           return;
         }
@@ -211,7 +228,7 @@ function MatrizRisco() {
 
       <div
         style={{
-          background: 'linear-gradient(to right, #e6f0f7, #f7fafd)',
+          background: '#f5f5f5',
           minHeight: '100vh',
           width: '100vw',
           marginTop: '56px',
@@ -222,13 +239,25 @@ function MatrizRisco() {
           boxSizing: 'border-box',
         }}
       >
-        <h2 className="mb-4" style={{ color: '#071744' }}>
-          Matriz de Risco
-        </h2>
+        {/* título centralizado, padrão aprovado */}
+        <h2 className="mb-4 page-title-ink text-center">Matriz de Risco</h2>
 
-        <Container fluid className="px-4" style={{ width: '100%', margin: '0 auto' }}>
-          {error && <Alert variant="danger" className="mb-3">{error}</Alert>}
-          {okMsg && <Alert variant="success" className="mb-3">{okMsg}</Alert>}
+        {/* bloco com gradiente aceito */}
+        <Container
+          fluid
+          className="container-gradient px-4"
+          style={{ width: '100%', margin: '0 auto' }}
+        >
+          {error && (
+            <Alert variant="danger" className="mb-3">
+              {error}
+            </Alert>
+          )}
+          {okMsg && (
+            <Alert variant="success" className="mb-3">
+              {okMsg}
+            </Alert>
+          )}
 
           {loadingCfg ? (
             <div className="d-flex align-items-center">
@@ -239,7 +268,8 @@ function MatrizRisco() {
             <>
               {noOpts && (
                 <Alert variant="warning" className="mb-3">
-                  Não encontrei opções de Probabilidade/Impacto. Verifique o endpoint <code>risk-config/</code> e sua
+                  Não encontrei opções de Probabilidade/Impacto. Verifique o endpoint{' '}
+                  <code>risk-config/</code> e sua
                   <code> VITE_API_URL</code>.
                 </Alert>
               )}
@@ -324,7 +354,7 @@ function MatrizRisco() {
                       isInvalid={!!fieldErrors.probabilidade}
                     >
                       <option value="">Selecione...</option>
-                      {likelihoods.map(l => (
+                      {likelihoods.map((l) => (
                         <option key={l.id} value={l.id}>
                           {l.label_pt} ({l.value})
                         </option>
@@ -344,7 +374,7 @@ function MatrizRisco() {
                       isInvalid={!!fieldErrors.impacto}
                     >
                       <option value="">Selecione...</option>
-                      {impacts.map(i => (
+                      {impacts.map((i) => (
                         <option key={i.id} value={i.id}>
                           {i.label_pt} ({i.value})
                         </option>
@@ -357,7 +387,16 @@ function MatrizRisco() {
 
                   <Col lg={4} md={12}>
                     <Form.Label>
-                      Pontuação do Risco {uiBand ? <Badge bg="light" text="dark" style={{ marginLeft: 8, border: `1px solid ${uiBand.color}` }}>{uiBand.name}</Badge> : null}
+                      Pontuação do Risco{' '}
+                      {uiBand ? (
+                        <Badge
+                          bg="light"
+                          text="dark"
+                          style={{ marginLeft: 8, border: `1px solid ${uiBand.color}` }}
+                        >
+                          {uiBand.name}
+                        </Badge>
+                      ) : null}
                     </Form.Label>
                     <Form.Control
                       value={computedPontuacao || ''}
@@ -416,7 +455,7 @@ function MatrizRisco() {
                       onChange={onChange}
                     >
                       <option value="">(Opcional) Selecione...</option>
-                      {effs.map(e => (
+                      {effs.map((e) => (
                         <option key={e.id} value={e.id}>
                           {e.label_pt} ({e.value})
                         </option>
@@ -457,10 +496,22 @@ function MatrizRisco() {
                 </Row>
 
                 <div className="d-flex gap-2">
-                  <Button type="submit" variant="primary" disabled={saving}>
-                    {saving ? (<><Spinner size="sm" className="me-2" /> Salvando...</>) : 'Salvar Risco'}
+                  <Button
+                    type="submit"
+                    className="btn-white-custom"
+                    variant="primary"
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <>
+                        <Spinner size="sm" className="me-2" /> Salvando...
+                      </>
+                    ) : (
+                      'Salvar Risco'
+                    )}
                   </Button>
                   <Button
+                    className="btn-white-custom"
                     variant="outline-secondary"
                     onClick={() => {
                       resetForm();

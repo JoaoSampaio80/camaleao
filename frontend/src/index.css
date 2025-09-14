@@ -148,3 +148,9 @@ label {
   border-color: #11d72b !important; /* verde */
   box-shadow: 0 0 0 0.2rem rgba(241, 196, 15, 0.15) !important; /* brilho amarelado suave */
 }
+
+/* Evita label branca dentro de cards brancos que estão dentro do gradiente */
+.container-gradient .labels-reset label,
+.container-gradient .labels-reset .form-label {
+  color: inherit;
+}

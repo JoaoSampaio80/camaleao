@@ -1,5 +1,17 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Container, Form, Button, Row, Col, Alert, Table, Spinner, Card, Badge, Pagination } from 'react-bootstrap';
+import {
+  Container,
+  Form,
+  Button,
+  Row,
+  Col,
+  Alert,
+  Table,
+  Spinner,
+  Card,
+  Badge,
+  Pagination,
+} from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import AxiosInstance from '../components/Axios';
 import Sidebar from '../components/Sidebar';
@@ -78,14 +90,14 @@ function Cadastro() {
   const [mode, setMode] = useState('create'); // 'create' | 'edit'
   const [selectedId, setSelectedId] = useState(null);
 
-  const [users, setUsers] = useState([]);        // lista normalizada
+  const [users, setUsers] = useState([]); // lista normalizada
   const [listLoading, setListLoading] = useState(true);
   const [query, setQuery] = useState('');
 
   // paginação
-  const [page, setPage] = useState(1);           // página atual
-  const [pageSize, setPageSize] = useState(10);  // itens por página
-  const [count, setCount] = useState(0);         // total de itens (quando paginado)
+  const [page, setPage] = useState(1); // página atual
+  const [pageSize, setPageSize] = useState(10); // itens por página
+  const [count, setCount] = useState(0); // total de itens (quando paginado)
   const [next, setNext] = useState(null);
   const [previous, setPrevious] = useState(null);
 
@@ -116,7 +128,11 @@ function Cadastro() {
       const data = resp?.data;
 
       // Aceita: [ {...}, {...} ]  ou  { results: [ {...} ], count, next, previous }
-      const list = Array.isArray(data) ? data : (Array.isArray(data?.results) ? data.results : []);
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.results)
+          ? data.results
+          : [];
       setUsers(list);
 
       if (Array.isArray(data)) {
@@ -138,8 +154,12 @@ function Cadastro() {
     }
   };
 
-  useEffect(() => { fetchUsers(); /* eslint-disable-next-line */ }, [page, pageSize]); // atualiza ao trocar página/tamanho
-  useEffect(() => { fetchUsers(); /* eslint-disable-next-line */ }, []); // primeira carga
+  useEffect(() => {
+    fetchUsers(); /* eslint-disable-next-line */
+  }, [page, pageSize]); // atualiza ao trocar página/tamanho
+  useEffect(() => {
+    fetchUsers(); /* eslint-disable-next-line */
+  }, []); // primeira carga
 
   // ------- Handlers -------
   const handleChange = (e) => {
@@ -150,7 +170,8 @@ function Cadastro() {
 
       // Normalizações do "estado seguinte"
       const nextRole = name === 'role' ? value : prev.role;
-      const nextAppointmentDate = name === 'appointment_date' ? value : prev.appointment_date;
+      const nextAppointmentDate =
+        name === 'appointment_date' ? value : prev.appointment_date;
 
       // 1) Recalcula SEMPRE que a data mudar (se for DPO)
       if (name === 'appointment_date' && nextRole === 'dpo') {
@@ -189,8 +210,10 @@ function Cadastro() {
       if (!isProdLike) {
         // DEV: exige e pode ser mais flexível (3+)
         if (!formData.password) e.password = 'Senha é obrigatória.';
-        if (formData.password && formData.password.length < 3) e.password = 'A senha deve ter pelo menos 3 caracteres.';
-        if (formData.password2 !== formData.password) e.password2 = 'As senhas não coincidem.';
+        if (formData.password && formData.password.length < 3)
+          e.password = 'A senha deve ter pelo menos 3 caracteres.';
+        if (formData.password2 !== formData.password)
+          e.password2 = 'As senhas não coincidem.';
       }
     } else {
       // EDIÇÃO: se for trocar a senha, aplique critérios
@@ -202,11 +225,10 @@ function Cadastro() {
         if (formData.password && formData.password.length < minLen) {
           e.password = `A senha deve ter pelo menos ${minLen} caracteres.`;
         }
-        if (formData.password2 !== formData.password) e.password2 = 'As senhas não coincidem.';
+        if (formData.password2 !== formData.password)
+          e.password2 = 'As senhas não coincidem.';
       }
     }
-
-
 
     if (formData.first_name && /[^\p{L}\s\-'\u2019]/u.test(formData.first_name)) {
       e.first_name = 'Use apenas letras, espaços, hífen e apóstrofo.';
@@ -219,9 +241,11 @@ function Cadastro() {
     if (formData.role === 'dpo') {
       const len = digitsOnly(formData.phone_number).length;
       if (!len) e.phone_number = 'Telefone é obrigatório para DPO.';
-      else if (!(len === 10 || len === 11)) e.phone_number = 'Telefone deve ter 10 ou 11 dígitos.';
+      else if (!(len === 10 || len === 11))
+        e.phone_number = 'Telefone deve ter 10 ou 11 dígitos.';
 
-      if (!formData.appointment_date) e.appointment_date = 'Data de nomeação é obrigatória para DPO.';
+      if (!formData.appointment_date)
+        e.appointment_date = 'Data de nomeação é obrigatória para DPO.';
     }
     return e;
   };
@@ -257,7 +281,6 @@ function Cadastro() {
       data.password = formData.password;
     }
 
-
     return data;
   };
 
@@ -265,7 +288,9 @@ function Cadastro() {
     e.preventDefault();
     if (submitting) return;
 
-    setMessage(''); setVariant(''); setErrors({});
+    setMessage('');
+    setVariant('');
+    setErrors({});
     const clientErrs = validateClient();
     if (Object.keys(clientErrs).length) {
       setErrors(clientErrs);
@@ -280,11 +305,15 @@ function Cadastro() {
       if (mode === 'create') {
         const response = await AxiosInstance.post('users/', dataToSend);
         if (response.status === 201) {
-          setVariant('success'); setMessage('Usuário cadastrado com sucesso!');
+          setVariant('success');
+          setMessage('Usuário cadastrado com sucesso!');
           await fetchUsers();
           resetForm({ clearFlash: false });
           window.scrollTo({ top: 0, behavior: 'smooth' });
-          setTimeout(() => { setMessage(''); setVariant(''); }, 3000);
+          setTimeout(() => {
+            setMessage('');
+            setVariant('');
+          }, 3000);
         }
       } else {
         const response = await AxiosInstance.patch(`users/${selectedId}/`, dataToSend);
@@ -294,7 +323,10 @@ function Cadastro() {
           await fetchUsers();
           resetForm({ clearFlash: false }); // mantém a mensagem
           window.scrollTo({ top: 0, behavior: 'smooth' });
-          setTimeout(() => { setMessage(''); setVariant(''); }, 3000);
+          setTimeout(() => {
+            setMessage('');
+            setVariant('');
+          }, 3000);
         }
       }
     } catch (error) {
@@ -307,11 +339,14 @@ function Cadastro() {
           normalized[k] = Array.isArray(v) ? v.join(' ') : String(v);
         });
         setErrors(normalized);
-        setVariant('danger'); setMessage('Corrija os campos destacados.');
+        setVariant('danger');
+        setMessage('Corrija os campos destacados.');
       } else if (st === 403) {
-        setVariant('danger'); setMessage('Você não tem permissão para executar esta ação.');
+        setVariant('danger');
+        setMessage('Você não tem permissão para executar esta ação.');
       } else {
-        setVariant('danger'); setMessage('Erro ao salvar. Verifique os dados e tente novamente.');
+        setVariant('danger');
+        setMessage('Erro ao salvar. Verifique os dados e tente novamente.');
       }
     } finally {
       setSubmitting(false);
@@ -330,9 +365,10 @@ function Cadastro() {
         phone_number: digitsOnly(u.phone_number) || '',
         role: u.role || 'gerente',
         appointment_date: u.appointment_date || '',
-        appointment_validity: (u.role === 'dpo' && u.appointment_date)
-          ? addYearsToISODate(u.appointment_date, 2)
-          : '',
+        appointment_validity:
+          u.role === 'dpo' && u.appointment_date
+            ? addYearsToISODate(u.appointment_date, 2)
+            : '',
         password: '',
         password2: '',
       });
@@ -344,7 +380,8 @@ function Cadastro() {
       setVariant('');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
-      setVariant('danger'); setMessage('Falha ao carregar usuário para edição.');
+      setVariant('danger');
+      setMessage('Falha ao carregar usuário para edição.');
     }
   };
 
@@ -372,11 +409,16 @@ function Cadastro() {
       await AxiosInstance.delete(`users/${id}/`);
       if (selectedId === id) resetForm();
       await fetchUsers();
-      setVariant('success'); setMessage('Usuário excluído com sucesso.');
-      setTimeout(() => { setMessage(''); setVariant(''); }, 3000);
+      setVariant('success');
+      setMessage('Usuário excluído com sucesso.');
+      setTimeout(() => {
+        setMessage('');
+        setVariant('');
+      }, 3000);
     } catch (e) {
       const detail = e?.response?.data?.detail;
-      setVariant('danger'); setMessage(detail || 'Falha ao excluir o usuário.');
+      setVariant('danger');
+      setMessage(detail || 'Falha ao excluir o usuário.');
     }
   };
 
@@ -427,7 +469,7 @@ function Cadastro() {
       <Sidebar />
       <div
         style={{
-          background: '#d6f3f9',
+          background: '#f5f5f5',
           minHeight: '100vh',
           width: '100vw',
           marginTop: '56px',
@@ -438,218 +480,288 @@ function Cadastro() {
           boxSizing: 'border-box',
         }}
       >
-        <div className="d-flex align-items-center gap-3 mb-2" style={{ width: '100%', maxWidth: 1100 }}>
-          <h2 className="mb-0" style={{ color: '#071744' }}>
+        {/* título centralizado como nas outras páginas */}
+        <div
+          className="d-flex justify-content-center align-items-center gap-3 mb-3"
+          style={{ width: '100%', maxWidth: 1100 }}
+        >
+          <h2 className="mb-0 page-title-ink">
             {mode === 'create' ? 'Cadastro de Usuário' : 'Editar Usuário'}
           </h2>
           {mode === 'edit' && (
-            <Badge bg="warning" text="dark">Modo edição ativo</Badge>
+            <Badge bg="warning" text="dark">
+              Modo edição ativo
+            </Badge>
           )}
         </div>
 
-        {message && <Alert variant={variant}>{message}</Alert>}
+        {/* === FORM NO GRADIENTE (SEM CARD) === */}
+        <Container fluid className="container-gradient" style={{ maxWidth: 1100 }}>
+          {message && <Alert variant={variant}>{message}</Alert>}
 
-        <Container fluid style={{ maxWidth: 1100 }}>
-          {/* ========= CARD: FORMULÁRIO ========= */}
-          <Card className={`mb-4 shadow-sm ${cardEditClass}`}>
-            <Card.Body>
-              <Form onSubmit={handleSubmit} noValidate>
-                <Row className="mb-3">
-                  <Col md={6}>
-                    <Form.Label>E-mail</Form.Label>
-                    <Form.Control
-                      className={editClass}
-                      type="email"
-                      name="email"
-                      placeholder="Digite o e-mail"
-                      value={formData.email}
-                      onChange={handleChange}
-                      isInvalid={!!errors.email}
-                      autoComplete="email"
-                      required
-                    />
-                    <Form.Control.Feedback type="invalid">{errors.email}</Form.Control.Feedback>
-                  </Col>
+          <Form onSubmit={handleSubmit} noValidate>
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Label>E-mail</Form.Label>
+                <Form.Control
+                  className={editClass}
+                  type="email"
+                  name="email"
+                  placeholder="Digite o e-mail"
+                  value={formData.email}
+                  onChange={handleChange}
+                  isInvalid={!!errors.email}
+                  autoComplete="email"
+                  required
+                />
+                <Form.Control.Feedback type="invalid">
+                  {errors.email}
+                </Form.Control.Feedback>
+              </Col>
 
-                  <Col md={3}>
-                    <Form.Label>Nome</Form.Label>
-                    <Form.Control
-                      className={editClass}
-                      type="text"
-                      name="first_name"
-                      placeholder="Digite o nome"
-                      value={formData.first_name}
-                      onChange={handleFirstNameChange}
-                      onKeyDown={(e) => {
-                        const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End', ' '];
-                        if (allowedKeys.includes(e.key)) return;
-                        if (/^\d$/.test(e.key)) e.preventDefault();
-                      }}
-                      maxLength={NameMax}
-                      autoComplete="given-name"
-                      isInvalid={!!errors.first_name}
-                    />
-                    <Form.Control.Feedback type="invalid">{errors.first_name}</Form.Control.Feedback>
-                  </Col>
+              <Col md={3}>
+                <Form.Label>Nome</Form.Label>
+                <Form.Control
+                  className={editClass}
+                  type="text"
+                  name="first_name"
+                  placeholder="Digite o nome"
+                  value={formData.first_name}
+                  onChange={handleFirstNameChange}
+                  onKeyDown={(e) => {
+                    const allowedKeys = [
+                      'Backspace',
+                      'Delete',
+                      'Tab',
+                      'Enter',
+                      'ArrowLeft',
+                      'ArrowRight',
+                      'Home',
+                      'End',
+                      ' ',
+                    ];
+                    if (allowedKeys.includes(e.key)) return;
+                    if (/^\d$/.test(e.key)) e.preventDefault();
+                  }}
+                  maxLength={NameMax}
+                  autoComplete="given-name"
+                  isInvalid={!!errors.first_name}
+                />
+                <Form.Control.Feedback type="invalid">
+                  {errors.first_name}
+                </Form.Control.Feedback>
+              </Col>
 
-                  <Col md={3}>
-                    <Form.Label>Sobrenome</Form.Label>
-                    <Form.Control
-                      className={editClass}
-                      type="text"
-                      name="last_name"
-                      placeholder="Digite o sobrenome"
-                      value={formData.last_name}
-                      onChange={handleLastNameChange}
-                      onKeyDown={(e) => {
-                        const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End', ' '];
-                        if (allowedKeys.includes(e.key)) return;
-                        if (/^\d$/.test(e.key)) e.preventDefault();
-                      }}
-                      maxLength={NameMax}
-                      autoComplete="family-name"
-                      isInvalid={!!errors.last_name}
-                    />
-                    <Form.Control.Feedback type="invalid">{errors.last_name}</Form.Control.Feedback>
-                  </Col>
-                </Row>
+              <Col md={3}>
+                <Form.Label>Sobrenome</Form.Label>
+                <Form.Control
+                  className={editClass}
+                  type="text"
+                  name="last_name"
+                  placeholder="Digite o sobrenome"
+                  value={formData.last_name}
+                  onChange={handleLastNameChange}
+                  onKeyDown={(e) => {
+                    const allowedKeys = [
+                      'Backspace',
+                      'Delete',
+                      'Tab',
+                      'Enter',
+                      'ArrowLeft',
+                      'ArrowRight',
+                      'Home',
+                      'End',
+                      ' ',
+                    ];
+                    if (allowedKeys.includes(e.key)) return;
+                    if (/^\d$/.test(e.key)) e.preventDefault();
+                  }}
+                  maxLength={NameMax}
+                  autoComplete="family-name"
+                  isInvalid={!!errors.last_name}
+                />
+                <Form.Control.Feedback type="invalid">
+                  {errors.last_name}
+                </Form.Control.Feedback>
+              </Col>
+            </Row>
 
-                <Row className="mb-3">
-                  <Col md={6}>
-                    <Form.Label>Tipo Usuário</Form.Label>
-                    <Form.Select
-                      className={editClass}
-                      name="role"
-                      required
-                      value={formData.role}
-                      onChange={handleChange}
-                      isInvalid={!!errors.role}
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="admin">Administrador</option>
-                      <option value="dpo">DPO</option>
-                      <option value="gerente">Gerente</option>
-                    </Form.Select>
-                    <Form.Control.Feedback type="invalid">{errors.role}</Form.Control.Feedback>
-                  </Col>
-                </Row>
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Label>Tipo Usuário</Form.Label>
+                <Form.Select
+                  className={editClass}
+                  name="role"
+                  required
+                  value={formData.role}
+                  onChange={handleChange}
+                  isInvalid={!!errors.role}
+                >
+                  <option value="">Selecione...</option>
+                  <option value="admin">Administrador</option>
+                  <option value="dpo">DPO</option>
+                  <option value="gerente">Gerente</option>
+                </Form.Select>
+                <Form.Control.Feedback type="invalid">
+                  {errors.role}
+                </Form.Control.Feedback>
+              </Col>
+            </Row>
 
-                {formData.role === 'dpo' && (
-                  <Row className="mb-3">
-                    <Col md={4}>
-                      <Form.Label>Telefone</Form.Label>
-                      <Form.Control
-                        className={editClass}
-                        type="tel"
-                        name="phone_number"
-                        placeholder="(xx) xxxx-xxxx ou (xx) xxxxx-xxxx"
-                        value={formatPhoneBR(formData.phone_number)}
-                        onChange={handlePhoneChange}
-                        onKeyDown={(e) => {
-                          const allowed = ['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'];
-                          if (allowed.includes(e.key)) return;
-                          if (!/^\d$/.test(e.key)) e.preventDefault();
-                        }}
-                        inputMode="numeric"
-                        isInvalid={!!errors.phone_number}
-                        autoComplete="tel"
-                      />
-                      <Form.Control.Feedback type="invalid">{errors.phone_number}</Form.Control.Feedback>
-                    </Col>
+            {formData.role === 'dpo' && (
+              <Row className="mb-3">
+                <Col md={4}>
+                  <Form.Label>Telefone</Form.Label>
+                  <Form.Control
+                    className={editClass}
+                    type="tel"
+                    name="phone_number"
+                    placeholder="(xx) xxxx-xxxx ou (xx) xxxxx-xxxx"
+                    value={formatPhoneBR(formData.phone_number)}
+                    onChange={handlePhoneChange}
+                    onKeyDown={(e) => {
+                      const allowed = [
+                        'Backspace',
+                        'Delete',
+                        'Tab',
+                        'ArrowLeft',
+                        'ArrowRight',
+                        'Home',
+                        'End',
+                      ];
+                      if (allowed.includes(e.key)) return;
+                      if (!/^\d$/.test(e.key)) e.preventDefault();
+                    }}
+                    inputMode="numeric"
+                    isInvalid={!!errors.phone_number}
+                    autoComplete="tel"
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {errors.phone_number}
+                  </Form.Control.Feedback>
+                </Col>
 
-                    <Col md={4}>
-                      <Form.Label>Data da Nomeação</Form.Label>
-                      <Form.Control
-                        className={editClass}
-                        type="date"
-                        name="appointment_date"
-                        value={formData.appointment_date || ''}
-                        onChange={handleChange}
-                        isInvalid={!!errors.appointment_date}
-                      />
-                      <Form.Control.Feedback type="invalid">{errors.appointment_date}</Form.Control.Feedback>
-                    </Col>
+                <Col md={4}>
+                  <Form.Label>Data da Nomeação</Form.Label>
+                  <Form.Control
+                    className={editClass}
+                    type="date"
+                    name="appointment_date"
+                    value={formData.appointment_date || ''}
+                    onChange={handleChange}
+                    isInvalid={!!errors.appointment_date}
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {errors.appointment_date}
+                  </Form.Control.Feedback>
+                </Col>
 
-                    <Col md={4}>
-                      <Form.Label>Validade da Nomeação</Form.Label>
-                      {(() => {
-                        const validityISO = formData.appointment_date
-                          ? addYearsToISODate(formData.appointment_date, 2)
-                          : '';
-                        const validityBR = validityISO ? formatISOToBR(validityISO) : '';
-                        return (
-                          <Form.Control
-                            value={validityBR}
-                            readOnly
-                            plaintext
-                          />
-                        );
-                      })()}
-                    </Col>
-                  </Row>
-                )}
+                <Col md={4}>
+                  <Form.Label>Validade da Nomeação</Form.Label>
+                  {(() => {
+                    const validityISO = formData.appointment_date
+                      ? addYearsToISODate(formData.appointment_date, 2)
+                      : '';
+                    const validityBR = validityISO ? formatISOToBR(validityISO) : '';
+                    return <Form.Control value={validityBR} readOnly plaintext />;
+                  })()}
+                </Col>
+              </Row>
+            )}
 
-                {mode === 'create' && isProdLike ? (
-                  <Alert variant="info" className="mb-3">
-                    A senha será definida pelo próprio usuário via e-mail de convite.
-                  </Alert>
-                ) : (
-                  <Row className="mb-3">
-                    <Col md={4}>
-                      <Form.Label>{mode === 'create' ? 'Senha' : 'Nova Senha (opcional)'}</Form.Label>
-                      <Form.Control
-                        className={editClass}
-                        type="password"
-                        name="password"
-                        placeholder={mode === 'create' ? 'Digite a senha' : 'Preencha para alterar'}
-                        value={formData.password}
-                        onChange={handleChange}
-                        isInvalid={!!errors.password}
-                        autoComplete="new-password"
-                        required={mode === 'create' && !isProdLike}  // só exige em dev
-                      />
-                      <Form.Control.Feedback type="invalid">{errors.password}</Form.Control.Feedback>
-                    </Col>
+            {mode === 'create' && isProdLike ? (
+              <Alert variant="info" className="mb-3">
+                A senha será definida pelo próprio usuário via e-mail de convite.
+              </Alert>
+            ) : (
+              <Row className="mb-3">
+                <Col md={4}>
+                  <Form.Label>
+                    {mode === 'create' ? 'Senha' : 'Nova Senha (opcional)'}
+                  </Form.Label>
+                  <Form.Control
+                    className={editClass}
+                    type="password"
+                    name="password"
+                    placeholder={
+                      mode === 'create' ? 'Digite a senha' : 'Preencha para alterar'
+                    }
+                    value={formData.password}
+                    onChange={handleChange}
+                    isInvalid={!!errors.password}
+                    autoComplete="new-password"
+                    required={mode === 'create' && !isProdLike}
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {errors.password}
+                  </Form.Control.Feedback>
+                </Col>
 
-                    <Col md={4}>
-                      <Form.Label>Confirmar {mode === 'create' ? 'Senha' : 'Nova Senha'}</Form.Label>
-                      <Form.Control
-                        className={editClass}
-                        type="password"
-                        name="password2"
-                        placeholder="Repita a senha"
-                        value={formData.password2}
-                        onChange={handleChange}
-                        isInvalid={!!errors.password2}
-                        autoComplete="new-password"
-                        required={mode === 'create' && !isProdLike}  // só exige em dev
-                      />
-                      <Form.Control.Feedback type="invalid">{errors.password2}</Form.Control.Feedback>
-                    </Col>
-                  </Row>
-                )}
+                <Col md={4}>
+                  <Form.Label>
+                    Confirmar {mode === 'create' ? 'Senha' : 'Nova Senha'}
+                  </Form.Label>
+                  <Form.Control
+                    className={editClass}
+                    type="password"
+                    name="password2"
+                    placeholder="Repita a senha"
+                    value={formData.password2}
+                    onChange={handleChange}
+                    isInvalid={!!errors.password2}
+                    autoComplete="new-password"
+                    required={mode === 'create' && !isProdLike}
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {errors.password2}
+                  </Form.Control.Feedback>
+                </Col>
+              </Row>
+            )}
 
-                <div className="d-flex justify-content-between mt-3">
-                  {mode === 'edit' ? (
-                    <Button variant="outline-secondary" type="button" onClick={() => resetForm()} disabled={submitting}>
-                      Cancelar edição
-                    </Button>
-                  ) : <span />}
+            <div className="d-flex justify-content-between mt-3">
+              {mode === 'edit' ? (
+                <Button
+                  variant="outline-secondary"
+                  type="button"
+                  onClick={() => resetForm()}
+                  disabled={submitting}
+                >
+                  Cancelar edição
+                </Button>
+              ) : (
+                <span />
+              )}
 
-                  <div className="d-flex gap-2">
-                    <Button variant="secondary" type="button" onClick={() => navigate('/')} disabled={submitting}>
-                      Voltar
-                    </Button>
-                    <Button variant="primary" type="submit" disabled={submitting}>
-                      {submitting ? 'Salvando...' : (mode === 'create' ? 'Cadastrar' : 'Salvar alterações')}
-                    </Button>
-                  </div>
-                </div>
-              </Form>
-            </Card.Body>
-          </Card>
+              <div className="d-flex gap-2">
+                <Button
+                  className="btn-white-custom"
+                  variant="secondary"
+                  type="button"
+                  onClick={() => navigate('/')}
+                  disabled={submitting}
+                >
+                  Voltar
+                </Button>
+                <Button
+                  className="btn-white-custom"
+                  variant="primary"
+                  type="submit"
+                  disabled={submitting}
+                >
+                  {submitting
+                    ? 'Salvando...'
+                    : mode === 'create'
+                      ? 'Cadastrar'
+                      : 'Salvar alterações'}
+                </Button>
+              </div>
+            </div>
+          </Form>
+        </Container>
 
-          {/* ========= CARD: LISTA + FILTRO + PAGINAÇÃO ========= */}
+        {/* === LISTA + FILTRO EM CARD BRANCO NORMAL (FORA do gradiente) === */}
+        <Container fluid style={{ maxWidth: 1100 }} className="mt-4">
           <Card className="shadow-sm">
             <Card.Header className="bg-white">
               <Form onSubmit={onFilter}>
@@ -663,10 +775,20 @@ function Cadastro() {
                     />
                   </Col>
                   <Col md="auto">
-                    <Button type="submit">Filtrar</Button>
+                    <Button className="btn-white-custom" type="submit">
+                      Filtrar
+                    </Button>
                   </Col>
                   <Col md="auto">
-                    <Button variant="outline-secondary" onClick={() => { setQuery(''); setPage(1); fetchUsers(); }}>
+                    <Button
+                      className="btn-white-custom"
+                      variant="outline-secondary"
+                      onClick={() => {
+                        setQuery('');
+                        setPage(1);
+                        fetchUsers();
+                      }}
+                    >
                       Limpar
                     </Button>
                   </Col>
@@ -674,10 +796,17 @@ function Cadastro() {
                     <Form.Label>Tamanho da página</Form.Label>
                     <Form.Select
                       value={pageSize}
-                      onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setPage(1);
+                      }}
                       style={{ width: 120 }}
                     >
-                      {[5, 10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                      {[5, 10, 20, 50].map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
                     </Form.Select>
                   </Col>
                 </Row>
@@ -738,34 +867,53 @@ function Cadastro() {
                   {/* ====== Paginação ====== */}
                   <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div className="text-muted">
-                      Total: <strong>{count || users.length}</strong> •
-                      {' '}Página <strong>{page}</strong> de <strong>{totalPages}</strong>
+                      Total: <strong>{count || users.length}</strong> • Página{' '}
+                      <strong>{page}</strong> de <strong>{totalPages}</strong>
                     </div>
 
                     <Pagination className="mb-0">
                       <Pagination.First disabled={!canPrev} onClick={() => goTo(1)} />
-                      <Pagination.Prev disabled={!canPrev} onClick={() => goTo(page - 1)} />
+                      <Pagination.Prev
+                        disabled={!canPrev}
+                        onClick={() => goTo(page - 1)}
+                      />
 
                       {/* elipse inicial */}
-                      {pageItems[0] > 1 && <>
-                        <Pagination.Item onClick={() => goTo(1)}>{1}</Pagination.Item>
-                        <Pagination.Ellipsis disabled />
-                      </>}
+                      {pageItems[0] > 1 && (
+                        <>
+                          <Pagination.Item onClick={() => goTo(1)}>{1}</Pagination.Item>
+                          <Pagination.Ellipsis disabled />
+                        </>
+                      )}
 
-                      {pageItems.map(p => (
-                        <Pagination.Item key={p} active={p === page} onClick={() => goTo(p)}>
+                      {pageItems.map((p) => (
+                        <Pagination.Item
+                          key={p}
+                          active={p === page}
+                          onClick={() => goTo(p)}
+                        >
                           {p}
                         </Pagination.Item>
                       ))}
 
                       {/* elipse final */}
-                      {pageItems[pageItems.length - 1] < totalPages && <>
-                        <Pagination.Ellipsis disabled />
-                        <Pagination.Item onClick={() => goTo(totalPages)}>{totalPages}</Pagination.Item>
-                      </>}
+                      {pageItems[pageItems.length - 1] < totalPages && (
+                        <>
+                          <Pagination.Ellipsis disabled />
+                          <Pagination.Item onClick={() => goTo(totalPages)}>
+                            {totalPages}
+                          </Pagination.Item>
+                        </>
+                      )}
 
-                      <Pagination.Next disabled={!canNext} onClick={() => goTo(page + 1)} />
-                      <Pagination.Last disabled={!canNext} onClick={() => goTo(totalPages)} />
+                      <Pagination.Next
+                        disabled={!canNext}
+                        onClick={() => goTo(page + 1)}
+                      />
+                      <Pagination.Last
+                        disabled={!canNext}
+                        onClick={() => goTo(totalPages)}
+                      />
                     </Pagination>
                   </div>
                 </>
