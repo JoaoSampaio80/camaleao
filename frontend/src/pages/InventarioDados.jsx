@@ -57,7 +57,7 @@ function InventarioDados() {
       <Sidebar />
       <div
         style={{
-          background: '#d6f3f9',
+          background: '#f5f5f5', // igual à página aceita
           minHeight: '100vh',
           width: '100vw',
           marginTop: '56px',
@@ -68,11 +68,9 @@ function InventarioDados() {
           boxSizing: 'border-box',
         }}
       >
-        <h2 className="mb-4" style={{ color: '#071744' }}>
-          Inventário de dados
-        </h2>
+        <h2 className="mb-4 page-title-ink">Inventário de Dados</h2>
 
-        <Container fluid style={{ background: '#fff', padding: '2rem', borderRadius: '10px' }}>
+        <Container fluid className="container-gradient">
           {warn && (
             <Alert variant="warning">
               Existem campos obrigatórios pendentes. Preencha os campos destacados.
@@ -82,7 +80,9 @@ function InventarioDados() {
           <Form>
             <Row className="mb-3">
               <Col md={3}>
-                <Form.Label>Unidade (Matriz / Filial) <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Unidade (Matriz / Filial) <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Select
                   value={form.unidade || ''}
                   onChange={(e) => setField('unidade', e.target.value)}
@@ -96,7 +96,9 @@ function InventarioDados() {
               </Col>
 
               <Col md={3}>
-                <Form.Label>Setor <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Setor <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.setor || ''}
@@ -107,7 +109,9 @@ function InventarioDados() {
               </Col>
 
               <Col md={3}>
-                <Form.Label>Responsável (E-mail) <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Responsável (E-mail) <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   type="email"
                   placeholder="email@empresa.com"
@@ -119,7 +123,9 @@ function InventarioDados() {
               </Col>
 
               <Col md={3}>
-                <Form.Label>Processo de Negócio <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Processo de Negócio <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.processo_negocio || ''}
@@ -132,7 +138,9 @@ function InventarioDados() {
 
             <Row className="mb-3">
               <Col>
-                <Form.Label>Finalidade <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Finalidade <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.finalidade || ''}
@@ -145,7 +153,10 @@ function InventarioDados() {
 
             <Row className="mb-3">
               <Col>
-                <Form.Label>Dados pessoais coletados / tratados <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Dados pessoais coletados / tratados{' '}
+                  <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.dados_pessoais || ''}
@@ -158,7 +169,9 @@ function InventarioDados() {
 
             <Row className="mb-3">
               <Col md={3}>
-                <Form.Label>Tipo de dado <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Tipo de dado <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Select
                   value={form.tipo_dado || ''}
                   onChange={(e) => setField('tipo_dado', e.target.value)}
@@ -173,7 +186,9 @@ function InventarioDados() {
               </Col>
 
               <Col md={3}>
-                <Form.Label>Origem <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Origem <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.origem || ''}
@@ -184,7 +199,9 @@ function InventarioDados() {
               </Col>
 
               <Col md={3}>
-                <Form.Label>Formato <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Formato <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Select
                   value={form.formato || ''}
                   onChange={(e) => setField('formato', e.target.value)}
@@ -199,7 +216,9 @@ function InventarioDados() {
               </Col>
 
               <Col md={3}>
-                <Form.Label>Impresso? <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Impresso? <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Select
                   value={form.impresso || ''}
                   onChange={(e) => setField('impresso', e.target.value)}
@@ -215,7 +234,9 @@ function InventarioDados() {
 
             <Row className="mb-3">
               <Col>
-                <Form.Label>Titulares dos dados <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Titulares dos dados <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.titulares || ''}
@@ -228,7 +249,9 @@ function InventarioDados() {
 
             <Row className="mb-3">
               <Col md={3}>
-                <Form.Label>Dados de menores <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Dados de menores <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Select
                   value={form.dados_menores || ''}
                   onChange={(e) => setField('dados_menores', e.target.value)}
@@ -242,7 +265,9 @@ function InventarioDados() {
               </Col>
 
               <Col md={9}>
-                <Form.Label>Base Legal <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Base Legal <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.base_legal || ''}
@@ -254,10 +279,10 @@ function InventarioDados() {
             </Row>
 
             <div className="d-flex justify-content-end">
-              <div className="me-3 align-self-center text-muted" style={{ fontSize: 13 }}>
+              <div className="me-3 align-self-center text-light" style={{ fontSize: 13 }}>
                 {!canGoNext ? 'Existem campos obrigatórios pendentes.' : ''}
               </div>
-              <Button variant="primary" onClick={goNext}>
+              <Button className="btn-white-custom" variant="primary" onClick={goNext}>
                 Próxima Página
               </Button>
             </div>

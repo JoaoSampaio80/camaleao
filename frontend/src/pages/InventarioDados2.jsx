@@ -60,7 +60,7 @@ function InventarioDados2() {
       <Sidebar />
       <div
         style={{
-          background: '#d6f3f9',
+          background: '#f5f5f5', // igual ao padrão aprovado
           minHeight: '100vh',
           width: '100vw',
           marginTop: '56px',
@@ -71,9 +71,9 @@ function InventarioDados2() {
           boxSizing: 'border-box',
         }}
       >
-        <h2 className="mb-4" style={{ color: '#071744' }}>Inventário de dados</h2>
+        <h2 className="mb-4 page-title-ink">Inventário de Dados</h2>
 
-        <Container fluid style={{ background: '#fff', padding: '2rem', borderRadius: '10px' }}>
+        <Container fluid className="container-gradient">
           {warn && (
             <Alert variant="warning">
               Existem campos obrigatórios pendentes. Preencha os campos destacados.
@@ -83,7 +83,9 @@ function InventarioDados2() {
           <Form>
             <Row className="mb-3">
               <Col md={6}>
-                <Form.Label>Pessoas com acesso <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Pessoas com acesso <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.pessoas_acesso || ''}
@@ -93,7 +95,9 @@ function InventarioDados2() {
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
               </Col>
               <Col md={6}>
-                <Form.Label>Atualizações (Quando ocorrem?) <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Atualizações (Quando ocorrem?) <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.atualizacoes || ''}
@@ -106,7 +110,9 @@ function InventarioDados2() {
 
             <Row className="mb-3">
               <Col>
-                <Form.Label>Transmissão Interna <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Transmissão Interna <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.transmissao_interna || ''}
@@ -119,7 +125,9 @@ function InventarioDados2() {
 
             <Row className="mb-3">
               <Col>
-                <Form.Label>Transmissão Externa <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Transmissão Externa <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.transmissao_externa || ''}
@@ -132,17 +140,25 @@ function InventarioDados2() {
 
             <Row className="mb-3">
               <Col md={4}>
-                <Form.Label>Local de Armazenamento (Digital) <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Local de Armazenamento (Digital) <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.local_armazenamento_digital || ''}
-                  onChange={(e) => setField('local_armazenamento_digital', e.target.value)}
-                  isInvalid={!String(form.local_armazenamento_digital || '').trim() && warn}
+                  onChange={(e) =>
+                    setField('local_armazenamento_digital', e.target.value)
+                  }
+                  isInvalid={
+                    !String(form.local_armazenamento_digital || '').trim() && warn
+                  }
                 />
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
               </Col>
               <Col md={4}>
-                <Form.Label>Controlador / Operador <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Controlador / Operador <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Select
                   value={form.controlador_operador || ''}
                   onChange={(e) => setField('controlador_operador', e.target.value)}
@@ -156,7 +172,9 @@ function InventarioDados2() {
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
               </Col>
               <Col md={4}>
-                <Form.Label>Motivo de Retenção <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Motivo de Retenção <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.motivo_retencao || ''}
@@ -169,7 +187,9 @@ function InventarioDados2() {
 
             <Row className="mb-3">
               <Col md={3}>
-                <Form.Label>Período de Retenção <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Período de Retenção <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.periodo_retencao || ''}
@@ -179,7 +199,9 @@ function InventarioDados2() {
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
               </Col>
               <Col md={3}>
-                <Form.Label>Exclusão <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Exclusão <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.exclusao || ''}
@@ -189,7 +211,9 @@ function InventarioDados2() {
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
               </Col>
               <Col md={3}>
-                <Form.Label>Forma de exclusão <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Forma de exclusão <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.forma_exclusao || ''}
@@ -199,7 +223,10 @@ function InventarioDados2() {
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
               </Col>
               <Col md={3}>
-                <Form.Label>Ocorre transferência para terceiros? <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Ocorre transferência para terceiros?{' '}
+                  <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Select
                   value={form.transferencia_terceiros || ''}
                   onChange={(e) => setField('transferencia_terceiros', e.target.value)}
@@ -215,7 +242,9 @@ function InventarioDados2() {
 
             <Row className="mb-3">
               <Col md={6}>
-                <Form.Label>Quais dados são transferidos? <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Quais dados são transferidos? <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.quais_dados_transferidos || ''}
@@ -225,11 +254,18 @@ function InventarioDados2() {
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
               </Col>
               <Col md={6}>
-                <Form.Label>Ocorre Transferência Internacional? <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Ocorre Transferência Internacional?{' '}
+                  <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Select
                   value={form.transferencia_internacional || ''}
-                  onChange={(e) => setField('transferencia_internacional', e.target.value)}
-                  isInvalid={!String(form.transferencia_internacional || '').trim() && warn}
+                  onChange={(e) =>
+                    setField('transferencia_internacional', e.target.value)
+                  }
+                  isInvalid={
+                    !String(form.transferencia_internacional || '').trim() && warn
+                  }
                 >
                   <option value="">Select...</option>
                   <option value="sim">Sim</option>
@@ -241,7 +277,9 @@ function InventarioDados2() {
 
             <Row className="mb-4">
               <Col>
-                <Form.Label>Empresa terceira <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Empresa terceira <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.empresa_terceira || ''}
@@ -253,20 +291,19 @@ function InventarioDados2() {
             </Row>
 
             <div className="d-flex justify-content-between mt-4">
-              <Button variant="primary" onClick={goBack}>
+              <Button className="btn-white-custom" variant="primary" onClick={goBack}>
                 Voltar
               </Button>
 
               <div className="d-flex align-items-center gap-3">
-                <div className="text-muted" style={{ fontSize: 13 }}>
+                <div className="text-light" style={{ fontSize: 13 }}>
                   {!canGoNext ? 'Existem campos obrigatórios pendentes.' : ''}
                 </div>
-                <Button variant="primary" onClick={goNext}>
+                <Button className="btn-white-custom" variant="primary" onClick={goNext}>
                   Próxima Página
                 </Button>
               </div>
             </div>
-
           </Form>
         </Container>
       </div>

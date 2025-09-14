@@ -10,7 +10,8 @@ function InventarioDados3() {
   const location = useLocation();
   const [params] = useSearchParams();
 
-  const { form, setField, loadInventario, saveInventario, recordId, reset } = useInventario();
+  const { form, setField, loadInventario, saveInventario, recordId, reset } =
+    useInventario();
 
   const [saving, setSaving] = React.useState(false);
   const [warn, setWarn] = React.useState(false);
@@ -50,7 +51,9 @@ function InventarioDados3() {
     setSaving(true);
     try {
       const saved = await saveInventario(); // valida servidor (POST/PATCH)
-      const okMsg = recordId ? 'Inventário atualizado com sucesso.' : 'Inventário criado com sucesso.';
+      const okMsg = recordId
+        ? 'Inventário atualizado com sucesso.'
+        : 'Inventário criado com sucesso.';
 
       setWarn(false);
 
@@ -72,7 +75,9 @@ function InventarioDados3() {
       if (e?.type === 'validation') {
         setWarn(true);
         setVariant('warning');
-        setMsg('Existem campos obrigatórios pendentes. Preencha os campos destacados nas etapas.');
+        setMsg(
+          'Existem campos obrigatórios pendentes. Preencha os campos destacados nas etapas.'
+        );
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         const st = e?.response?.status;
@@ -89,8 +94,8 @@ function InventarioDados3() {
 
   // Campos desta etapa (para destacar quando warn=true)
   const invalidAdequado = !String(form.adequado_contratualmente || '').trim() && warn;
-  const invalidPaises   = !String(form.paises_tratamento || '').trim() && warn;
-  const invalidMedidas  = !String(form.medidas_seguranca || '').trim() && warn;
+  const invalidPaises = !String(form.paises_tratamento || '').trim() && warn;
+  const invalidMedidas = !String(form.medidas_seguranca || '').trim() && warn;
   const invalidConsents = !String(form.consentimentos || '').trim() && warn;
   // observacao é opcional -> nunca inválido
 
@@ -99,7 +104,7 @@ function InventarioDados3() {
       <Sidebar />
       <div
         style={{
-          background: '#d6f3f9',
+          background: '#f5f5f5', // padrão aprovado
           minHeight: '100vh',
           width: '100vw',
           marginTop: '56px',
@@ -110,18 +115,29 @@ function InventarioDados3() {
           boxSizing: 'border-box',
         }}
       >
-        <div className="d-flex w-100 align-items-center justify-content-between" style={{ maxWidth: 1280 }}>
-          <h2 className="mb-4" style={{ color: '#071744' }}>Inventário de dados</h2>
+        {/* Cabeçalho com título + ações (fora do gradiente) */}
+        <div
+          className="d-flex w-100 align-items-center justify-content-center"
+          style={{ maxWidth: 1280 }}
+        >
+          <h2 className="mb-4 page-title-ink flex-grow-1 text-center">
+            Inventário de Dados
+          </h2>
           <div className="mb-3 d-flex align-items-center gap-2">
             <small className="text-muted me-3">
               {recordId ? `Editando ID #${recordId}` : 'Novo inventário'}
             </small>
-            <Button variant="outline-secondary" size="sm" onClick={startNew}>Novo</Button>
-            <Button variant="outline-primary" size="sm" onClick={startEdit}>Editar…</Button>
+            <Button variant="outline-secondary" size="sm" onClick={startNew}>
+              Novo
+            </Button>
+            <Button variant="outline-primary" size="sm" onClick={startEdit}>
+              Editar…
+            </Button>
           </div>
         </div>
 
-        <Container fluid style={{ background: '#fff', padding: '2rem', borderRadius: '10px' }}>
+        {/* Card com gradiente aceito */}
+        <Container fluid className="container-gradient">
           {msg && <Alert variant={variant}>{msg}</Alert>}
 
           <Form>
@@ -199,14 +215,18 @@ function InventarioDados3() {
 
             <div className="d-flex justify-content-between mt-4">
               <Button
+                className="btn-white-custom"
                 variant="primary"
-                onClick={() => navigate(ROUTES.INVENTARIO_DADOS2 + (recordId ? `?id=${recordId}` : ''))}
+                onClick={() =>
+                  navigate(ROUTES.INVENTARIO_DADOS2 + (recordId ? `?id=${recordId}` : ''))
+                }
               >
                 Voltar
               </Button>
 
               <div className="d-flex gap-2">
                 <Button
+                  className="btn-white-custom"
                   variant="outline-primary"
                   onClick={() => handleSave('new')}
                   disabled={saving}
@@ -215,6 +235,7 @@ function InventarioDados3() {
                 </Button>
 
                 <Button
+                  className="btn-white-custom"
                   variant="primary"
                   onClick={() => handleSave('list')}
                   disabled={saving}
