@@ -27,7 +27,6 @@ import {
   faUserPlus,
   faList,
 } from '@fortawesome/free-solid-svg-icons';
-import './Sidebar.css';
 import { useAuth } from '../context/AuthContext';
 import { ROUTES } from '../routes';
 

@@ -1,18 +1,9 @@
-/* ====== Cores base ====== */
-:root {
-  --grad: linear-gradient(135deg, #003366, #005b96);
-  --text-strong: #003366; /* cor sólida para textos */
-  --hover-bg: #d9eaff; /* hover claro */
-  --active-text: #ffffff;
-  --white: #ffffff;
-}
-
 /* ====== Navbar com gradiente ====== */
 .navbar-gradient {
   background: var(--grad);
 }
 
-/* ====== Botões "fantasma" (transparentes) ====== */
+/* ====== Botões "fantasma" ====== */
 .ghost-btn {
   background: transparent !important;
   color: var(--white) !important;
@@ -22,15 +13,12 @@
   align-items: center;
   justify-content: center;
 }
-
 .white-border {
   border: 1px solid var(--white) !important;
 }
-
 .no-border {
   border: 0;
 }
-
 .white-text {
   color: var(--white);
 }
@@ -39,19 +27,17 @@
 .sidebar-offcanvas {
   background-color: var(--white);
 }
-
 .offcanvas-header-gradient {
   background: var(--grad);
   color: var(--white);
 }
-
 .offcanvas-header-gradient .btn-close {
   filter: invert(1);
 }
 
 /* ====== Links da sidebar ====== */
 .sidebar-link {
-  color: var(--text-strong) !important;
+  color: #003366 !important; /* texto forte */
   font-size: 1.05rem;
   padding: 10px 12px;
   border-radius: 6px;
@@ -61,19 +47,15 @@
     color 0.2s,
     box-shadow 0.2s;
 }
-
 .sidebar-link .fa-icon {
   margin-right: 10px;
 }
-
 .sidebar-link:hover {
-  background-color: var(--hover-bg);
-  color: var(--text-strong) !important;
+  background-color: #d9eaff;
+  color: #003366 !important;
 }
-
-/* Estado ativo com gradiente de fundo */
 .sidebar-link.active {
   background: var(--grad);
-  color: var(--active-text) !important;
+  color: #ffffff !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }

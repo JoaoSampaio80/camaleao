@@ -1,0 +1,108 @@
+/* ===== Inventário Lista (escopo local) ===== */
+
+.pg-inventariolista {
+  --page-max: clamp(1100px, 94vw, 1800px);
+}
+
+.pg-inventariolista .shell {
+  width: 100%;
+  max-width: var(--page-max);
+}
+
+/* ocupa a altura útil da viewport dentro do gradiente */
+.pg-inventariolista .content-viewport {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0; /* importante pro overflow funcionar */
+}
+
+/* card/tabela preenchendo o espaço */
+.pg-inventariolista .card-fill {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* toolbar fixa dentro do card */
+.pg-inventariolista .sticky-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #fff;
+  border-bottom: 1px solid #edf2f7;
+}
+
+/* área rolável */
+.pg-inventariolista .table-wrapper {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+/* força largura mínima pro scroll horizontal quando faltar espaço */
+.pg-inventariolista .table-wrapper table {
+  min-width: 2200px;
+}
+
+/* bordas/cabeçalho da tabela */
+.pg-inventariolista .table.smart-table {
+  --bs-border-color: #b8c4da; /* suaviza a cor das bordas do Bootstrap */
+}
+
+.pg-inventariolista .smart-head th {
+  background: #eaf1ff !important;
+  border-bottom: 2px solid #9db3ff !important;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* separadores verticais leves para melhorar a leitura */
+.pg-inventariolista .table.smart-table > :not(caption) > * > th,
+.pg-inventariolista .table.smart-table > :not(caption) > * > td {
+  border-right: 1px solid #b8c4da;
+  vertical-align: middle;
+}
+
+.pg-inventariolista .table.smart-table > :not(caption) > * > th:last-child,
+.pg-inventariolista .table.smart-table > :not(caption) > * > td:last-child {
+  border-right: none;
+}
+
+.pg-inventariolista .table.smart-table tbody td {
+  border-top: 1px solid #c3cfe6;
+}
+
+/* leve realce no hover para guiar a leitura horizontal */
+.pg-inventariolista .table.smart-table tbody tr:hover > * {
+  background-color: #f2f6ff;
+}
+
+/* células com bastante conteúdo podem quebrar linha de forma elegante */
+.pg-inventariolista .wrap {
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* labels de cards brancos dentro do gradiente herdando cor normal */
+.container-gradient .labels-reset label,
+.container-gradient .labels-reset .form-label {
+  color: inherit;
+}
+
+/* filtros sobre o gradiente: inputs claros, texto escuro */
+.pg-inventariolista .filters-on-gradient .form-control,
+.pg-inventariolista .filters-on-gradient .form-select {
+  background: #ffffff;
+  color: #213547;
+  border-color: #dee2e6;
+}
+
+/* melhora foco dos inputs no gradiente */
+.pg-inventariolista .filters-on-gradient .form-control:focus,
+.pg-inventariolista .filters-on-gradient .form-select:focus {
+  box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
+}
