@@ -32,39 +32,53 @@ class CustomUserManager(BaseUserManager):
             raise ValueError("Superusuário precisa ter is_superuser=True.")
 
         return self.create_user(email, password, **extra_fields)
-    
+
+
 def avatar_upload_to(instance, filename):
     # preserva a extensão original em minúsculo
-    ext = os.path.splitext(filename)[1].lower() or '.jpg'
+    ext = os.path.splitext(filename)[1].lower() or ".jpg"
     # gera um nome único pra evitar cache preso do navegador/CDN
-    return f'avatars/{uuid.uuid4().hex}{ext}'
+    return f"avatars/{uuid.uuid4().hex}{ext}"
+
 
 class User(AbstractUser):
     """
     Modelo de usuário personalizado para o sistema LGPD.
     Define os papéis (admin, dpo, gerente) e campos adicionais.
     """
+
     # Sobrescreve o campo email para garantir que seja único e não nulo
     username = None
     email = models.EmailField(unique=True, blank=False, null=False)
 
     # Campos adicionais para o usuário
-    phone_number = models.CharField(max_length=20, blank=True, null=True, verbose_name="Telefone")    
-    appointment_date = models.DateField(blank=True, null=True, verbose_name="Data de Nomeação")
-    appointment_validity = models.DateField(blank=True, null=True, verbose_name="Validade da Nomeação")
+    phone_number = models.CharField(
+        max_length=20, blank=True, null=True, verbose_name="Telefone"
+    )
+    appointment_date = models.DateField(
+        blank=True, null=True, verbose_name="Data de Nomeação"
+    )
+    appointment_validity = models.DateField(
+        blank=True, null=True, verbose_name="Validade da Nomeação"
+    )
     avatar = models.ImageField(upload_to=avatar_upload_to, null=True, blank=True)
 
     # Campo para definir o papel do usuário (Admin, DPO, Gerente)
     USER_ROLES = (
-        ('admin', 'Administrador'),
-        ('dpo', 'DPO'),
-        ('gerente', 'Gerente'),
+        ("admin", "Administrador"),
+        ("dpo", "DPO"),
+        ("gerente", "Gerente"),
     )
-    role = models.CharField(max_length=20, choices=USER_ROLES, default='gerente', verbose_name="Função do Usuário")
+    role = models.CharField(
+        max_length=20,
+        choices=USER_ROLES,
+        default="gerente",
+        verbose_name="Função do Usuário",
+    )
 
     # Define o campo de login para ser o email
-    USERNAME_FIELD = 'email'    
-   
+    USERNAME_FIELD = "email"
+
     # Define os campos requeridos ao criar um superusuário via createsuperuser
     REQUIRED_FIELDS = []
 
@@ -78,10 +92,12 @@ class User(AbstractUser):
         verbose_name = "Usuário"
         verbose_name_plural = "Usuários"
 
+
 class Checklist(models.Model):
     """
     Modelo para os itens do checklist da LGPD.
     """
+
     atividade = models.CharField(max_length=255, verbose_name="Atividade")
     descricao = models.TextField(verbose_name="Descrição")
     is_completed = models.BooleanField(default=False, verbose_name="Concluído")
@@ -91,24 +107,34 @@ class Checklist(models.Model):
     class Meta:
         verbose_name = "Checklist LGPD"
         verbose_name_plural = "Checklist LGPD"
-        ordering = ['created_at']
+        ordering = ["created_at"]
 
     def __str__(self):
         return self.atividade
-    
+
+
 class InventarioDados(models.Model):
     """
     Modelo alinhado com o frontend (3 etapas).
     """
+
     # Choices usados no frontend
-    UNIDADE_CHOICES = (('matriz', 'Matriz'), ('filial', 'Filial'))
-    TIPO_DADO_CHOICES = (('pessoal', 'Pessoal'), ('sensivel', 'Sensível'), ('anonimizado', 'Anonimizado'))
-    FORMATO_CHOICES = (('digital', 'Digital'), ('fisico', 'Físico'), ('hibrido', 'Físico e Digital'))
-    SIM_NAO_CHOICES = (('sim', 'Sim'), ('nao', 'Não'))
+    UNIDADE_CHOICES = (("matriz", "Matriz"), ("filial", "Filial"))
+    TIPO_DADO_CHOICES = (
+        ("pessoal", "Pessoal"),
+        ("sensivel", "Sensível"),
+        ("anonimizado", "Anonimizado"),
+    )
+    FORMATO_CHOICES = (
+        ("digital", "Digital"),
+        ("fisico", "Físico"),
+        ("hibrido", "Físico e Digital"),
+    )
+    SIM_NAO_CHOICES = (("sim", "Sim"), ("nao", "Não"))
     CONTROLADOR_OPERADOR_CHOICES = (
-        ('controlador', 'Controlador'),
-        ('operador', 'Operador'),
-        ('ambos', 'Ambos'),
+        ("controlador", "Controlador"),
+        ("operador", "Operador"),
+        ("ambos", "Ambos"),
     )
 
     # Metadados
@@ -116,25 +142,39 @@ class InventarioDados(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
-        related_name='inventarios_criados',
-        verbose_name="Criado por"
+        related_name="inventarios_criados",
+        verbose_name="Criado por",
     )
-    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
-    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Última Atualização")
+    data_criacao = models.DateTimeField(
+        auto_now_add=True, verbose_name="Data de Criação"
+    )
+    data_atualizacao = models.DateTimeField(
+        auto_now=True, verbose_name="Última Atualização"
+    )
 
     # --------- ETAPA 1 ---------
-    unidade = models.CharField(max_length=10, choices=UNIDADE_CHOICES, blank=True, null=True)
+    unidade = models.CharField(
+        max_length=10, choices=UNIDADE_CHOICES, blank=True, null=True
+    )
     setor = models.CharField(max_length=120, blank=True, null=True)
     responsavel_email = models.EmailField(max_length=254, blank=True, null=True)
     processo_negocio = models.CharField(max_length=200, blank=True, null=True)
     finalidade = models.TextField(blank=True, null=True)
     dados_pessoais = models.TextField(blank=True, null=True)
-    tipo_dado = models.CharField(max_length=12, choices=TIPO_DADO_CHOICES, blank=True, null=True)
+    tipo_dado = models.CharField(
+        max_length=12, choices=TIPO_DADO_CHOICES, blank=True, null=True
+    )
     origem = models.CharField(max_length=200, blank=True, null=True)
-    formato = models.CharField(max_length=16, choices=FORMATO_CHOICES, blank=True, null=True)
-    impresso = models.CharField(max_length=3, choices=SIM_NAO_CHOICES, blank=True, null=True)
+    formato = models.CharField(
+        max_length=16, choices=FORMATO_CHOICES, blank=True, null=True
+    )
+    impresso = models.CharField(
+        max_length=3, choices=SIM_NAO_CHOICES, blank=True, null=True
+    )
     titulares = models.TextField(blank=True, null=True)
-    dados_menores = models.CharField(max_length=3, choices=SIM_NAO_CHOICES, blank=True, null=True)
+    dados_menores = models.CharField(
+        max_length=3, choices=SIM_NAO_CHOICES, blank=True, null=True
+    )
     base_legal = models.TextField(blank=True, null=True)
 
     # --------- ETAPA 2 ---------
@@ -142,87 +182,113 @@ class InventarioDados(models.Model):
     atualizacoes = models.TextField(blank=True, null=True)
     transmissao_interna = models.TextField(blank=True, null=True)
     transmissao_externa = models.TextField(blank=True, null=True)
-    local_armazenamento_digital = models.CharField(max_length=200, blank=True, null=True)
-    controlador_operador = models.CharField(max_length=12, choices=CONTROLADOR_OPERADOR_CHOICES, blank=True, null=True)
+    local_armazenamento_digital = models.CharField(
+        max_length=200, blank=True, null=True
+    )
+    controlador_operador = models.CharField(
+        max_length=12, choices=CONTROLADOR_OPERADOR_CHOICES, blank=True, null=True
+    )
     motivo_retencao = models.TextField(blank=True, null=True)
     periodo_retencao = models.CharField(max_length=100, blank=True, null=True)
     exclusao = models.TextField(blank=True, null=True)
     forma_exclusao = models.TextField(blank=True, null=True)
-    transferencia_terceiros = models.CharField(max_length=3, choices=SIM_NAO_CHOICES, blank=True, null=True)
+    transferencia_terceiros = models.CharField(
+        max_length=3, choices=SIM_NAO_CHOICES, blank=True, null=True
+    )
     quais_dados_transferidos = models.TextField(blank=True, null=True)
-    transferencia_internacional = models.CharField(max_length=3, choices=SIM_NAO_CHOICES, blank=True, null=True)
+    transferencia_internacional = models.CharField(
+        max_length=3, choices=SIM_NAO_CHOICES, blank=True, null=True
+    )
     empresa_terceira = models.CharField(max_length=200, blank=True, null=True)
 
     # --------- ETAPA 3 ---------
-    adequado_contratualmente = models.CharField(max_length=3, choices=SIM_NAO_CHOICES, blank=True, null=True)
+    adequado_contratualmente = models.CharField(
+        max_length=3, choices=SIM_NAO_CHOICES, blank=True, null=True
+    )
     paises_tratamento = models.CharField(max_length=200, blank=True, null=True)
     medidas_seguranca = models.TextField(blank=True, null=True)
     consentimentos = models.TextField(blank=True, null=True)
-    observacao = models.TextField(blank=True, null=True)  # único opcional no front; aqui também opcional no BD
+    observacao = models.TextField(
+        blank=True, null=True
+    )  # único opcional no front; aqui também opcional no BD
 
     class Meta:
         verbose_name = "Inventário de Dados"
         verbose_name_plural = "Inventários de Dados"
-        ordering = ('-data_criacao',)
+        ordering = ("-data_criacao",)
         indexes = [
-            models.Index(fields=['unidade']),
-            models.Index(fields=['setor']),
-            models.Index(fields=['responsavel_email']),
-            models.Index(fields=['processo_negocio']),
-            models.Index(fields=['data_criacao']),
+            models.Index(fields=["unidade"]),
+            models.Index(fields=["setor"]),
+            models.Index(fields=["responsavel_email"]),
+            models.Index(fields=["processo_negocio"]),
+            models.Index(fields=["data_criacao"]),
         ]
 
     def __str__(self):
         return self.processo_negocio or f"Inventário #{self.pk}"
-    
+
+
 class LikelihoodItem(models.Model):
-    value = models.PositiveSmallIntegerField(unique=True)   # 1..5
+    value = models.PositiveSmallIntegerField(unique=True)  # 1..5
     label_pt = models.CharField(max_length=60)
+
     class Meta:
         ordering = ["-value"]
         verbose_name = "Probabilidade"
         verbose_name_plural = "Probabilidade (itens)"
+
     def __str__(self):
         return f"{self.value} - {self.label_pt}"
 
+
 class ImpactItem(models.Model):
-    value = models.PositiveSmallIntegerField(unique=True)   # 1..5
+    value = models.PositiveSmallIntegerField(unique=True)  # 1..5
     label_pt = models.CharField(max_length=60)
+
     class Meta:
         ordering = ["-value"]
         verbose_name = "Impacto"
         verbose_name_plural = "Impacto (itens)"
+
     def __str__(self):
         return f"{self.value} - {self.label_pt}"
 
+
 class ControlEffectivenessItem(models.Model):
-    value = models.PositiveSmallIntegerField(unique=True)   # 1..5
-    label_pt = models.CharField(max_length=60)              # "Muito efetivo", etc.
-    reduction_min = models.PositiveSmallIntegerField()      # 0..100
+    value = models.PositiveSmallIntegerField(unique=True)  # 1..5
+    label_pt = models.CharField(max_length=60)  # "Muito efetivo", etc.
+    reduction_min = models.PositiveSmallIntegerField()  # 0..100
     reduction_max = models.PositiveSmallIntegerField()
+
     class Meta:
         ordering = ["-value"]
         verbose_name = "Efetividade do Controle"
         verbose_name_plural = "Efetividade do Controle (itens)"
+
     def __str__(self):
         return f"{self.value} - {self.label_pt} ({self.reduction_min}-{self.reduction_max}%)"
 
+
 class RiskLevelBand(models.Model):
-    name = models.CharField(max_length=40)                  # Baixo/Médio/Alto/Crítico
-    color = models.CharField(max_length=7)                  # "#C00000"
+    name = models.CharField(max_length=40)  # Baixo/Médio/Alto/Crítico
+    color = models.CharField(max_length=7)  # "#C00000"
     min_score = models.PositiveSmallIntegerField()
     max_score = models.PositiveSmallIntegerField()
+
     class Meta:
         ordering = ["min_score"]
         verbose_name = "Nível de Risco (faixa)"
         verbose_name_plural = "Níveis de Risco (faixas)"
+
     def __str__(self):
         return f"{self.name} ({self.min_score}-{self.max_score})"
 
+
 class Instruction(models.Model):
     title = models.CharField(max_length=120)
-    body_md = models.TextField()                            # markdown
+    body_md = models.TextField()  # markdown
     updated_at = models.DateTimeField(auto_now=True)
+
     def __str__(self):
         return self.title
 
@@ -235,11 +301,21 @@ class Risk(models.Model):
     # chave/parametrização
     probabilidade = models.ForeignKey("LikelihoodItem", on_delete=models.PROTECT)
     impacto = models.ForeignKey("ImpactItem", on_delete=models.PROTECT)
-    pontuacao = models.IntegerField(editable=False, default=0)  # prob * impacto (calculado)
+    pontuacao = models.IntegerField(
+        editable=False, default=0
+    )  # prob * impacto (calculado)
     medidas_controle = models.TextField(blank=True)
-    tipo_controle = models.CharField(max_length=1, choices=[("C","Preventivo"),("D","Detectivo")], blank=True)
-    eficacia = models.ForeignKey("ControlEffectivenessItem", null=True, blank=True, on_delete=models.SET_NULL)
-    risco_residual = models.CharField(max_length=20, choices=[("baixo","Baixo"),("medio","Médio"),("alto","Alto")], blank=True )
+    tipo_controle = models.CharField(
+        max_length=1, choices=[("C", "Preventivo"), ("D", "Detectivo")], blank=True
+    )
+    eficacia = models.ForeignKey(
+        "ControlEffectivenessItem", null=True, blank=True, on_delete=models.SET_NULL
+    )
+    risco_residual = models.CharField(
+        max_length=20,
+        choices=[("baixo", "Baixo"), ("medio", "Médio"), ("alto", "Alto")],
+        blank=True,
+    )
     resposta_risco = models.TextField(blank=True)  # plano de ação
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
@@ -267,22 +343,30 @@ class Risk(models.Model):
         # se o residual não foi informado, tenta deduzir pelas faixas
         if not self.risco_residual:
             try:
-                from .models import RiskLevelBand  # import local para evitar ordem de import
+                from .models import (
+                    RiskLevelBand,
+                )  # import local para evitar ordem de import
+
                 band = RiskLevelBand.objects.filter(
-                    min_score__lte=self.pontuacao,
-                    max_score__gte=self.pontuacao
+                    min_score__lte=self.pontuacao, max_score__gte=self.pontuacao
                 ).first()
                 if band:
                     nome = band.name.strip().lower()
-                    mapa = {"baixo":"baixo", "médio":"medio", "medio":"medio", "alto":"alto", "crítico":"critico", "critico":"critico"}
+                    mapa = {
+                        "baixo": "baixo",
+                        "médio": "medio",
+                        "medio": "medio",
+                        "alto": "alto",
+                        "crítico": "critico",
+                        "critico": "critico",
+                    }
                     self.risco_residual = mapa.get(nome, self.risco_residual)
             except Exception:
-                pass    
+                pass
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.risco_fator[:60]}..."
-    
 
     def clean(self):
         errors = {}
@@ -291,7 +375,9 @@ class Risk(models.Model):
 
         if existe_controle:
             if not self.tipo_controle:
-                errors["tipo_controle"] = "Informe se o controle é Preventivo (C) ou Detectivo (D)."
+                errors["tipo_controle"] = (
+                    "Informe se o controle é Preventivo (C) ou Detectivo (D)."
+                )
         else:
             if self.tipo_controle:
                 errors["tipo_controle"] = "Deixe vazio quando não existe controle."
@@ -311,7 +397,14 @@ class ActionPlan(models.Model):
     como = models.TextField(blank=True)
     responsavel_execucao = models.CharField(max_length=120)
     prazo = models.DateField()
-    status = models.CharField(max_length=20, choices=[("nao_iniciado","Não iniciado"),("andamento","Em andamento"),("concluido","Concluído")])
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("nao_iniciado", "Não iniciado"),
+            ("andamento", "Em andamento"),
+            ("concluido", "Concluído"),
+        ],
+    )
 
     class Meta:
         verbose_name = "Plano de Ação"
@@ -320,15 +413,15 @@ class ActionPlan(models.Model):
 
     def __str__(self):
         return f"{self.descricao[:60]}..."
-    
+
     def clean(self):
         errors = {}
         if not self.risco_id:
-            errors["risco"] = "Selecione um Risco para vincular este plano de ação." 
+            errors["risco"] = "Selecione um Risco para vincular este plano de ação."
 
         if self.prazo and self.prazo < datetime.date.today():
             errors["prazo"] = "Prazo não pode ser no passado."
-        
+
         if errors:
             raise ValidationError(errors)
 
@@ -349,6 +442,7 @@ class MonitoringAction(models.Model):
 
     def __str__(self):
         return f"{self.framework_requisito} - {self.data_monitoramento}"
+
 
 class Incident(models.Model):
     numero_registro = models.AutoField(primary_key=True)
@@ -372,33 +466,56 @@ class Incident(models.Model):
         return f"Incidente #{self.numero_registro}"
 
 
-class ExigenciaLGPD(models.Model):
-    """
-    Modelo para o formulário de Exigências da Lei e Artigos de Referência.
-    Permite registrar exigências legais e anexar evidências de cumprimento.
-    """
-    titulo = models.CharField(max_length=255, verbose_name="Título da Exigência")
-    descricao = models.TextField(verbose_name="Descrição Detalhada")
-    artigos_referencia = models.CharField(max_length=255, blank=True, null=True, verbose_name="Artigos de Referência (LGPD)")
+class DocumentosLGPD(models.Model):
+    class Dimensao(models.TextChoices):
+        GESTAO_PRIVACIDADE = "GPV", "Gestão de privacidade"
+        GESTAO_SI = "GSI", "Gestão de SI"
+        PROCESSOS = "PRC", "Processos"
 
-    # Campo para o upload do arquivo de comprovação
-    # Os arquivos serão salvos na pasta definida por MEDIA_ROOT/comprovantes_lgpd/
-    arquivo_comprovacao = models.FileField(
-        upload_to='comprovantes_lgpd/',
-        blank=True,
-        null=True,
-        verbose_name="Arquivo de Comprovação"
+    class Criticidade(models.TextChoices):
+        NAO_APLICAVEL = "NA", "Não aplicável"
+        BOAS_PRATICAS = "BP", "Boas práticas"
+        BAIXA = "BX", "Baixa"
+        MEDIA = "MD", "Média"
+        ALTA = "AL", "Alta"
+
+    class Status(models.TextChoices):
+        NAO_APLICAVEL = "NA", "Não aplicável"
+        NAO_INICIADO = "NI", "Não iniciado"
+        EM_ANDAMENTO = "EA", "Em andamento"
+        FINALIZADO = "FI", "Finalizado"
+
+    dimensao = models.CharField(max_length=3, choices=Dimensao.choices)
+    atividade = models.TextField(
+        help_text="Descrição do requisito/atividade/documento exigido"
+    )
+    base_legal = models.CharField(max_length=255, blank=True)
+    evidencia = models.CharField(max_length=255, blank=True)
+    proxima_revisao = models.DateField(null=True, blank=True)
+
+    # NOVO: comentários
+    comentarios = models.TextField(blank=True)
+
+    # TROCA: 'classificacao' -> 'criticidade'
+    criticidade = models.CharField(
+        max_length=2, choices=Criticidade.choices, default=Criticidade.NAO_APLICAVEL
     )
 
-    data_upload = models.DateTimeField(auto_now_add=True, verbose_name="Data de Upload")
-    upload_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name="Upload feito por")
-    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Última Atualização")
+    status = models.CharField(
+        max_length=2, choices=Status.choices, default=Status.NAO_INICIADO
+    )
+
+    arquivo = models.FileField(upload_to="documentos/%Y/%m/", null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="documentos_criados",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
 
     def __str__(self):
-        """Retorna o título da exigência."""
-        return self.titulo
-
-    class Meta:
-        verbose_name = "Exigência da LGPD"
-        verbose_name_plural = "Exigências da LGPD"
-        ordering = ['titulo'] # Ordena por título
+        return f"[{self.get_dimensao_display()}] {self.atividade[:60]}"
