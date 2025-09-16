@@ -509,7 +509,7 @@ function InventarioLista() {
             background: '#f5f5f5',
             minHeight: '100vh',
             width: '100vw',
-            marginTop: '56px',
+            marginTop: '30px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',

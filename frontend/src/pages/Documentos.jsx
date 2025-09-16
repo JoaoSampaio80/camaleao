@@ -102,7 +102,7 @@ function FormularioAtividades() {
             fontSize: '1.6rem', // ➜ tamanho reduzido
             lineHeight: 1.2,
             marginBottom: '1rem',
-            marginTop: 0,
+            marginTop: '30px',
           }}
         >
           Formulário de Atividades
