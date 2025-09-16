@@ -244,6 +244,16 @@ function InventarioLista() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Esconde automaticamente mensagens de SUCESSO após 3s
+  React.useEffect(() => {
+    if (!msg || variant !== 'success') return;
+    const t = setTimeout(() => {
+      setMsg('');
+      setVariant('');
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [msg, variant]);
+
   // Lê parâmetros da URL na montagem (deep-link)
   React.useEffect(() => {
     const sp = new URLSearchParams(location.search);
@@ -767,7 +777,7 @@ function InventarioLista() {
                               <Button
                                 size="sm"
                                 variant="outline-primary"
-                                className="me-2"
+                                className="me-3"
                                 onClick={() => handleEdit(it.id)}
                               >
                                 Editar

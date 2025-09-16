@@ -4,6 +4,8 @@ import Sidebar from '../components/Sidebar';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ROUTES } from '../routes';
 import { useInventario } from '../context/InventarioContext';
+import SaveCancelBar from '../components/SaveCancelBar';
+import { toast } from 'react-toastify';
 
 const requiredStep2 = [
   'pessoas_acesso',
@@ -22,12 +24,24 @@ const requiredStep2 = [
   'empresa_terceira',
 ];
 
+// campos desta página (para PATCH/cancelar)
+const fieldsThisStep = [...requiredStep2];
+
 function InventarioDados2() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { form, setField, loadInventario, recordId } = useInventario();
+  const { form, setField, loadInventario, recordId, saveStep, reload, clearStep, reset } =
+    useInventario();
 
   const [warn, setWarn] = React.useState(false);
+  const [savingStep, setSavingStep] = React.useState(false);
+
+  const [flash, setFlash] = React.useState({ variant: '', msg: '' });
+  React.useEffect(() => {
+    if (!flash.msg) return;
+    const t = setTimeout(() => setFlash({ variant: '', msg: '' }), 3000);
+    return () => clearTimeout(t);
+  }, [flash]);
 
   React.useEffect(() => {
     const id = params.get('id');
@@ -54,6 +68,48 @@ function InventarioDados2() {
     }
     navigate(ROUTES.INVENTARIO_DADOS3 + (recordId ? `?id=${recordId}` : ''));
   };
+
+  // ===== Salvar/Cancelar SOMENTE desta página =====
+  async function handleSaveStep() {
+    if (!recordId) {
+      const msg =
+        'Para salvar esta página, primeiro é necessário estar em modo de edição.';
+      setFlash({ variant: 'warning', msg });
+      try {
+        toast.warn(msg);
+      } catch {}
+      return;
+    }
+    setSavingStep(true);
+    try {
+      await saveStep(fieldsThisStep);
+      await reload();
+      const okMsg = 'Inventário atualizado com sucesso.';
+      setFlash({ variant: 'success', msg: 'Alterações desta página salvas!' });
+      try {
+        toast.success(okMsg);
+      } catch {}
+      navigate(ROUTES.INVENTARIO_LISTA, { state: { flash: okMsg } });
+    } catch {
+      setFlash({ variant: 'danger', msg: 'Falha ao salvar esta página.' });
+      try {
+        toast.error('Falha ao salvar esta página.');
+      } catch {}
+    } finally {
+      setSavingStep(false);
+    }
+  }
+
+  function handleCancelStep() {
+    // limpa tudo e navega para a lista
+    reset();
+    const msg = 'Alterações descartadas.';
+    setFlash({ variant: 'info', msg });
+    try {
+      toast.info(msg);
+    } catch {}
+    navigate(ROUTES.INVENTARIO_LISTA, { state: { flash: msg } });
+  }
 
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
@@ -290,8 +346,24 @@ function InventarioDados2() {
               </Col>
             </Row>
 
+            {/* Barra de Salvar/Cancelar desta página (só em EDIÇÃO) */}
+            {recordId && (
+              <SaveCancelBar
+                className="mt-3"
+                onSave={handleSaveStep}
+                onCancel={handleCancelStep}
+                saving={savingStep}
+                disabled={false}
+              />
+            )}
+
             <div className="d-flex justify-content-between mt-4">
-              <Button className="btn-white-custom" variant="primary" onClick={goBack}>
+              <Button
+                type="button"
+                className="btn-white-custom"
+                variant="primary"
+                onClick={goBack}
+              >
                 Voltar
               </Button>
 
@@ -299,7 +371,12 @@ function InventarioDados2() {
                 <div className="text-light" style={{ fontSize: 13 }}>
                   {!canGoNext ? 'Existem campos obrigatórios pendentes.' : ''}
                 </div>
-                <Button className="btn-white-custom" variant="primary" onClick={goNext}>
+                <Button
+                  type="button"
+                  className="btn-white-custom"
+                  variant="primary"
+                  onClick={goNext}
+                >
                   Próxima Página
                 </Button>
               </div>

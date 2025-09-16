@@ -106,3 +106,10 @@
 .pg-inventariolista .filters-on-gradient .form-select:focus {
   box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
 }
+
+/* Texto do dropdown "Colunas" sempre visível no menu branco */
+.pg-inventariolista .container-gradient .dropdown-menu,
+.pg-inventariolista .container-gradient .dropdown-menu .dropdown-item,
+.pg-inventariolista .container-gradient .dropdown-menu .form-check-label {
+  color: #212529 !important; /* cor padrão do Bootstrap */
+}

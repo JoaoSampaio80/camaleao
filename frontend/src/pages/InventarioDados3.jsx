@@ -43,6 +43,17 @@ function InventarioDados3() {
     navigate(`${location.pathname}?id=${encodeURIComponent(input.trim())}`);
   };
 
+  const handleCancel = () => {
+    setMsg('');
+    setVariant('');
+    setWarn(false);
+    reset(); // limpa form + recordId + localStorage
+    // envia flash para a lista (variant=info) — autohide já cuida de sumir em 3s
+    navigate(ROUTES.INVENTARIO_LISTA, {
+      state: { flash: 'Alterações desta página descartadas.', variant: 'info' },
+    });
+  };
+
   // next: 'new' | 'list'
   const handleSave = async (next) => {
     if (!next) return;
@@ -225,6 +236,16 @@ function InventarioDados3() {
               </Button>
 
               <div className="d-flex gap-2">
+                <Button
+                  type="button"
+                  className="btn-white-custom"
+                  variant="outline-secondary"
+                  onClick={handleCancel}
+                  disabled={saving}
+                >
+                  Cancelar
+                </Button>
+
                 <Button
                   className="btn-white-custom"
                   variant="outline-primary"
