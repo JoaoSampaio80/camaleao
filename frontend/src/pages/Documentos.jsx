@@ -89,8 +89,8 @@ function FormularioAtividades() {
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          padding: '2rem',
-          paddingTop: '5rem', // espaço pro header fixo
+          padding: '2rem 0',
+          marginTop: '56px',
           boxSizing: 'border-box',
         }}
       >
@@ -102,7 +102,6 @@ function FormularioAtividades() {
             fontSize: '1.6rem', // ➜ tamanho reduzido
             lineHeight: 1.2,
             marginBottom: '1rem',
-            marginTop: '30px',
           }}
         >
           Formulário de Atividades

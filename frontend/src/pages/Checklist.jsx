@@ -148,7 +148,7 @@ function Checklist() {
           flex: 1,
           background: '#f5f5f5', // << cor de fundo unificada
           padding: '2rem 0',
-          marginTop: '30px',
+          marginTop: '56px',
         }}
       >
         {/* TÍTULO (centralizado, cor da identidade) */}
