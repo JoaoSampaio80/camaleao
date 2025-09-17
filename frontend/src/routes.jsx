@@ -17,12 +17,10 @@ import MatrizRisco from './pages/MatrizRisco';
 import Notificacoes from './pages/Notificacao';
 import Cadastro from './pages/Cadastro';
 import Perfil from './pages/Perfil';
-import InventarioLista from './pages/InventarioLista'
-
-// import PrivateRoute from './routes/PrivateRoute';
+import InventarioLista from './pages/InventarioLista';
 import { useAuth, AuthProvider } from './context/AuthContext';
 import { InventarioProvider } from './context/InventarioContext';
-
+import ReauthListener from './components/ReauthListener'; // <-- novo
 
 // Objeto de tipagem de rotas para evitar erros de digitação
 export const ROUTES = {
@@ -44,17 +42,21 @@ export const ROUTES = {
   NOTIFICACOES: '/notificacao',
   PERFIL: '/perfil',
   INVENTARIO_LISTA: '/dados/lista',
-  NOT_FOUND: '*'
+  NOT_FOUND: '*',
 };
 
 function AppRouter() {
   const { user, loading } = useAuth();
-  console.log(`AppRouter: Renderizando. User: ${user ? user.email : 'null'}, Loading: ${loading}, URL: ${window.location.pathname}`);
+  console.log(
+    `AppRouter: Renderizando. User: ${user ? user.email : 'null'}, Loading: ${loading}, URL: ${window.location.pathname}`
+  );
 
-  if (loading) { return <div>Carregando...</div>; }
+  if (loading) {
+    return <div>Carregando...</div>;
+  }
 
   if (user) {
-    console.log("AppRouter: Usuário autenticado, renderizando rotas protegidas.");
+    console.log('AppRouter: Usuário autenticado, renderizando rotas protegidas.');
     return (
       <Routes>
         <Route path={ROUTES.LOGIN} element={<Navigate to={ROUTES.HOME} replace />} />
@@ -70,35 +72,50 @@ function AppRouter() {
         <Route path={ROUTES.MATRIZ_RISCO} element={<MatrizRisco />} />
         <Route path={ROUTES.NOTIFICACOES} element={<Notificacoes />} />
         {/* Rotas de Inventário encapsuladas com o provider */}
-        <Route element={<InventarioProvider><Outlet /></InventarioProvider>}>
+        <Route
+          element={
+            <InventarioProvider>
+              <Outlet />
+            </InventarioProvider>
+          }
+        >
           <Route path={ROUTES.INVENTARIO_DADOS} element={<InventarioDados />} />
           <Route path={ROUTES.INVENTARIO_DADOS2} element={<InventarioDados2 />} />
           <Route path={ROUTES.INVENTARIO_DADOS3} element={<InventarioDados3 />} />
           <Route path={ROUTES.INVENTARIO_LISTA} element={<InventarioLista />} />
         </Route>
-        
-        <Route path={ROUTES.CADASTRO} element={user?.role === 'admin' ? <Cadastro /> : <Navigate to={ROUTES.HOME} replace />} />
+
+        <Route
+          path={ROUTES.CADASTRO}
+          element={
+            user?.role === 'admin' ? <Cadastro /> : <Navigate to={ROUTES.HOME} replace />
+          }
+        />
         <Route path={ROUTES.PERFIL} element={<Perfil />} />
         <Route path={ROUTES.NOT_FOUND} element={<Navigate to={ROUTES.HOME} replace />} />
-      </Routes>);
-  } else {
-    // O retorno para usuários não logados deve estar em um bloco else 
-    console.log("AppRouter: Usuário não autenticado, renderizando rota de login.");
-    return (<Routes>
+      </Routes>
+    );
+  }
+
+  // Usuário não autenticado
+  console.log('AppRouter: Usuário não autenticado, renderizando rota de login.');
+  return (
+    <Routes>
       <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.LOGIN} replace />} />
       <Route path={ROUTES.LOGIN} element={<Login />} />
       <Route path={ROUTES.DEFINIR_SENHA} element={<DefinirSenha />} />
-      <Route path={ROUTES.NOT_FOUND} element={<Navigate to={ROUTES.LOGIN} replace />} />
       <Route path={ROUTES.RESET_PASSWORD} element={<ResetPassword />} />
+      <Route path={ROUTES.NOT_FOUND} element={<Navigate to={ROUTES.LOGIN} replace />} />
     </Routes>
-    );
-  }
+  );
 }
 
 function AppRoutes() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        {/* Escuta 'auth:reauth' e usa navigate + setUser(null) dentro do contexto certo */}
+        <ReauthListener />
         <AppRouter />
       </AuthProvider>
     </BrowserRouter>

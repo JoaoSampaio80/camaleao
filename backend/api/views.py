@@ -1,4 +1,4 @@
-from rest_framework import status
+from datetime import timedelta
 from rest_framework import viewsets, permissions, status, filters
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
@@ -88,6 +88,138 @@ except Exception:
 class MyTokenObtainPairView(TokenObtainPairView):
     permission_classes = [AllowAny]
     serializer_class = MyTokenObtainPairSerializer
+
+
+# Helpers p/ cookie httpOnly do refresh
+# ---------------------------------------------------------
+REFRESH_COOKIE_NAME = "refresh_token"
+
+
+def _refresh_cookie_kwargs():
+    """
+    Define as flags do cookie do refresh.
+    - path: restrito à sub-API de auth (ajuste se sua API base mudar)
+    - secure: True em produção
+    - samesite: 'Lax' (bom p/ SPA)
+    """
+    lifetime = settings.SIMPLE_JWT.get("REFRESH_TOKEN_LIFETIME", timedelta(minutes=15))
+    return dict(
+        max_age=int(lifetime.total_seconds()),
+        httponly=True,
+        secure=not settings.DEBUG,
+        samesite="Lax",
+        path="/api/v1/auth/",  # <- ajuste se sua API base não for /api/v1/
+    )
+
+
+def _set_refresh_cookie(resp, refresh_str: str):
+    resp.set_cookie(REFRESH_COOKIE_NAME, refresh_str, **_refresh_cookie_kwargs())
+    return resp
+
+
+def _clear_refresh_cookie(resp):
+    # max_age=0 apaga; manter mesmas flags e path
+    resp.delete_cookie(
+        REFRESH_COOKIE_NAME, path=_refresh_cookie_kwargs()["path"], samesite="Lax"
+    )
+    return resp
+
+
+# ---------------------------------------------------------
+# 1) Login que SETA cookie httpOnly com refresh
+#    (mantém o body padrão com access/refresh para compatibilidade)
+# ---------------------------------------------------------
+class CookieTokenObtainPairView(TokenObtainPairView):
+    permission_classes = [AllowAny]
+    serializer_class = MyTokenObtainPairSerializer  # seu serializer custom
+
+    def post(self, request, *args, **kwargs):
+        res = super().post(request, *args, **kwargs)
+        refresh = res.data.get("refresh")
+        if refresh:
+            _set_refresh_cookie(res, refresh)
+        # Se quiser não enviar o refresh no body em prod:
+        # if not settings.DEBUG:
+        #     res.data.pop("refresh", None)
+        return res
+
+
+# ---------------------------------------------------------
+# 2) Refresh que LÊ o cookie httpOnly e devolve novo access
+#    - Se ROTATE_REFRESH_TOKENS=True, rotaciona o refresh e atualiza o cookie
+# ---------------------------------------------------------
+class CookieTokenRefreshView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        raw = request.COOKIES.get(REFRESH_COOKIE_NAME)
+        if not raw:
+            return Response(
+                {"detail": "Refresh ausente."}, status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            current_rt = RefreshToken(raw)
+        except TokenError:
+            return Response(
+                {"detail": "Refresh inválido."}, status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        rotate = settings.SIMPLE_JWT.get("ROTATE_REFRESH_TOKENS", False)
+        blacklist_after = (
+            settings.SIMPLE_JWT.get("BLACKLIST_AFTER_ROTATION", False)
+            and SIMPLEJWT_BLACKLIST_AVAILABLE
+        )
+
+        # Gera access
+        access_str = str(current_rt.access_token)
+
+        new_refresh_str = raw
+        if rotate:
+            # Blacklist do anterior (se habilitado)
+            if blacklist_after:
+                try:
+                    current_rt.blacklist()
+                except Exception:
+                    pass
+
+            # Emite um novo refresh para o mesmo usuário
+            user_id = current_rt.get("user_id")
+            UserModel = get_user_model()
+            try:
+                user = UserModel.objects.get(pk=user_id)
+            except UserModel.DoesNotExist:
+                return Response(
+                    {"detail": "Usuário não encontrado."},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+
+            new_rt = RefreshToken.for_user(user)
+            new_refresh_str = str(new_rt)
+            access_str = str(new_rt.access_token)
+
+        resp = Response({"access": access_str})
+        if rotate:
+            _set_refresh_cookie(resp, new_refresh_str)
+        return resp
+
+
+# ---------------------------------------------------------
+# 3) Logout: apaga cookie e (se possível) coloca refresh na blacklist
+# ---------------------------------------------------------
+class CookieTokenLogoutView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        raw = request.COOKIES.get(REFRESH_COOKIE_NAME)
+        resp = Response({"detail": "OK"})
+        if raw and SIMPLEJWT_BLACKLIST_AVAILABLE:
+            try:
+                RefreshToken(raw).blacklist()
+            except TokenError:
+                pass
+        _clear_refresh_cookie(resp)
+        return resp
 
 
 # ViewSet para o modelo User

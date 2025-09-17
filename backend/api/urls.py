@@ -4,6 +4,9 @@ from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 
 from .views import (
     MyTokenObtainPairView,
+    CookieTokenObtainPairView,
+    CookieTokenRefreshView,
+    CookieTokenLogoutView,
     UserViewSet,
     DocumentosLGPDViewSet,
     ChecklistViewSet,
@@ -35,6 +38,16 @@ urlpatterns = [
     path("auth/token/", MyTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("auth/token/verify/", TokenVerifyView.as_view(), name="token_verify"),
+    # JWT com refresh em cookie httpOnly
+    path(
+        "auth/login/",
+        CookieTokenObtainPairView.as_view(),
+        name="cookie_token_obtain_pair",
+    ),
+    path(
+        "auth/refresh/", CookieTokenRefreshView.as_view(), name="cookie_token_refresh"
+    ),
+    path("auth/logout/", CookieTokenLogoutView.as_view(), name="cookie_token_logout"),
     path(
         "auth/set-password/", InviteSetPasswordView.as_view(), name="auth-set-password"
     ),
