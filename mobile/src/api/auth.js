@@ -1,9 +1,9 @@
+// src/api/auth.js
 import * as SecureStore from "expo-secure-store";
 import { http } from "@/api/http";
-import { ENV } from "@/config/env";
 
 // LOGIN via COOKIE: POST /auth/login/ { email, password }
-// Espera access no body (como no seu web)
+// Espera { access, refresh? } no body (mesmo padrão do web)
 export async function loginWithEmail({ email, password }) {
   const payload = {
     email: (email || "").trim().toLowerCase(),

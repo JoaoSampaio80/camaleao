@@ -12,7 +12,8 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Colors, Radius, Space } from "@/theme/tokens";
-import { loginWithEmail, passwordReset } from "@/api/auth";
+import { passwordReset } from "@/api/auth";
+import { useAuth } from "@/context/AuthContext";
 
 if (
   Platform.OS === "android" &&
@@ -31,11 +32,13 @@ export default function LoginScreen({ navigation, route }) {
   const [resetBusy, setResetBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const { login } = useAuth();
+
+  // mensagem de reautenticação (vinda do reset por inatividade)
   const reauthMsg = route?.params?.reauthMsg;
   useEffect(() => {
     if (reauthMsg) {
       setError(reauthMsg);
-      // evita repetir se voltar para esta tela
       if (navigation?.setParams) navigation.setParams({ reauthMsg: undefined });
     }
   }, [reauthMsg, navigation]);
@@ -47,11 +50,10 @@ export default function LoginScreen({ navigation, route }) {
     Keyboard.dismiss();
 
     try {
-      await loginWithEmail({
+      await login({
         email: (email || "").trim().toLowerCase(),
         password: pass,
       });
-      navigation.replace("Home");
     } catch (e) {
       const st = e?.response?.status;
       const detail =
@@ -61,11 +63,9 @@ export default function LoginScreen({ navigation, route }) {
         e?.message ||
         "";
 
-      // Erros comuns com mensagem amigável
       if (st === 400 || st === 401) {
         setError("Credenciais inválidas. Verifique seu e-mail e senha.");
       } else if (!e?.response) {
-        // Sem resposta do servidor: timeout / DNS / porta errada / firewall
         setError(
           "Não foi possível conectar ao servidor. Confira sua rede e a API_URL (porta 8000)."
         );
@@ -129,6 +129,7 @@ export default function LoginScreen({ navigation, route }) {
           placeholder="Digite seu email"
           keyboardType="email-address"
           autoCapitalize="none"
+          autoCorrect={false}
           value={email}
           onChangeText={setEmail}
         />
@@ -165,6 +166,7 @@ export default function LoginScreen({ navigation, route }) {
               placeholder="Informe seu e-mail"
               keyboardType="email-address"
               autoCapitalize="none"
+              autoCorrect={false}
               value={resetEmail}
               onChangeText={setResetEmail}
             />

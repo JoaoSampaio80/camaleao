@@ -1,16 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  useWindowDimensions,
-  FlatList,
-} from "react-native";
+import { View, Text, StyleSheet, FlatList, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { Colors, Radius, Space, CardSize } from "@/theme/tokens";
-import { getMe, logout } from "@/api/auth";
+import { useNavigation } from "@react-navigation/native";
+import { useAuth } from "@/context/AuthContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const CARDS = [
   { key: "Encarregado", icon: "user-shield", route: "ENCARREGADO" },
@@ -28,110 +22,83 @@ const CARDS = [
   { key: "Notificação", icon: "bell", route: "NOTIFICACOES" },
 ];
 
-export default function HomeScreen({ navigation }) {
-  const { width } = useWindowDimensions();
-  const [me, setMe] = useState(null);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        setMe(await getMe());
-      } catch {}
-    })();
-  }, []);
-
-  const numColumns = useMemo(() => {
-    if (width <= 520) return 1;
-    if (width <= 992) return 2;
-    return 3;
-  }, [width]);
-
-  async function onLogout() {
-    await logout();
-    navigation.replace("Login");
-  }
+export default function HomeScreen() {
+  const nav = useNavigation();
+  const { user } = useAuth();
+  const { bottom } = useSafeAreaInsets();
 
   return (
     <View style={s.root}>
+      {/* faixa de título igual ao web (o header com menu/avtar já vem do AppHeader) */}
       <LinearGradient
         colors={[Colors.gradA, Colors.gradB]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={s.navbar}
+        style={s.hero}
       >
-        <Text style={s.navTitle}>Dashboard</Text>
-        <Pressable onPress={onLogout} style={s.outBtn}>
-          <Text style={s.outTxt}>Sair</Text>
-        </Pressable>
+        <Text style={s.heroTitle}>Gestão de Documentos LGPD</Text>
       </LinearGradient>
 
-      <View style={s.content}>
-        <View style={s.center}>
-          <FlatList
-            data={CARDS}
-            keyExtractor={(it) => it.key}
-            numColumns={numColumns}
-            columnWrapperStyle={
-              numColumns > 1
-                ? { justifyContent: "center", gap: Space.md }
-                : undefined
-            }
-            contentContainerStyle={{ gap: Space.md }}
-            renderItem={({ item }) => (
-              <Pressable style={s.cardWrap}>
-                <LinearGradient
-                  colors={[Colors.gradA, Colors.gradB]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={s.card}
-                >
-                  <FontAwesome5
-                    name={item.icon}
-                    size={20}
-                    color={Colors.white}
-                    style={{ marginBottom: 8 }}
-                  />
-                  <Text style={s.cardTitle}>{item.key}</Text>
-                </LinearGradient>
-              </Pressable>
-            )}
-          />
-        </View>
-        <Text style={s.greet}>
-          {me
-            ? `Olá, ${
-                me?.first_name || me?.username || me?.email || "usuário"
-              }!`
-            : "Carregando..."}
-        </Text>
-      </View>
+      <FlatList
+        contentContainerStyle={{
+          padding: Space.lg,
+          paddingBottom: bottom + 12,
+          rowGap: Space.md,
+        }}
+        data={CARDS}
+        keyExtractor={(it) => it.key}
+        numColumns={2} // <— fixa DUAS colunas
+        columnWrapperStyle={{ justifyContent: "center", gap: Space.md }}
+        ListFooterComponent={
+          <Text style={[s.greet, { marginTop: Space.md }]}>
+            Olá, {user?.first_name || user?.email || "usuário"}!
+          </Text>
+        }
+        renderItem={({ item }) => (
+          <Pressable
+            style={s.cardWrap}
+            onPress={() => nav.navigate(item.route)}
+          >
+            <LinearGradient
+              colors={[Colors.gradA, Colors.gradB]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={s.card}
+            >
+              <FontAwesome5
+                name={item.icon}
+                size={20}
+                color={Colors.white}
+                style={{ marginBottom: 8 }}
+              />
+              <Text style={s.cardTitle}>{item.key}</Text>
+            </LinearGradient>
+          </Pressable>
+        )}
+      />
     </View>
   );
 }
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.bgPage },
-  navbar: {
-    paddingTop: 54,
-    paddingBottom: 16,
+  hero: {
     paddingHorizontal: Space.lg,
-    flexDirection: "row",
+    paddingVertical: 16,
     alignItems: "center",
-    justifyContent: "space-between",
   },
-  navTitle: { color: Colors.white, fontSize: 20, fontWeight: "700" },
-  outBtn: {
-    backgroundColor: Colors.danger,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: Radius.sm,
+  heroTitle: {
+    color: "white",
+    fontSize: 22,
+    fontWeight: "800",
+    textAlign: "center",
   },
-  outTxt: { color: Colors.white, fontWeight: "600" },
 
-  content: { flex: 1, padding: Space.lg },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-
-  cardWrap: { width: CardSize.base, height: CardSize.base },
+  cardWrap: {
+    width: CardSize.base,
+    height: CardSize.base,
+    alignSelf: "center",
+  },
   card: {
     flex: 1,
     borderRadius: Radius.lg,
@@ -151,5 +118,5 @@ const s = StyleSheet.create({
     fontWeight: "500",
     lineHeight: 16,
   },
-  greet: { textAlign: "center", color: Colors.text, marginTop: Space.md },
+  greet: { textAlign: "center", color: Colors.text, fontWeight: "700" },
 });
