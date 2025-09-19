@@ -64,6 +64,13 @@ function AppDrawer() {
         {() => <Placeholder title="Inventário de Dados" />}
       </Drawer.Screen>
 
+      <Drawer.Screen
+        name="LISTA_INVENTARIO"
+        options={{ title: "Lista de Inventário de Dados" }}
+      >
+        {() => <Placeholder title="Lista de Inventário de Dados" />}
+      </Drawer.Screen>
+
       <Drawer.Screen name="MATRIZ_RISCO" options={{ title: "Matriz de Risco" }}>
         {() => <Placeholder title="Matriz de Risco" />}
       </Drawer.Screen>
@@ -74,6 +81,17 @@ function AppDrawer() {
 
       <Drawer.Screen name="NOTIFICACOES" options={{ title: "Notificação" }}>
         {() => <Placeholder title="Notificação" />}
+      </Drawer.Screen>
+
+      <Drawer.Screen
+        name="CADASTRO_USUARIO"
+        options={{ title: "Cadastro de Usuario" }}
+      >
+        {() => <Placeholder title="Cadastro de Usuário" />}
+      </Drawer.Screen>
+
+      <Drawer.Screen name="PERFIL" options={{ title: "Perfil" }}>
+        {() => <Placeholder title="Meu Perfil" />}
       </Drawer.Screen>
     </Drawer.Navigator>
   );

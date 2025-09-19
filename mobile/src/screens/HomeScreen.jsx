@@ -11,7 +11,7 @@ const CARDS = [
   { key: "Monitoramento", icon: "user-secret", route: "MONITORAMENTO" },
   { key: "Checklist", icon: "clipboard-check", route: "CHECKLIST" },
   { key: "Documentos", icon: "file-alt", route: "DOCUMENTOS" },
-  { key: "Dashboards", icon: "tachometer-alt", route: "DASHBOARD" },
+  { key: "Dashboards", icon: "tachometer-alt", route: "DASHBOARDS" },
   { key: "Inventário de Dados", icon: "database", route: "INVENTARIO" },
   {
     key: "Matriz de Risco",
