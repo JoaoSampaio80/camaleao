@@ -36,7 +36,7 @@ const NAV_ITEMS = [
   {
     label: "Cadastro de Usuário",
     icon: "user-plus",
-    route: "CADASTRO_USUARIO",
+    route: "CADASTRO",
     adminOnly: true,
   },
   { label: "Meu Perfil", icon: "user", route: "PERFIL" },

@@ -1,3 +1,4 @@
+// App.js
 import "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
@@ -5,23 +6,20 @@ import { createDrawerNavigator } from "@react-navigation/drawer";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import { AuthProvider, useAuth } from "@/context/AuthContext";
-import HomeScreen from "@/screens/HomeScreen";
 import DrawerContent from "@/components/SidebarDrawer";
 import AppHeader from "@/components/AppHeader";
-import LoginScreen from "@/screens/LoginScreen";
-import { View, Text } from "react-native";
+
+// ✅ importa tudo de um único lugar (barrel)
+import {
+  HomeScreen,
+  LoginScreen,
+  EncarregadoScreen,
+  PlaceholderScreen,
+  CadastroUsuarioScreen,
+} from "@/screens";
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
-
-// Placeholder genérico (evita textos soltos e mantém o app navegável)
-function Placeholder({ title }) {
-  return (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-      <Text style={{ fontSize: 18 }}>{title}</Text>
-    </View>
-  );
-}
 
 function AppDrawer() {
   return (
@@ -30,69 +28,79 @@ function AppDrawer() {
       drawerContent={(props) => <DrawerContent {...props} />}
       screenOptions={{ header: (props) => <AppHeader {...props} /> }}
     >
+      {/* Home (grid principal) */}
       <Drawer.Screen
         name="Home"
         component={HomeScreen}
         options={{ title: "Home" }}
       />
 
-      {/* Rotas registradas com NAMES sem acento/espaço */}
-      <Drawer.Screen name="ENCARREGADO" options={{ title: "Encarregado" }}>
-        {() => <Placeholder title="Encarregado" />}
-      </Drawer.Screen>
+      {/* ====== ROTAS ALINHADAS COM SidebarDrawer.jsx ====== */}
+      {/* Use PlaceholderScreen até criar as telas reais, trocando o component depois */}
 
-      <Drawer.Screen name="MONITORAMENTO" options={{ title: "Monitoramento" }}>
-        {() => <Placeholder title="Monitoramento" />}
-      </Drawer.Screen>
+      <Drawer.Screen
+        name="DASHBOARDS"
+        component={PlaceholderScreen}
+        options={{ title: "Dashboards" }}
+      />
+      <Drawer.Screen
+        name="RELATORIOS"
+        component={PlaceholderScreen}
+        options={{ title: "Relatórios" }}
+      />
+      <Drawer.Screen
+        name="CHECKLIST"
+        component={PlaceholderScreen}
+        options={{ title: "Checklist" }}
+      />
+      <Drawer.Screen
+        name="NOTIFICACOES"
+        component={PlaceholderScreen}
+        options={{ title: "Notificação" }}
+      />
 
-      <Drawer.Screen name="CHECKLIST" options={{ title: "Checklist" }}>
-        {() => <Placeholder title="Checklist" />}
-      </Drawer.Screen>
+      {/* Encarregado = tela real já implementada */}
+      <Drawer.Screen
+        name="ENCARREGADO"
+        component={EncarregadoScreen}
+        options={{ title: "Encarregado" }}
+      />
 
-      <Drawer.Screen name="DOCUMENTOS" options={{ title: "Documentos" }}>
-        {() => <Placeholder title="Documentos" />}
-      </Drawer.Screen>
-
-      <Drawer.Screen name="DASHBOARDS" options={{ title: "Dashboards" }}>
-        {() => <Placeholder title="Dashboards" />}
-      </Drawer.Screen>
-
+      <Drawer.Screen
+        name="MONITORAMENTO"
+        component={PlaceholderScreen}
+        options={{ title: "Monitoramento" }}
+      />
+      <Drawer.Screen
+        name="DOCUMENTOS"
+        component={PlaceholderScreen}
+        options={{ title: "Documentos" }}
+      />
       <Drawer.Screen
         name="INVENTARIO"
+        component={PlaceholderScreen}
         options={{ title: "Inventário de Dados" }}
-      >
-        {() => <Placeholder title="Inventário de Dados" />}
-      </Drawer.Screen>
-
+      />
       <Drawer.Screen
         name="LISTA_INVENTARIO"
-        options={{ title: "Lista de Inventário de Dados" }}
-      >
-        {() => <Placeholder title="Lista de Inventário de Dados" />}
-      </Drawer.Screen>
-
-      <Drawer.Screen name="MATRIZ_RISCO" options={{ title: "Matriz de Risco" }}>
-        {() => <Placeholder title="Matriz de Risco" />}
-      </Drawer.Screen>
-
-      <Drawer.Screen name="RELATORIOS" options={{ title: "Relatórios" }}>
-        {() => <Placeholder title="Relatórios" />}
-      </Drawer.Screen>
-
-      <Drawer.Screen name="NOTIFICACOES" options={{ title: "Notificação" }}>
-        {() => <Placeholder title="Notificação" />}
-      </Drawer.Screen>
-
+        component={PlaceholderScreen}
+        options={{ title: "Lista Inventários" }}
+      />
       <Drawer.Screen
-        name="CADASTRO_USUARIO"
-        options={{ title: "Cadastro de Usuario" }}
-      >
-        {() => <Placeholder title="Cadastro de Usuário" />}
-      </Drawer.Screen>
-
-      <Drawer.Screen name="PERFIL" options={{ title: "Perfil" }}>
-        {() => <Placeholder title="Meu Perfil" />}
-      </Drawer.Screen>
+        name="MATRIZ_RISCO"
+        component={PlaceholderScreen}
+        options={{ title: "Matriz de Risco" }}
+      />
+      <Drawer.Screen
+        name="CADASTRO"
+        component={CadastroUsuarioScreen}
+        options={{ title: "Cadastro de Usuário" }}
+      />
+      <Drawer.Screen
+        name="PERFIL"
+        component={PlaceholderScreen}
+        options={{ title: "Perfil" }}
+      />
     </Drawer.Navigator>
   );
 }
@@ -107,7 +115,7 @@ function AuthStack() {
 
 function RootSwitch() {
   const { user, loading } = useAuth();
-  if (loading) return null; // aqui pode entrar um Splash/Lottie se quiser
+  if (loading) return null; // pode exibir um Splash aqui
   return user ? <AppDrawer /> : <AuthStack />;
 }
 
