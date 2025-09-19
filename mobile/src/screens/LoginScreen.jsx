@@ -9,6 +9,8 @@ import {
   UIManager,
   Platform,
   Keyboard,
+  KeyboardAvoidingView,
+  ScrollView,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Colors, Radius, Space } from "@/theme/tokens";
@@ -105,89 +107,108 @@ export default function LoginScreen({ navigation, route }) {
   }
 
   return (
-    <View style={s.root}>
-      <LinearGradient
-        colors={[Colors.gradA, Colors.gradB]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={s.brand}
+    <LinearGradient
+      colors={[Colors.gradA, Colors.gradB]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{ flex: 1 }}
+    >
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
       >
-        <Text style={s.brandTitle}>Bem-vindo(a)!</Text>
-        <Text style={s.brandText}>
-          Preencha as informações abaixo para acessar a sua conta.
-        </Text>
-      </LinearGradient>
-
-      <View style={s.card}>
-        <Text style={s.title}>Login</Text>
-
-        {Boolean(error) && <Text style={s.alertDanger}>{error}</Text>}
-
-        <Text style={s.label}>Email</Text>
-        <TextInput
-          style={s.input}
-          placeholder="Digite seu email"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          value={email}
-          onChangeText={setEmail}
-        />
-
-        <Text style={[s.label, { marginTop: Space.sm }]}>Senha</Text>
-        <TextInput
-          style={s.input}
-          placeholder="Digite sua senha"
-          secureTextEntry
-          value={pass}
-          onChangeText={setPass}
-        />
-
-        <Pressable
-          onPress={onSubmit}
-          disabled={submitting}
-          style={[s.btnPrimary, submitting && { opacity: 0.7 }]}
+        <ScrollView
+          contentContainerStyle={s.scroll}
+          keyboardShouldPersistTaps="handled"
         >
-          <Text style={s.btnPrimaryTxt}>
-            {submitting ? "Entrando..." : "Entrar"}
-          </Text>
-        </Pressable>
+          <LinearGradient
+            colors={[Colors.gradA, Colors.gradB]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={s.brand}
+          >
+            <Text style={s.brandTitle}>Bem-vindo(a)!</Text>
+            <Text style={s.brandText}>
+              Preencha as informações abaixo para acessar a sua conta.
+            </Text>
+          </LinearGradient>
 
-        <Pressable onPress={toggleReset} style={s.linkBtn}>
-          <Text style={s.linkTxt}>Esqueceu a senha?</Text>
-        </Pressable>
+          <View style={s.card}>
+            <Text style={s.title}>Login</Text>
 
-        {resetOpen && (
-          <View style={s.resetBox}>
-            <Text style={s.resetTitle}>Recuperar senha</Text>
-            {Boolean(resetMsg) && <Text style={s.alertInfo}>{resetMsg}</Text>}
+            {Boolean(error) && <Text style={s.alertDanger}>{error}</Text>}
+
+            <Text style={s.label}>Email</Text>
             <TextInput
               style={s.input}
-              placeholder="Informe seu e-mail"
+              placeholder="Digite seu email"
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
-              value={resetEmail}
-              onChangeText={setResetEmail}
+              value={email}
+              onChangeText={setEmail}
             />
+
+            <Text style={[s.label, { marginTop: Space.sm }]}>Senha</Text>
+            <TextInput
+              style={s.input}
+              placeholder="Digite sua senha"
+              secureTextEntry
+              value={pass}
+              onChangeText={setPass}
+            />
+
             <Pressable
-              onPress={onReset}
-              style={[s.btnOutline, resetBusy && { opacity: 0.7 }]}
-              disabled={resetBusy}
+              onPress={onSubmit}
+              disabled={submitting}
+              style={[s.btnPrimary, submitting && { opacity: 0.7 }]}
             >
-              <Text style={s.btnOutlineTxt}>
-                {resetBusy ? "Enviando..." : "Enviar link"}
+              <Text style={s.btnPrimaryTxt}>
+                {submitting ? "Entrando..." : "Entrar"}
               </Text>
             </Pressable>
+
+            <Pressable onPress={toggleReset} style={s.linkBtn}>
+              <Text style={s.linkTxt}>Esqueceu a senha?</Text>
+            </Pressable>
+
+            {resetOpen && (
+              <View style={s.resetBox}>
+                <Text style={s.resetTitle}>Recuperar senha</Text>
+                {Boolean(resetMsg) && (
+                  <Text style={s.alertInfo}>{resetMsg}</Text>
+                )}
+                <TextInput
+                  style={s.input}
+                  placeholder="Informe seu e-mail"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  value={resetEmail}
+                  onChangeText={setResetEmail}
+                />
+                <Pressable
+                  onPress={onReset}
+                  style={[s.btnOutline, resetBusy && { opacity: 0.7 }]}
+                  disabled={resetBusy}
+                >
+                  <Text style={s.btnOutlineTxt}>
+                    {resetBusy ? "Enviando..." : "Enviar link"}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
           </View>
-        )}
-      </View>
-    </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </LinearGradient>
   );
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.bgPage },
+  root: { flex: 1, backgroundColor: Colors.ink },
+  scroll: { flexGrow: 1 },
   brand: {
     paddingHorizontal: Space.lg,
     paddingVertical: 36,

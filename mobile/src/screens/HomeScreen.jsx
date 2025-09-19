@@ -39,6 +39,9 @@ export default function HomeScreen() {
         <Text style={s.heroTitle}>Gestão de Documentos LGPD</Text>
       </LinearGradient>
 
+      <Text style={[s.greet, { marginVertical: Space.md }]}>
+        Olá, {user?.first_name || user?.email || "usuário"}!
+      </Text>
       <FlatList
         contentContainerStyle={{
           padding: Space.lg,
@@ -49,11 +52,6 @@ export default function HomeScreen() {
         keyExtractor={(it) => it.key}
         numColumns={2} // <— fixa DUAS colunas
         columnWrapperStyle={{ justifyContent: "center", gap: Space.md }}
-        ListFooterComponent={
-          <Text style={[s.greet, { marginTop: Space.md }]}>
-            Olá, {user?.first_name || user?.email || "usuário"}!
-          </Text>
-        }
         renderItem={({ item }) => (
           <Pressable
             style={s.cardWrap}
