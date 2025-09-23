@@ -6,29 +6,43 @@ from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.utils.html import format_html
 from django import forms
+from django.apps import apps
 
 from .utils.email import send_html_email
+
+# IMPORTA SÓ O QUE EXISTE HOJE
 from .models import (
-    User, Checklist, InventarioDados, ExigenciaLGPD,
-    Risk, ActionPlan, MonitoringAction, Incident,
-    LikelihoodItem, ImpactItem, ControlEffectivenessItem, RiskLevelBand, Instruction
+    User,
+    InventarioDados,
+    ExigenciasLGPD,
 )
 
-# ===== User admin =====
 
+# ===== User admin =====
 class UserCreationFormEmail(UserCreationForm):
     class Meta(UserCreationForm.Meta):
         model = User
         fields = ("email", "role", "is_staff", "is_active")
 
+
 class UserChangeFormEmail(UserChangeForm):
     class Meta(UserChangeForm.Meta):
         model = User
         fields = (
-            "email", "first_name", "last_name", "phone_number",
-            "appointment_date", "appointment_validity", "role",
-            "is_active", "is_staff", "is_superuser", "groups", "user_permissions"
+            "email",
+            "first_name",
+            "last_name",
+            "phone_number",
+            "appointment_date",
+            "appointment_validity",
+            "role",
+            "is_active",
+            "is_staff",
+            "is_superuser",
+            "groups",
+            "user_permissions",
         )
+
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
@@ -44,16 +58,41 @@ class UserAdmin(BaseUserAdmin):
 
     fieldsets = (
         (None, {"fields": ("email", "password")}),
-        (_("Informações pessoais"), {"fields": ("first_name", "last_name", "phone_number", "avatar")}),
+        (
+            _("Informações pessoais"),
+            {"fields": ("first_name", "last_name", "phone_number", "avatar")},
+        ),
         (_("DPO"), {"fields": ("appointment_date", "appointment_validity")}),
-        (_("Permissões"), {"fields": ("role", "is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
+        (
+            _("Permissões"),
+            {
+                "fields": (
+                    "role",
+                    "is_active",
+                    "is_staff",
+                    "is_superuser",
+                    "groups",
+                    "user_permissions",
+                )
+            },
+        ),
         (_("Datas importantes"), {"fields": ("last_login", "date_joined")}),
     )
     add_fieldsets = (
-        (None, {
-            "classes": ("wide",),
-            "fields": ("email", "password1", "password2", "role", "is_staff", "is_active"),
-        }),
+        (
+            None,
+            {
+                "classes": ("wide",),
+                "fields": (
+                    "email",
+                    "password1",
+                    "password2",
+                    "role",
+                    "is_staff",
+                    "is_active",
+                ),
+            },
+        ),
     )
 
     actions = ["reenviar_boas_vindas"]
@@ -77,210 +116,366 @@ class UserAdmin(BaseUserAdmin):
             enviados += int(bool(sent))
         self.message_user(request, f"E-mails enviados: {enviados}", level=messages.INFO)
 
-# ===== Checklist =====
-@admin.register(Checklist)
-class ChecklistAdmin(admin.ModelAdmin):
-    list_display = ('atividade', 'descricao', 'is_completed', 'created_at', 'updated_at')
-    list_filter = ('atividade', 'is_completed')
-    search_fields = ('atividade',)
 
 # ===== Inventário =====
 @admin.register(InventarioDados)
 class InventarioDadosAdmin(admin.ModelAdmin):
-    list_display = ('processo_negocio', 'unidade', 'setor', 'tipo_dado',
-                    'formato', 'controlador_operador', 'criado_por', 'data_criacao')
-    list_filter = ('unidade', 'tipo_dado', 'formato', 'impresso', 'dados_menores',
-                   'controlador_operador', 'transferencia_terceiros', 'transferencia_internacional',
-                   'adequado_contratualmente', 'criado_por')
-    search_fields = ('processo_negocio', 'setor', 'responsavel_email', 'empresa_terceira', 'paises_tratamento')
-    raw_id_fields = ('criado_por',)
+    list_display = (
+        "processo_negocio",
+        "unidade",
+        "setor",
+        "tipo_dado",
+        "formato",
+        "controlador_operador",
+        "criado_por",
+        "data_criacao",
+    )
+    list_filter = (
+        "unidade",
+        "tipo_dado",
+        "formato",
+        "impresso",
+        "dados_menores",
+        "controlador_operador",
+        "transferencia_terceiros",
+        "transferencia_internacional",
+        "adequado_contratualmente",
+        "criado_por",
+    )
+    search_fields = (
+        "processo_negocio",
+        "setor",
+        "responsavel_email",
+        "empresa_terceira",
+        "paises_tratamento",
+    )
+    raw_id_fields = ("criado_por",)
     date_hierarchy = "data_criacao"
     list_select_related = ("criado_por",)
-    ordering = ('-data_criacao',)
-    readonly_fields = ('data_criacao', 'data_atualizacao')
+    ordering = ("-data_criacao",)
+    readonly_fields = ("data_criacao", "data_atualizacao")
 
     fieldsets = (
-        (_("Metadados"), {"fields": ("criado_por", "data_criacao", "data_atualizacao")}),
-        (_("Etapa 1 — Contexto e Coleta"), {
-            "fields": ("unidade", "setor", "responsavel_email", "processo_negocio",
-                       "finalidade", "dados_pessoais", "tipo_dado", "origem",
-                       "formato", "impresso", "titulares", "dados_menores", "base_legal")
-        }),
-        (_("Etapa 2 — Armazenamento, Retenção e Transferências"), {
-            "fields": ("pessoas_acesso", "atualizacoes", "transmissao_interna", "transmissao_externa",
-                       "local_armazenamento_digital", "controlador_operador", "motivo_retencao",
-                       "periodo_retencao", "exclusao", "forma_exclusao",
-                       "transferencia_terceiros", "quais_dados_transferidos",
-                       "transferencia_internacional", "empresa_terceira")
-        }),
-        (_("Etapa 3 — Segurança e Observações"), {
-            "fields": ("adequado_contratualmente", "paises_tratamento",
-                       "medidas_seguranca", "consentimentos", "observacao")
-        }),
+        (
+            _("Metadados"),
+            {"fields": ("criado_por", "data_criacao", "data_atualizacao")},
+        ),
+        (
+            _("Etapa 1 — Contexto e Coleta"),
+            {
+                "fields": (
+                    "unidade",
+                    "setor",
+                    "responsavel_email",
+                    "processo_negocio",
+                    "finalidade",
+                    "dados_pessoais",
+                    "tipo_dado",
+                    "origem",
+                    "formato",
+                    "impresso",
+                    "titulares",
+                    "dados_menores",
+                    "base_legal",
+                )
+            },
+        ),
+        (
+            _("Etapa 2 — Armazenamento, Retenção e Transferências"),
+            {
+                "fields": (
+                    "pessoas_acesso",
+                    "atualizacoes",
+                    "transmissao_interna",
+                    "transmissao_externa",
+                    "local_armazenamento_digital",
+                    "controlador_operador",
+                    "motivo_retencao",
+                    "periodo_retencao",
+                    "exclusao",
+                    "forma_exclusao",
+                    "transferencia_terceiros",
+                    "quais_dados_transferidos",
+                    "transferencia_internacional",
+                    "empresa_terceira",
+                )
+            },
+        ),
+        (
+            _("Etapa 3 — Segurança e Observações"),
+            {
+                "fields": (
+                    "adequado_contratualmente",
+                    "paises_tratamento",
+                    "medidas_seguranca",
+                    "consentimentos",
+                    "observacao",
+                )
+            },
+        ),
     )
 
+
 # ===== Exigência LGPD =====
-@admin.register(ExigenciaLGPD)
+@admin.register(ExigenciasLGPD)
 class ExigenciaLGPDAdmin(admin.ModelAdmin):
-    list_display = ('titulo', 'artigos_referencia', 'upload_por', 'data_upload', 'arquivo_comprovacao')
-    list_filter = ('upload_por', 'data_upload')
-    search_fields = ('titulo', 'descricao', 'artigos_referencia')
-    raw_id_fields = ('upload_por',)
+    list_display = (
+        "titulo",
+        "artigos_referencia",
+        "upload_por",
+        "data_upload",
+        "arquivo_comprovacao",
+    )
+    list_filter = ("upload_por", "data_upload")
+    search_fields = ("titulo", "descricao", "artigos_referencia")
+    raw_id_fields = ("upload_por",)
     date_hierarchy = "data_upload"
     list_select_related = ("upload_por",)
 
-# ===== Parametrizações =====
-@admin.register(LikelihoodItem)
-class LikelihoodItemAdmin(admin.ModelAdmin):
-    list_display = ('value', 'label_pt')
-    search_fields = ('label_pt',)
 
-@admin.register(ImpactItem)
-class ImpactItemAdmin(admin.ModelAdmin):
-    list_display = ('value', 'label_pt')
-    search_fields = ('label_pt',)
+# ===== Registros condicionais (só se os models existirem) =====
+Risk = apps.get_model("api", "Risk")
+ActionPlan = apps.get_model("api", "ActionPlan")
+MonitoringAction = apps.get_model("api", "MonitoringAction")
+Incident = apps.get_model("api", "Incident")
+LikelihoodItem = apps.get_model("api", "LikelihoodItem")
+ImpactItem = apps.get_model("api", "ImpactItem")
+ControlEffectivenessItem = apps.get_model("api", "ControlEffectivenessItem")
+RiskLevelBand = apps.get_model("api", "RiskLevelBand")
+Instruction = apps.get_model("api", "Instruction")
 
-@admin.register(ControlEffectivenessItem)
-class ControlEffectivenessItemAdmin(admin.ModelAdmin):
-    list_display = ('value', 'label_pt', 'reduction_min', 'reduction_max')
-    search_fields = ('label_pt',)
+# Parametrizações
+if LikelihoodItem:
 
-@admin.register(RiskLevelBand)
-class RiskLevelBandAdmin(admin.ModelAdmin):
-    list_display = ('name', 'min_score', 'max_score', 'color')
-    search_fields = ('name',)
+    @admin.register(LikelihoodItem)
+    class LikelihoodItemAdmin(admin.ModelAdmin):
+        list_display = ("value", "label_pt")
+        search_fields = ("label_pt",)
 
-@admin.register(Instruction)
-class InstructionAdmin(admin.ModelAdmin):
-    list_display = ('title', 'updated_at')
-    search_fields = ('title',)
 
-# ===== Risco & Ação =====
-class ActionPlanInline(admin.TabularInline):
-    model = ActionPlan
-    extra = 1
-    fields = ("matriz_filial", "setor_proprietario", "processo", "descricao", "como",
-              "responsavel_execucao", "prazo", "status")
-    show_change_link = True
+if ImpactItem:
 
-@admin.register(Risk)
-class RiskAdmin(admin.ModelAdmin):
-    list_display = ('id', 'matriz_filial', 'setor', 'processo', 'risco_fator',
-                    'probabilidade', 'impacto', 'pontuacao', 'medidas_controle', 'risco_residual',
-                    'tipo_controle', 'criado_em', 'add_plano_acao',)
-    list_filter = ('setor', 'risco_residual', 'tipo_controle', 'probabilidade', 'impacto')
-    search_fields = ('matriz_filial', 'setor', 'processo', 'risco_fator')
-    date_hierarchy = 'criado_em'
-    readonly_fields = ('pontuacao',)
-    autocomplete_fields = ('probabilidade', 'impacto', 'eficacia')
-    inlines = [ActionPlanInline]
-    list_display_links = ('id', 'matriz_filial')
+    @admin.register(ImpactItem)
+    class ImpactItemAdmin(admin.ModelAdmin):
+        list_display = ("value", "label_pt")
+        search_fields = ("label_pt",)
 
-    def add_plano_acao(self, obj):
-        url = reverse('admin:api_actionplan_add') + f'?risco={obj.id}'
-        return format_html('<a class="button" href="{}">➕ Plano</a>', url)
-    add_plano_acao.short_description = "Novo Plano"
 
-class ActionPlanAdminForm(forms.ModelForm):
-    # (mantido igual ao que você tinha, sem alterações funcionais)
-    risco_display = forms.CharField(
-        label="Risco", required=False, disabled=True,
-        widget=forms.Textarea(attrs={"rows": 3, "style": "width:100%; resize:vertical; white-space:pre-wrap; overflow:auto;"})
-    )
-    matriz_display = forms.CharField(label="Matriz/Filial", required=False, disabled=True)
-    setor_display = forms.CharField(label="Setor proprietário", required=False, disabled=True)
-    processo_display = forms.CharField(label="Processo", required=False, disabled=True)
+if ControlEffectivenessItem:
 
-    class Meta:
+    @admin.register(ControlEffectivenessItem)
+    class ControlEffectivenessItemAdmin(admin.ModelAdmin):
+        list_display = ("value", "label_pt", "reduction_min", "reduction_max")
+        search_fields = ("label_pt",)
+
+
+if RiskLevelBand:
+
+    @admin.register(RiskLevelBand)
+    class RiskLevelBandAdmin(admin.ModelAdmin):
+        list_display = ("name", "min_score", "max_score", "color")
+        search_fields = ("name",)
+
+
+if Instruction:
+
+    @admin.register(Instruction)
+    class InstructionAdmin(admin.ModelAdmin):
+        list_display = ("title", "updated_at")
+        search_fields = ("title",)
+
+
+# Risco & Ação (só se AMBOS existirem)
+if Risk and ActionPlan:
+
+    class ActionPlanInline(admin.TabularInline):
         model = ActionPlan
-        fields = [
-            "risco_display", "matriz_display", "setor_display", "processo_display",
-            "risco", "matriz_filial", "setor_proprietario", "processo",
-            "descricao", "como", "responsavel_execucao", "prazo", "status",
-        ]
+        extra = 1
+        fields = (
+            "matriz_filial",
+            "setor_proprietario",
+            "processo",
+            "descricao",
+            "como",
+            "responsavel_execucao",
+            "prazo",
+            "status",
+        )
+        show_change_link = True
 
-@admin.register(ActionPlan)
-class ActionPlanAdmin(admin.ModelAdmin):
-    form = ActionPlanAdminForm
-    list_display = ('risco', 'matriz_filial', 'setor_proprietario', 'processo',
-                    'descricao', 'responsavel_execucao', 'prazo', 'status')
-    list_filter = ('status', 'prazo')
-    search_fields = ('risco__risco_fator', 'descricao', 'responsavel_execucao')
-    autocomplete_fields = ('risco',)
-    date_hierarchy = "prazo"
-    list_select_related = ("risco",)
+    @admin.register(Risk)
+    class RiskAdmin(admin.ModelAdmin):
+        list_display = (
+            "id",
+            "matriz_filial",
+            "setor",
+            "processo",
+            "risco_fator",
+            "probabilidade",
+            "impacto",
+            "pontuacao",
+            "medidas_controle",
+            "risco_residual",
+            "tipo_controle",
+            "criado_em",
+            "add_plano_acao",
+        )
+        list_filter = (
+            "setor",
+            "risco_residual",
+            "tipo_controle",
+            "probabilidade",
+            "impacto",
+        )
+        search_fields = ("matriz_filial", "setor", "processo", "risco_fator")
+        date_hierarchy = "criado_em"
+        readonly_fields = ("pontuacao",)
+        autocomplete_fields = ("probabilidade", "impacto", "eficacia")
+        inlines = [ActionPlanInline]
+        list_display_links = ("id", "matriz_filial")
 
-    # (resto igual ao seu: get_form, save_model, etc.)
-    def get_form(self, request, obj=None, **kwargs):
-        from .models import Risk
-        base_form_class = super().get_form(request, obj, **kwargs)
-        is_add = obj is None
-        risco_id = request.GET.get("risco")
+        def add_plano_acao(self, obj):
+            url = reverse("admin:api_actionplan_add") + f"?risco={obj.id}"
+            return format_html('<a class="button" href="{}">➕ Plano</a>', url)
 
-        class FormWithInitials(base_form_class):
-            def __init__(self, *args, **kw):
-                initial = dict(kw.get("initial") or {})
-                r = None
-                if is_add and risco_id:
-                    try:
-                        r = Risk.objects.get(pk=risco_id)
-                    except Risk.DoesNotExist:
-                        r = None
+        add_plano_acao.short_description = "Novo Plano"
 
-                    initial.setdefault("risco_display", (str(r) if r else f"#{risco_id}"))
-                    if r:
-                        initial.setdefault("matriz_display", r.matriz_filial or "")
-                        initial.setdefault("setor_display", r.setor or "")
-                        initial.setdefault("processo_display", r.processo or "")
-                    initial.setdefault("risco", risco_id)
-                    if r:
-                        initial.setdefault("matriz_filial", r.matriz_filial or "")
-                        initial.setdefault("setor_proprietario", r.setor or "")
-                        initial.setdefault("processo", r.processo or "")
+    class ActionPlanAdminForm(forms.ModelForm):
+        risco_display = forms.CharField(
+            label="Risco",
+            required=False,
+            disabled=True,
+            widget=forms.Textarea(
+                attrs={
+                    "rows": 3,
+                    "style": "width:100%; resize:vertical; white-space:pre-wrap; overflow:auto;",
+                }
+            ),
+        )
+        matriz_display = forms.CharField(
+            label="Matriz/Filial", required=False, disabled=True
+        )
+        setor_display = forms.CharField(
+            label="Setor proprietário", required=False, disabled=True
+        )
+        processo_display = forms.CharField(
+            label="Processo", required=False, disabled=True
+        )
 
-                kw["initial"] = initial
-                super().__init__(*args, **kw)
+        class Meta:
+            model = ActionPlan
+            fields = [
+                "risco_display",
+                "matriz_display",
+                "setor_display",
+                "processo_display",
+                "risco",
+                "matriz_filial",
+                "setor_proprietario",
+                "processo",
+                "descricao",
+                "como",
+                "responsavel_execucao",
+                "prazo",
+                "status",
+            ]
 
-                if "descricao" in self.fields:
-                    self.fields["descricao"].widget.attrs["autofocus"] = "autofocus"
+    @admin.register(ActionPlan)
+    class ActionPlanAdmin(admin.ModelAdmin):
+        form = ActionPlanAdminForm
+        list_display = (
+            "risco",
+            "matriz_filial",
+            "setor_proprietario",
+            "processo",
+            "descricao",
+            "responsavel_execucao",
+            "prazo",
+            "status",
+        )
+        list_filter = ("status", "prazo")
+        search_fields = ("risco__risco_fator", "descricao", "responsavel_execucao")
+        autocomplete_fields = ("risco",)
+        date_hierarchy = "prazo"
+        list_select_related = ("risco",)
 
-                if is_add and risco_id:
-                    for real in ("risco", "matriz_filial", "setor_proprietario", "processo"):
-                        if real in self.fields:
-                            self.fields[real].widget = forms.HiddenInput()
-                else:
-                    for disp in ("risco_display", "matriz_display", "setor_display", "processo_display"):
-                        if disp in self.fields:
-                            self.fields[disp].widget = forms.HiddenInput()
-
-        return FormWithInitials
-
-    def save_model(self, request, obj, form, change):
-        if not change:
+        def get_form(self, request, obj=None, **kwargs):
+            base_form_class = super().get_form(request, obj, **kwargs)
+            is_add = obj is None
             risco_id = request.GET.get("risco")
-            if risco_id:
-                try:
-                    obj.risco_id = int(risco_id)
-                except ValueError:
-                    pass
-                r = getattr(obj, "risco", None)
-                if r:
-                    obj.matriz_filial = obj.matriz_filial or (r.matriz_filial or "")
-                    obj.setor_proprietario = obj.setor_proprietario or (r.setor or "")
-                    obj.processo = obj.processo or (r.processo or "")
-        super().save_model(request, obj, form, change)
 
-# ===== Monitoramento & Incidentes =====
-@admin.register(MonitoringAction)
-class MonitoringActionAdmin(admin.ModelAdmin):
-    list_display = ("id", "framework_requisito", "data_monitoramento", "responsavel")
-    search_fields = ("framework_requisito", "responsavel")
-    date_hierarchy = "data_monitoramento"
+            class FormWithInitials(base_form_class):
+                def __init__(self, *args, **kw):
+                    initial = dict(kw.get("initial") or {})
+                    r = None
+                    if is_add and risco_id:
+                        try:
+                            r = Risk.objects.get(pk=risco_id)
+                        except Exception:
+                            r = None
+                        initial.setdefault(
+                            "risco_display", (str(r) if r else f"#{risco_id}")
+                        )
+                        if r:
+                            initial.setdefault("matriz_filial", r.matriz_filial or "")
+                            initial.setdefault("setor_proprietario", r.setor or "")
+                            initial.setdefault("processo", r.processo or "")
+                        initial.setdefault("risco", risco_id)
+                    kw["initial"] = initial
+                    super().__init__(*args, **kw)
 
-@admin.register(Incident)
-class IncidentAdmin(admin.ModelAdmin):
-    list_display = ("numero_registro", "fonte", "data_registro", "responsavel_analise",
-                    "data_encerramento", "fonte_informada")
-    search_fields = ("numero_registro", "descricao", "fonte", "responsavel_analise")
-    list_filter = ("fonte_informada",)
-    date_hierarchy = "data_registro"
+                    if "descricao" in self.fields:
+                        self.fields["descricao"].widget.attrs["autofocus"] = "autofocus"
+
+                    if is_add and risco_id:
+                        for real in (
+                            "risco",
+                            "matriz_filial",
+                            "setor_proprietario",
+                            "processo",
+                        ):
+                            if real in self.fields:
+                                self.fields[real].widget = forms.HiddenInput()
+                    else:
+                        for disp in (
+                            "risco_display",
+                            "matriz_display",
+                            "setor_display",
+                            "processo_display",
+                        ):
+                            if disp in self.fields:
+                                self.fields[disp].widget = forms.HiddenInput()
+
+            return FormWithInitials
+
+
+# Monitoramento & Incidentes (condicional)
+if MonitoringAction:
+
+    @admin.register(MonitoringAction)
+    class MonitoringActionAdmin(admin.ModelAdmin):
+        list_display = (
+            "id",
+            "framework_requisito",
+            "data_monitoramento",
+            "responsavel",
+        )
+        search_fields = ("framework_requisito", "responsavel")
+        date_hierarchy = "data_monitoramento"
+
+
+if Incident:
+
+    @admin.register(Incident)
+    class IncidentAdmin(admin.ModelAdmin):
+        list_display = (
+            "numero_registro",
+            "fonte",
+            "data_registro",
+            "responsavel_analise",
+            "data_encerramento",
+            "fonte_informada",
+        )
+        search_fields = ("numero_registro", "descricao", "fonte", "responsavel_analise")
+        list_filter = ("fonte_informada",)
+        date_hierarchy = "data_registro"
