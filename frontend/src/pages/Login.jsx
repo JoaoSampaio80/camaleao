@@ -1,18 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import AxiosInstance from '../components/Axios';
+import AxiosInstance, { auth as apiAuth } from '../components/Axios';
 import { Card, Form, Button, Alert, Collapse, InputGroup } from 'react-bootstrap';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ROUTES } from '../routes';
 
-const Login = () => {  
+const Login = () => {
+  const location = useLocation();
+  const reauthMsg = location.state?.reauthMsg;
+  const redirectFrom = location.state?.from;
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(reauthMsg || '');
   const { login, loading, user } = useAuth();
   const navigate = useNavigate();
 
-// --- estados para "esqueci a senha" ---
+  // --- estados para "esqueci a senha" ---
   const [resetOpen, setResetOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetMsg, setResetMsg] = useState('');
@@ -20,34 +24,41 @@ const Login = () => {
   const [resetSubmitting, setResetSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user){
-    navigate(ROUTES.HOME, { replace: true });
-  }
-  }, [loading, user, navigate]);  
+    if (!loading && user) {
+      navigate(ROUTES.HOME, { replace: true });
+    }
+  }, [loading, user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
     try {
-      // Envia os dados de email e senha para o endpoint de token da API
-      const response = await AxiosInstance.post('auth/token/', {
+      // usa API do Axios que já cuida de cookie-mode/legacy
+      const data = await apiAuth.login({
         email: email.trim().toLowerCase(),
         password: password,
       });
 
-      if (response.status === 200) {        
-        // Chame a função login do contexto para salvar os tokens e o usuário
-        await login(response.data);           
-      }
+      // atualiza contexto (mantém sua assinatura atual)
+      await login(data);
+
+      // redireciona de volta (se veio de rota protegida), senão HOME
+      navigate(redirectFrom || ROUTES.HOME, { replace: true });
     } catch (error) {
       const st = error?.response?.status;
-      console.error('Falha no login:', error.response ? error.response.data : error.message);
-      // Exibe uma mensagem de erro mais amigável
-      setError( st === 400 || st === 401? 'Credenciais inválidas. Por favor, verifique seu email e senha.': 'Tente novamente');
+      console.error(
+        'Falha no login:',
+        error?.response ? error.response.data : error?.message
+      );
+      setError(
+        st === 400 || st === 401
+          ? 'Credenciais inválidas. Por favor, verifique seu email e senha.'
+          : 'Tente novamente'
+      );
     }
   };
-  
+
   const handleResetSubmit = async (e) => {
     e.preventDefault();
     setResetMsg('');
@@ -62,13 +73,11 @@ const Login = () => {
 
     setResetSubmitting(true);
     try {
-      // Sempre retorna 200 (não revela se o e-mail existe)
       await AxiosInstance.post('auth/password-reset/', { email: eMail });
       setResetMsg('Se o e-mail existir, enviaremos instruções de redefinição.');
       setResetVariant('success');
     } catch (err) {
       console.error('Falha no reset:', err?.response?.data || err?.message);
-      // Mesmo em erro, não expomos nada sensível
       setResetMsg('Se o e-mail existir, enviaremos instruções de redefinição.');
       setResetVariant('success');
     } finally {
@@ -103,12 +112,14 @@ const Login = () => {
         }}
       >
         <img
-          src="/logo.png"
+          src="/logoCamaleao.png"
           alt="Logo"
-          style={{ width: '450px', marginBottom: '5px' }}
+          style={{ width: '450px', marginBottom: '5px', marginTop: '-30px' }}
         />
-        <h5 style={{ fontWeight: '600', marginBottom: '5px' }}>Bem-vindo (a)!</h5>
-        <p style={{ maxWidth: '500px', fontSize: '1rem', fontWeight: '500' }}>
+        <h5 style={{ fontWeight: '600', marginBottom: '5px', marginTop: '-60px' }}>
+          Bem-vindo (a)!
+        </h5>
+        <p style={{ maxWidth: '450px', fontSize: '1rem', fontWeight: '600' }}>
           Preencha as informações ao lado para acessar a sua conta.
         </p>
       </div>
@@ -123,11 +134,19 @@ const Login = () => {
           padding: '40px',
         }}
       >
-        <Card style={{ width: '100%', maxWidth: '400px' }} className="p-4 shadow border-0 rounded-4 bg-white text-dark">
+        <Card
+          style={{ width: '100%', maxWidth: '400px' }}
+          className="p-4 shadow border-0 rounded-4 bg-white text-dark"
+        >
           <Card.Body>
             <h3 className="mb-4 text-center fw-bold">Login</h3>
-            {/* Adicionado um alerta para exibir a mensagem de erro */}
-            {error && <div className="text-center mb-3"><Alert variant="danger">{error}</Alert></div>}
+
+            {error && (
+              <div className="text-center mb-3">
+                <Alert variant={reauthMsg ? 'info' : 'danger'}>{error}</Alert>
+              </div>
+            )}
+
             <Form onSubmit={handleSubmit}>
               <Form.Group className="mb-3" controlId="formEmail">
                 <Form.Label>Email</Form.Label>
@@ -138,6 +157,7 @@ const Login = () => {
                   size="lg"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
                 />
               </Form.Group>
               <Form.Group className="mb-4" controlId="formPassword">
@@ -149,12 +169,14 @@ const Login = () => {
                   size="lg"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
                 />
               </Form.Group>
               <Button variant="primary" type="submit" className="w-100" size="lg">
                 Entrar
               </Button>
             </Form>
+
             {/* Link / Toggle Esqueci a senha */}
             <div className="mt-3 text-center">
               <button
@@ -188,14 +210,18 @@ const Login = () => {
                       onChange={(e) => setResetEmail(e.target.value)}
                       autoComplete="email"
                     />
-                    <Button type="submit" variant="outline-primary" disabled={resetSubmitting}>
+                    <Button
+                      type="submit"
+                      variant="outline-primary"
+                      disabled={resetSubmitting}
+                    >
                       {resetSubmitting ? 'Enviando...' : 'Enviar link'}
                     </Button>
                   </InputGroup>
                   <div className="text-end">
-                    {/* opcional: link direto para a tela de redefinição, caso o usuário já tenha um link */}
                     <small className="text-muted">
-                      Já tem um link? <Link to={ROUTES.RESET_PASSWORD}>Abrir tela de redefinição</Link>
+                      Já tem um link?{' '}
+                      <Link to={ROUTES.RESET_PASSWORD}>Abrir tela de redefinição</Link>
                     </small>
                   </div>
                 </Form>

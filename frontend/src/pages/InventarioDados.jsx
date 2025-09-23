@@ -4,8 +4,26 @@ import Sidebar from '../components/Sidebar';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ROUTES } from '../routes';
 import { useInventario } from '../context/InventarioContext';
+import SaveCancelBar from '../components/SaveCancelBar';
+import { toast } from 'react-toastify';
 
 const requiredStep1 = [
+  'unidade',
+  'setor',
+  'responsavel_email',
+  'processo_negocio',
+  'finalidade',
+  'dados_pessoais',
+  'tipo_dado',
+  'origem',
+  'formato',
+  'impresso',
+  'titulares',
+  'dados_menores',
+  'base_legal',
+];
+
+const fieldsThisStep = [
   'unidade',
   'setor',
   'responsavel_email',
@@ -24,9 +42,11 @@ const requiredStep1 = [
 function InventarioDados() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { form, setField, loadInventario, recordId } = useInventario();
+  const { form, setField, loadInventario, recordId, saveStep, reload, clearStep, reset } =
+    useInventario();
 
   const [warn, setWarn] = React.useState(false);
+  const [savingStep, setSavingStep] = React.useState(false);
 
   // Se vier ?id, carrega para edição (uma vez)
   React.useEffect(() => {
@@ -52,12 +72,51 @@ function InventarioDados() {
     navigate(ROUTES.INVENTARIO_DADOS2 + (recordId ? `?id=${recordId}` : ''));
   };
 
+  // ===== Salvar/Cancelar SOMENTE desta página =====
+  async function handleSaveStep() {
+    if (!recordId) {
+      const msg =
+        'Para salvar esta página, primeiro é necessário estar em modo de edição.';
+      try {
+        toast.warn(msg);
+      } catch {}
+      return;
+    }
+    setSavingStep(true);
+    try {
+      await saveStep(fieldsThisStep); // <— usa o contexto (PATCH só dos campos do step)
+      await reload(); // mantém o form sincronizado com o backend
+      const okMsg = 'Inventário atualizado com sucesso.';
+      try {
+        toast.success(okMsg);
+      } catch {}
+
+      navigate(ROUTES.INVENTARIO_LISTA, { state: { flash: okMsg } });
+    } catch {
+      try {
+        toast.error('Falha ao salvar esta página.');
+      } catch {}
+    } finally {
+      setSavingStep(false);
+    }
+  }
+
+  function handleCancelStep() {
+    // limpa tudo e navega para a lista
+    reset();
+    const msg = 'Alterações descartadas.';
+    try {
+      toast.info(msg);
+    } catch {}
+    navigate(ROUTES.INVENTARIO_LISTA, { state: { flash: msg } });
+  }
+
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
       <Sidebar />
       <div
         style={{
-          background: '#d6f3f9',
+          background: '#f5f5f5', // igual à página aceita
           minHeight: '100vh',
           width: '100vw',
           marginTop: '56px',
@@ -68,11 +127,9 @@ function InventarioDados() {
           boxSizing: 'border-box',
         }}
       >
-        <h2 className="mb-4" style={{ color: '#071744' }}>
-          Inventário de dados
-        </h2>
+        <h2 className="mb-4 page-title-ink">Inventário de Dados</h2>
 
-        <Container fluid style={{ background: '#fff', padding: '2rem', borderRadius: '10px' }}>
+        <Container fluid className="container-gradient">
           {warn && (
             <Alert variant="warning">
               Existem campos obrigatórios pendentes. Preencha os campos destacados.
@@ -82,7 +139,9 @@ function InventarioDados() {
           <Form>
             <Row className="mb-3">
               <Col md={3}>
-                <Form.Label>Unidade (Matriz / Filial) <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Unidade (Matriz / Filial) <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Select
                   value={form.unidade || ''}
                   onChange={(e) => setField('unidade', e.target.value)}
@@ -96,7 +155,9 @@ function InventarioDados() {
               </Col>
 
               <Col md={3}>
-                <Form.Label>Setor <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Setor <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.setor || ''}
@@ -107,7 +168,9 @@ function InventarioDados() {
               </Col>
 
               <Col md={3}>
-                <Form.Label>Responsável (E-mail) <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Responsável (E-mail) <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   type="email"
                   placeholder="email@empresa.com"
@@ -119,7 +182,9 @@ function InventarioDados() {
               </Col>
 
               <Col md={3}>
-                <Form.Label>Processo de Negócio <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Processo de Negócio <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.processo_negocio || ''}
@@ -132,7 +197,9 @@ function InventarioDados() {
 
             <Row className="mb-3">
               <Col>
-                <Form.Label>Finalidade <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Finalidade <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.finalidade || ''}
@@ -145,7 +212,10 @@ function InventarioDados() {
 
             <Row className="mb-3">
               <Col>
-                <Form.Label>Dados pessoais coletados / tratados <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Dados pessoais coletados / tratados{' '}
+                  <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.dados_pessoais || ''}
@@ -158,7 +228,9 @@ function InventarioDados() {
 
             <Row className="mb-3">
               <Col md={3}>
-                <Form.Label>Tipo de dado <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Tipo de dado <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Select
                   value={form.tipo_dado || ''}
                   onChange={(e) => setField('tipo_dado', e.target.value)}
@@ -173,7 +245,9 @@ function InventarioDados() {
               </Col>
 
               <Col md={3}>
-                <Form.Label>Origem <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Origem <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.origem || ''}
@@ -184,7 +258,9 @@ function InventarioDados() {
               </Col>
 
               <Col md={3}>
-                <Form.Label>Formato <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Formato <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Select
                   value={form.formato || ''}
                   onChange={(e) => setField('formato', e.target.value)}
@@ -199,7 +275,9 @@ function InventarioDados() {
               </Col>
 
               <Col md={3}>
-                <Form.Label>Impresso? <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Impresso? <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Select
                   value={form.impresso || ''}
                   onChange={(e) => setField('impresso', e.target.value)}
@@ -215,7 +293,9 @@ function InventarioDados() {
 
             <Row className="mb-3">
               <Col>
-                <Form.Label>Titulares dos dados <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Titulares dos dados <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.titulares || ''}
@@ -228,7 +308,9 @@ function InventarioDados() {
 
             <Row className="mb-3">
               <Col md={3}>
-                <Form.Label>Dados de menores <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Dados de menores <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Select
                   value={form.dados_menores || ''}
                   onChange={(e) => setField('dados_menores', e.target.value)}
@@ -242,7 +324,9 @@ function InventarioDados() {
               </Col>
 
               <Col md={9}>
-                <Form.Label>Base Legal <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Base Legal <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   placeholder="TextField"
                   value={form.base_legal || ''}
@@ -253,11 +337,27 @@ function InventarioDados() {
               </Col>
             </Row>
 
-            <div className="d-flex justify-content-end">
-              <div className="me-3 align-self-center text-muted" style={{ fontSize: 13 }}>
+            {/* Barra de Salvar/Cancelar desta página (só exibe em EDIÇÃO) */}
+            {recordId && (
+              <SaveCancelBar
+                className="mt-3"
+                onSave={handleSaveStep}
+                onCancel={handleCancelStep}
+                saving={savingStep}
+                disabled={false} // se quiser, compute "isDirty" comparando snapshot/local
+              />
+            )}
+
+            <div className="d-flex justify-content-end mt-4">
+              <div className="me-3 align-self-center text-light" style={{ fontSize: 13 }}>
                 {!canGoNext ? 'Existem campos obrigatórios pendentes.' : ''}
               </div>
-              <Button variant="primary" onClick={goNext}>
+              <Button
+                type="button"
+                className="btn-white-custom"
+                variant="primary"
+                onClick={goNext}
+              >
                 Próxima Página
               </Button>
             </div>

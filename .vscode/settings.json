@@ -1,0 +1,29 @@
+{
+  // ---- Python: use sempre o venv do backend ----
+  "python.defaultInterpreterPath": "backend/venv/Scripts/python.exe",
+  // Arquivo de variáveis de ambiente (útil pro Django no VS Code)
+  "python.envFile": "${workspaceFolder}/backend/.env.vscode",
+  // Ajuda o IntelliSense a entender imports do backend/
+  "python.analysis.extraPaths": [
+    "./backend"
+  ],
+  // ---- Python: estilo consistente com Black ----
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.detectIndentation": false,
+    "editor.insertSpaces": true,
+    "editor.tabSize": 4,
+  },
+
+  // Prettier como formatador padrão para arquivos do front
+  "[javascript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[javascriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[typescriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[css]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[json]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+
+  // ---- Formatação automática ----
+  "editor.formatOnSave": true,
+  "editor.formatOnSaveMode": "file"
+}

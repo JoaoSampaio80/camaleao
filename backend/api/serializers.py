@@ -1,3 +1,4 @@
+import os, mimetypes
 import datetime
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -6,30 +7,21 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.validators import validate_email as core_validate_email
 from django.core.exceptions import ValidationError
 from django.contrib.auth import password_validation
-from . import models as _m
-
-# sempre existentes (conforme seu models.py atual)
-User = _m.User
-InventarioDados = _m.InventarioDados
-
-# variação de nome no banco de exigências LGPD
-ExigenciasLGPD = getattr(_m, "ExigenciasLGPD", None) or getattr(
-    _m, "ExigenciaLGPD", None
+from .models import (
+    User,
+    DocumentosLGPD,
+    Checklist,
+    InventarioDados,
+    Risk,
+    ActionPlan,
+    MonitoringAction,
+    Incident,
+    LikelihoodItem,
+    ImpactItem,
+    ControlEffectivenessItem,
+    RiskLevelBand,
+    Instruction,
 )
-
-# mapeia novos/antigos nomes (mantém endpoints funcionando)
-Risk = getattr(_m, "Risk", None) or getattr(_m, "MatrizRisco", None)
-ActionPlan = getattr(_m, "ActionPlan", None) or getattr(_m, "PlanoAcao", None)
-
-# opcionais (registramos serializers “dummy” se não existirem para não quebrar imports)
-Checklist = getattr(_m, "Checklist", None)
-MonitoringAction = getattr(_m, "MonitoringAction", None)
-Incident = getattr(_m, "Incident", None)
-LikelihoodItem = getattr(_m, "LikelihoodItem", None)
-ImpactItem = getattr(_m, "ImpactItem", None)
-ControlEffectivenessItem = getattr(_m, "ControlEffectivenessItem", None)
-RiskLevelBand = getattr(_m, "RiskLevelBand", None)
-Instruction = getattr(_m, "Instruction", None)
 
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -291,15 +283,61 @@ class UserSerializer(serializers.ModelSerializer):
         return instance
 
 
-# Serializer para o modelo ExigenciaLGPD
-class ExigenciaLGPDSerializer(serializers.ModelSerializer):
-    upload_por = serializers.ReadOnlyField(
-        source="upload_por.email"
-    )  # Exibe o email do usuário
+class DocumentosLGPDSerializer(serializers.ModelSerializer):
+    dimensao_display = serializers.CharField(
+        source="get_dimensao_display", read_only=True
+    )
+    criticidade_display = serializers.CharField(
+        source="get_criticidade_display", read_only=True
+    )
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    arquivo_url = serializers.SerializerMethodField()
+    arquivo_name = serializers.SerializerMethodField()
+    arquivo_mime = serializers.SerializerMethodField()
 
     class Meta:
-        model = ExigenciasLGPD
-        fields = "__all__"
+        model = DocumentosLGPD
+        fields = [
+            "id",
+            "dimensao",
+            "dimensao_display",
+            "atividade",
+            "base_legal",
+            "evidencia",
+            "proxima_revisao",
+            "comentarios",
+            "criticidade",
+            "criticidade_display",
+            "status",
+            "status_display",
+            "arquivo",
+            "arquivo_url",
+            "arquivo_name",
+            "arquivo_mime",  # <-
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
+
+    def get_arquivo_url(self, obj):
+        if obj.arquivo:
+            url = obj.arquivo.url
+            req = self.context.get("request")
+            return req.build_absolute_uri(url) if req else url
+        return None
+
+    def get_arquivo_name(self, obj):
+        return os.path.basename(obj.arquivo.name) if obj.arquivo else None
+
+    def get_arquivo_mime(self, obj):
+        if not obj.arquivo:
+            return None
+        mt, _ = mimetypes.guess_type(obj.arquivo.name)
+        return mt
+
+    def create(self, validated_data):
+        user = self.context.get("request").user if self.context.get("request") else None
+        return DocumentosLGPD.objects.create(criado_por=user, **validated_data)
 
 
 class ChecklistSerializer(serializers.ModelSerializer):
@@ -386,172 +424,174 @@ class InventarioDadosSerializer(serializers.ModelSerializer):
 
 
 # Serializer para o modelo MatrizRisco
-if Risk is not None:
+class RiskSerializer(serializers.ModelSerializer):
+    # ------- extras de leitura p/ o front (mantidos) -------
+    probabilidade_value = serializers.IntegerField(
+        source="probabilidade.value", read_only=True
+    )
+    probabilidade_label = serializers.CharField(
+        source="probabilidade.label_pt", read_only=True
+    )
+    impacto_value = serializers.IntegerField(source="impacto.value", read_only=True)
+    impacto_label = serializers.CharField(source="impacto.label_pt", read_only=True)
+    eficacia_label = serializers.CharField(
+        source="eficacia.label_pt", read_only=True, default=None
+    )
 
-    class RiskSerializer(serializers.ModelSerializer):
-        # extras de leitura
-        probabilidade_value = serializers.IntegerField(
-            source="probabilidade.value", read_only=True
-        )
-        probabilidade_label = serializers.CharField(
-            source="probabilidade.label_pt", read_only=True
-        )
-        impacto_value = serializers.IntegerField(source="impacto.value", read_only=True)
-        impacto_label = serializers.CharField(source="impacto.label_pt", read_only=True)
-        eficacia_label = serializers.CharField(
-            source="eficacia.label_pt", read_only=True, default=None
-        )
+    # score residual estimado (se existir eficácia)
+    residual_pontuacao = serializers.SerializerMethodField()
 
-        residual_pontuacao = serializers.SerializerMethodField()
-        existe_controle = serializers.SerializerMethodField()
+    # “existe_controle” como você já tinha
+    existe_controle = serializers.SerializerMethodField()
 
-        class Meta:
-            model = Risk  # pode ser Risk OU MatrizRisco
-            fields = "__all__"
+    class Meta:
+        model = Risk
+        fields = "__all__"
+        # os extras acima já entram porque foram declarados no serializer
 
-        @staticmethod
-        def _norm(v):
-            return (v or "").strip()
+    # ---------- helpers ----------
+    @staticmethod
+    def _norm(v):
+        return (v or "").strip()
 
-        def get_existe_controle(self, obj):
-            return bool(self._norm(getattr(obj, "medidas_controle", "")))
+    def get_existe_controle(self, obj):
+        return bool(self._norm(getattr(obj, "medidas_controle", "")))
 
-        def get_residual_pontuacao(self, obj):
-            if not getattr(obj, "eficacia_id", None):
-                return getattr(obj, "pontuacao", 0)
-            eff = getattr(obj, "eficacia", None)
-            try:
-                avg = (eff.reduction_min + eff.reduction_max) / 2.0
-                return int(round(obj.pontuacao * (1 - (avg / 100.0))))
-            except Exception:
-                return getattr(obj, "pontuacao", 0)
+    def get_residual_pontuacao(self, obj):
+        """
+        Estima pontuação residual com base na eficácia (média do range).
+        Se não houver eficácia, retorna a pontuação inerente.
+        """
+        if not obj.eficacia_id:
+            return obj.pontuacao
+        eff = obj.eficacia
+        try:
+            avg = (eff.reduction_min + eff.reduction_max) / 2.0
+            return int(round(obj.pontuacao * (1 - (avg / 100.0))))
+        except Exception:
+            return obj.pontuacao
 
-        def validate(self, attrs):
-            inst = getattr(self, "instance", None)
-            request = self.context.get("request")
-            method = (getattr(request, "method", "") or "").upper()
+    # ---------- validação ----------
+    def validate(self, attrs):
+        inst = getattr(self, "instance", None)
+        request = self.context.get("request")
+        method = (getattr(request, "method", "") or "").upper()
 
-            for f in (
-                "matriz_filial",
-                "setor",
-                "processo",
-                "risco_fator",
-                "resposta_risco",
-                "medidas_controle",
-            ):
-                if f in attrs:
-                    attrs[f] = self._norm(attrs.get(f))
+        # normaliza strings
+        for f in (
+            "matriz_filial",
+            "setor",
+            "processo",
+            "risco_fator",
+            "resposta_risco",
+            "medidas_controle",
+        ):
+            if f in attrs:
+                attrs[f] = self._norm(attrs.get(f))
 
-            if "matriz_filial" in attrs and attrs["matriz_filial"]:
-                if attrs["matriz_filial"] not in {"matriz", "filial", "matriz/filial"}:
-                    raise serializers.ValidationError(
-                        {"matriz_filial": 'Use "matriz", "filial" ou "matriz/filial".'}
-                    )
-
-            required = [
-                "matriz_filial",
-                "setor",
-                "processo",
-                "risco_fator",
-                "probabilidade",
-                "impacto",
-                "risco_residual",
-            ]
-            if method in ("POST", "PUT"):
-                missing = []
-                for f in required:
-                    val = attrs.get(f, None)
-                    if val is None and inst is not None:
-                        val = getattr(inst, f, "")
-                    if not self._norm(val if isinstance(val, str) else str(val or "")):
-                        missing.append(f)
-                if missing:
-                    raise serializers.ValidationError(
-                        "Existem campos obrigatórios pendentes."
-                    )
-
-            medidas = attrs.get(
-                "medidas_controle", getattr(inst, "medidas_controle", "")
-            )
-            tipo = attrs.get("tipo_controle", getattr(inst, "tipo_controle", ""))
-            eficacia = attrs.get("eficacia", getattr(inst, "eficacia", None))
-
-            existe = bool(self._norm(medidas))
-            errors = {}
-            if existe:
-                if tipo and tipo not in ("C", "D"):
-                    errors["tipo_controle"] = 'Use "C" (Preventivo) ou "D" (Detectivo).'
-            else:
-                if tipo:
-                    errors["tipo_controle"] = "Deixe vazio quando não existe controle."
-                if eficacia:
-                    errors["eficacia"] = (
-                        "Não defina eficácia quando não existe controle."
-                    )
-            if errors:
-                raise serializers.ValidationError(errors)
-            return attrs
-
-        def _recalc_and_sanitize(self, instance):
-            if getattr(instance, "probabilidade_id", None) and getattr(
-                instance, "impacto_id", None
-            ):
-                instance.pontuacao = int(instance.probabilidade.value) * int(
-                    instance.impacto.value
-                )
-            else:
-                instance.pontuacao = 0
-            if not self._norm(getattr(instance, "medidas_controle", "")):
-                instance.tipo_controle = ""
-                instance.eficacia = None
-            instance.save(update_fields=["pontuacao", "tipo_controle", "eficacia"])
-
-        def create(self, validated_data):
-            obj = super().create(validated_data)
-            self._recalc_and_sanitize(obj)
-            return obj
-
-        def update(self, instance, validated_data):
-            obj = super().update(instance, validated_data)
-            self._recalc_and_sanitize(obj)
-            return obj
-
-else:
-
-    class RiskSerializer(serializers.Serializer):
-        pass
-
-
-if ActionPlan is not None:
-
-    class ActionPlanSerializer(serializers.ModelSerializer):
-        risco_risco_fator = serializers.ReadOnlyField(source="risco.risco_fator")
-
-        class Meta:
-            model = ActionPlan  # pode ser ActionPlan OU PlanoAcao
-            fields = "__all__"
-
-        def validate(self, attrs):
-            prazo = attrs.get("prazo") or (
-                self.instance.prazo if self.instance else None
-            )
-            if prazo and prazo < datetime.date.today():
+        # matriz_filial restrita às três opções usadas no front (se enviada)
+        if "matriz_filial" in attrs and attrs["matriz_filial"]:
+            if attrs["matriz_filial"] not in {"matriz", "filial", "matriz/filial"}:
                 raise serializers.ValidationError(
-                    {"prazo": "Prazo não pode ser no passado."}
+                    {
+                        "matriz_filial": 'Valor inválido. Use "matriz", "filial" ou "matriz/filial".'
+                    }
                 )
-            risco = attrs.get("risco") or (
-                self.instance.risco if self.instance else None
-            )
-            if not risco:
+
+        # obrigatórios em POST/PUT (em PATCH valida só o que vier)
+        required = [
+            "matriz_filial",
+            "setor",
+            "processo",
+            "risco_fator",
+            "probabilidade",
+            "impacto",
+            "risco_residual",
+        ]
+        if method in ("POST", "PUT"):
+            missing = []
+            for f in required:
+                val = attrs.get(f, None)
+                if val is None and inst is not None:
+                    val = getattr(inst, f, "")
+                if not self._norm(val if isinstance(val, str) else str(val or "")):
+                    missing.append(f)
+            if missing:
                 raise serializers.ValidationError(
-                    {"risco": "Informe o risco ao qual este plano estará vinculado."}
+                    "Existem campos obrigatórios pendentes."
                 )
-            return attrs
 
-else:
+        # coerência das medidas de controle com tipo/eficacia (sua lógica, mantida)
+        medidas = attrs.get("medidas_controle", getattr(inst, "medidas_controle", ""))
+        tipo = attrs.get("tipo_controle", getattr(inst, "tipo_controle", ""))
+        eficacia = attrs.get("eficacia", getattr(inst, "eficacia", None))
 
-    class ActionPlanSerializer(serializers.Serializer):
-        pass
+        existe = bool(self._norm(medidas))
+        errors = {}
+        if existe:
+            if tipo and tipo not in ("C", "D"):
+                errors["tipo_controle"] = 'Use "C" (Preventivo) ou "D" (Detectivo).'
+        else:
+            if tipo:
+                errors["tipo_controle"] = "Deixe vazio quando não existe controle."
+            if eficacia:
+                errors["eficacia"] = "Não defina eficácia quando não existe controle."
+
+        if errors:
+            raise serializers.ValidationError(errors)
+        return attrs
+
+    # ---------- create/update: recálculo e saneamento ----------
+    def _recalc_and_sanitize(self, instance):
+        # recalcula pontuação sempre que tiver prob/impact
+        if instance.probabilidade_id and instance.impacto_id:
+            instance.pontuacao = int(instance.probabilidade.value) * int(
+                instance.impacto.value
+            )
+        else:
+            instance.pontuacao = 0
+
+        # se não há medidas de controle, zera campos dependentes
+        if not self._norm(instance.medidas_controle):
+            instance.tipo_controle = ""
+            instance.eficacia = None
+
+        instance.save(update_fields=["pontuacao", "tipo_controle", "eficacia"])
+
+    def create(self, validated_data):
+        obj = super().create(validated_data)
+        self._recalc_and_sanitize(obj)
+        return obj
+
+    def update(self, instance, validated_data):
+        obj = super().update(instance, validated_data)
+        self._recalc_and_sanitize(obj)
+        return obj
+
+
+# Serializer para o modelo PlanoAcao
+class ActionPlanSerializer(serializers.ModelSerializer):
+    # ajuda o front a exibir o vínculo
+    risco_risco_fator = serializers.ReadOnlyField(source="risco.risco_fator")
+
+    class Meta:
+        model = ActionPlan
+        fields = "__all__"
+
+    def validate(self, attrs):
+        prazo = attrs.get("prazo") or (self.instance.prazo if self.instance else None)
+        if prazo and prazo < datetime.date.today():
+            raise serializers.ValidationError(
+                {"prazo": "Prazo não pode ser no passado."}
+            )
+
+        risco = attrs.get("risco") or (self.instance.risco if self.instance else None)
+        if not risco:
+            raise serializers.ValidationError(
+                {"risco": "Informe o risco ao qual este plano estará vinculado."}
+            )
+
+        return attrs
 
 
 class MonitoringActionSerializer(serializers.ModelSerializer):

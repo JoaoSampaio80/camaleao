@@ -1,220 +1,197 @@
-from rest_framework import permissions
+# api/permissions.py
+from rest_framework.permissions import BasePermission, SAFE_METHODS
+
+# --- Helpers ---------------------------------------------------------------
 
 
-class IsAdmin(permissions.BasePermission):
+def _is_auth(request):
+    return bool(request.user and request.user.is_authenticated)
+
+
+def _role(user):
+    # Retorna o papel em minúsculas a partir de user.role (ou '' se não houver)
+    return (getattr(user, "role", "") or "").lower()
+
+
+def _is_admin(user):
+    # Superuser conta como admin
+    return bool(user and (user.is_superuser or _role(user) == "admin"))
+
+
+def _is_dpo(user):
+    return bool(user and _role(user) == "dpo")
+
+
+def user_role(user):
     """
-    Permite acesso completo apenas para administradores (role 'admin' ou is_staff/superuser).
+    Normaliza o papel do usuário para um conjunto conhecido:
+    - 'admin' para is_superuser=True OU role='admin'
+    - 'dpo'   para role='dpo'
+    - 'user'  para QUALQUER outro autenticado (inclui gerente, colaborador, etc.)
+    - None    se não autenticado
     """
-
-    def has_permission(self, request, view):
-        return request.user.is_authenticated and (
-            request.user.is_staff
-            or request.user.is_superuser
-            or request.user.role == "admin"
-        )
-
-    def has_object_permission(self, request, view, obj):
-        return self.has_permission(request, view)
+    if not user or not user.is_authenticated:
+        return None
+    if _is_admin(user):
+        return "admin"
+    if _is_dpo(user):
+        return "dpo"
+    return "user"
 
 
-class IsDPO(permissions.BasePermission):
-    """
-    Permite acesso completo para usuários com role 'dpo'.
-    """
-
-    def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role == "dpo"
-
-    def has_object_permission(self, request, view, obj):
-        return self.has_permission(request, view)
-
-
-class IsAdminOrDPO(permissions.BasePermission):
-    """
-    Permite acesso total para Admins e DPOs.
-    """
-
-    def has_permission(self, request, view):
-        return IsAdmin().has_permission(request, view) or IsDPO().has_permission(
-            request, view
-        )
-
-    def has_object_permission(self, request, view, obj):
-        return IsAdmin().has_object_permission(
-            request, view, obj
-        ) or IsDPO().has_object_permission(request, view, obj)
-
-
-class IsManagerLimited(permissions.BasePermission):
-    """
-    Permissões para gerentes:
-    - Leitura (GET, HEAD, OPTIONS) para tudo.
-    - Criar (POST).
-    - Atualizar (PUT, PATCH) apenas se for o criador do objeto.
-    - Proibido deletar (DELETE).
-    """
-
-    def has_permission(self, request, view):
-        if not request.user.is_authenticated or request.user.role != "manager":
-            return False
-
-        if request.method in permissions.SAFE_METHODS:
-            return True
-
-        if request.method == "POST":
-            return True
-
-        if request.method in ["PUT", "PATCH"]:
-            return True
-
-        # DELETE bloqueado para gerentes
-        if request.method == "DELETE":
-            return False
-
-        return False
-
-    def has_object_permission(self, request, view, obj):
-        # Leitura para todos gerentes autenticados
-        if request.method in permissions.SAFE_METHODS:
-            return True
-
-        # Atualização somente se o gerente criou o objeto
-        if request.method in ["PUT", "PATCH"]:
-            return hasattr(obj, "criado_por") and obj.criado_por == request.user
-
-        # DELETE proibido para gerentes
-        if request.method == "DELETE":
-            return False
-
-        return False
-
-
-class IsAdminOrDPOOrManagerLimited(permissions.BasePermission):
-    """
-    Combina as permissões:
-    - Admin e DPO têm acesso total.
-    - Gerente tem permissões limitadas (IsManagerLimited).
-    """
-
-    def has_permission(self, request, view):
-        if IsAdminOrDPO().has_permission(request, view):
-            return True
-        return IsManagerLimited().has_permission(request, view)
-
-    def has_object_permission(self, request, view, obj):
-        if IsAdminOrDPO().has_object_permission(request, view, obj):
-            return True
-        return IsManagerLimited().has_object_permission(request, view, obj)
-
-
-class IsAdminOrReadOnly(permissions.BasePermission):
-    """
-    Permite acesso de leitura a qualquer usuário autenticado
-    e acesso de escrita apenas a administradores.
-    """
-
-    def has_permission(self, request, view):
-        if request.method in permissions.SAFE_METHODS:
-            return request.user.is_authenticated
-        return IsAdmin().has_permission(request, view)
-
-    def has_object_permission(self, request, view, obj):
-        if request.method in permissions.SAFE_METHODS:
-            return True
-        return IsAdmin().has_object_permission(request, view, obj)
-
-
-# --- ADICIONAR AO FINAL DE backend/api/permissions.py ---
-
-from rest_framework.permissions import BasePermission
+# --- Permissões básicas por papel -----------------------------------------
 
 
 class IsRoleAdmin(BasePermission):
     """
-    Libera acesso para superuser, staff ou role='admin'.
-    Mantém a semântica usada em UserViewSet.
+    Acesso total (leitura e escrita) apenas para admin (ou superuser).
     """
 
     def has_permission(self, request, view):
-        u = request.user
-        return bool(
-            u
-            and u.is_authenticated
-            and (
-                getattr(u, "is_superuser", False)
-                or getattr(u, "is_staff", False)
-                or getattr(u, "role", "") == "admin"
-            )
-        )
+        return _is_auth(request) and _is_admin(request.user)
 
     def has_object_permission(self, request, view, obj):
-        return self.has_permission(request, view)
+        return _is_auth(request) and _is_admin(request.user)
 
 
-class IsDPOOrManager(BasePermission):
+class IsRoleDPO(BasePermission):
     """
-    Permite DPO e Gerente (aceita tanto 'manager' quanto 'gerente'), além de superuser/staff.
-    Usado nos viewsets de risco/planos/etc.
+    Acesso total (leitura e escrita) apenas para DPO (não trata exceções de user management).
+    Use IsRoleAdmin no UserViewSet para restringir criar/excluir usuários.
     """
 
     def has_permission(self, request, view):
-        u = request.user
-        role = (getattr(u, "role", "") or "").lower()
-        return bool(
-            u
-            and u.is_authenticated
-            and (
-                role in {"dpo", "manager", "gerente"}
-                or getattr(u, "is_superuser", False)
-                or getattr(u, "is_staff", False)
-            )
-        )
+        return _is_auth(request) and _is_dpo(request.user)
 
     def has_object_permission(self, request, view, obj):
-        return self.has_permission(request, view)
+        return _is_auth(request) and _is_dpo(request.user)
+
+
+class IsAuthenticatedReadOnly(BasePermission):
+    """
+    Autenticado pode ler; escrita negada.
+    """
+
+    def has_permission(self, request, view):
+        return _is_auth(request) and (request.method in SAFE_METHODS)
+
+    def has_object_permission(self, request, view, obj):
+        return _is_auth(request) and (request.method in SAFE_METHODS)
+
+
+class IsAdminOrDPO(BasePermission):
+    """
+    Leitura: qualquer autenticado.
+    Escrita: admin ou dpo.
+    """
+
+    def has_permission(self, request, view):
+        if not _is_auth(request):
+            return False
+        if request.method in SAFE_METHODS:
+            return True
+        return _is_admin(request.user) or _is_dpo(request.user)
+
+    def has_object_permission(self, request, view, obj):
+        if not _is_auth(request):
+            return False
+        if request.method in SAFE_METHODS:
+            return True
+        return _is_admin(request.user) or _is_dpo(request.user)
+
+
+# --- Permissão genérica dirigida por mapa (recomendado) --------------------
 
 
 class SimpleRolePermission(BasePermission):
     """
-    Lê o mapeamento de permissões declarado no ViewSet (ROLE_PERMS) e aplica:
-      - 'any'  -> permitido
-      - 'own'  -> permitido, mas no nível do objeto só se obj.<OWN_FIELD> == request.user
-      - None   -> bloqueado
-    Requer autenticação para qualquer ação.
+    Permissão orientada por PAPEL + AÇÃO da ViewSet via ROLE_PERMS.
+    Use em conjunto com OWN_FIELD para restringir escopo 'own'.
+
+    Na ViewSet:
+      ROLE_PERMS = {
+        'list':            {'admin': 'any', 'dpo': 'any', 'user': 'any'},
+        'retrieve':        {'admin': 'any', 'dpo': 'any', 'user': 'any'},
+        'create':          {'admin': 'any', 'dpo': 'any', 'user': 'own'},
+        'update':          {'admin': 'any', 'dpo': 'any', 'user': 'own'},
+        'partial_update':  {'admin': 'any', 'dpo': 'any', 'user': 'own'},
+        'destroy':         {'admin': 'any', 'dpo': 'any', 'user': None},
+        # '*' pode ser usado como fallback
+      }
+      OWN_FIELD = 'criado_por'
+
+    Escopos aceitos:
+      - 'any'  -> acesso total naquela ação
+      - 'own'  -> apenas sobre objetos do próprio usuário (compara OWN_FIELD)
+      - True   -> sinônimo de 'any'
+      - None/False -> negado
     """
 
+    message = "Acesso negado pela política de papéis."
+
     def has_permission(self, request, view):
-        u = request.user
-        if not (u and u.is_authenticated):
+        role = user_role(request.user)
+        if role is None:
             return False
 
-        # ação corrente (DRF define em view.action)
-        action = getattr(view, "action", None) or request.method.lower()
-        perms_map = getattr(view, "ROLE_PERMS", {}) or {}
-        role = (getattr(u, "role", "") or "").lower()
+        action = getattr(view, "action", None) or self._http_to_action(request)
+        role_perms = getattr(view, "ROLE_PERMS", None)
 
-        # tenta achar permissão específica por ação e papel
-        allowed = (perms_map.get(action, {}) or {}).get(role, None)
-        # fallback: se não houver entrada para o papel, tenta a de admin
-        if allowed is None:
-            allowed = (perms_map.get(action, {}) or {}).get("admin", None)
+        # Se não foi configurado um mapa, fallback conservador:
+        if not role_perms:
+            # Leitura p/ autenticados; escrita só admin/dpo
+            return True if request.method in SAFE_METHODS else role in ("admin", "dpo")
 
-        # 'any' e 'own' passam em nível de permissão geral
-        return allowed in {"any", "own"}
+        scope = self._scope_for(role_perms, action, role, request)
+        return scope not in (None, False)
 
     def has_object_permission(self, request, view, obj):
-        u = request.user
-        action = getattr(view, "action", None) or request.method.lower()
-        perms_map = getattr(view, "ROLE_PERMS", {}) or {}
-        role = (getattr(u, "role", "") or "").lower()
+        role = user_role(request.user)
+        if role is None:
+            return False
 
-        allowed = (perms_map.get(action, {}) or {}).get(role, None)
-        if allowed is None:
-            allowed = (perms_map.get(action, {}) or {}).get("admin", None)
+        action = getattr(view, "action", None) or self._http_to_action(request)
+        role_perms = getattr(view, "ROLE_PERMS", None)
+        scope = self._scope_for(role_perms, action, role, request)
 
-        if allowed == "any":
+        if scope in (True, "any"):
             return True
-        if allowed == "own":
-            owner_field = getattr(view, "OWN_FIELD", None) or "user"
-            return getattr(obj, owner_field, None) == u
+        if scope == "own":
+            own_field = getattr(view, "OWN_FIELD", "criado_por")
+            owner = getattr(obj, own_field, None)
+            owner_id = getattr(owner, "pk", owner)  # aceita objeto FK ou id direto
+            return owner_id == getattr(request.user, "pk", None)
+
         return False
+
+    # Internals
+    def _scope_for(self, role_perms, action, role, request):
+        # 1) linha específica da ação
+        if action and action in role_perms:
+            scope = self._normalize_scope(role_perms[action].get(role))
+            if scope is not None:
+                return scope
+        # 2) fallback '*'
+        if "*" in role_perms:
+            return self._normalize_scope(role_perms["*"].get(role))
+        # 3) fallback final: permitir leitura
+        return "any" if request.method in SAFE_METHODS else None
+
+    def _http_to_action(self, request):
+        m = request.method.upper()
+        if m in ("GET", "HEAD", "OPTIONS"):
+            return "retrieve"
+        if m == "POST":
+            return "create"
+        if m == "PUT":
+            return "update"
+        if m == "PATCH":
+            return "partial_update"
+        if m == "DELETE":
+            return "destroy"
+        return None
+
+    def _normalize_scope(self, scope):
+        if scope is True:
+            return "any"
+        return scope

@@ -1,0 +1,41 @@
+# --- Padronização de finais de linha (EOL) ---
+# Todos os arquivos de texto ficam com LF no repositório
+* text=auto eol=lf
+
+# --- Fontes do projeto ---
+*.py     text eol=lf
+*.js     text eol=lf
+*.jsx    text eol=lf
+*.ts     text eol=lf
+*.tsx    text eol=lf
+*.json   text eol=lf
+*.css    text eol=lf
+*.scss   text eol=lf
+*.html   text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
+*.md     text eol=lf
+*.env    text eol=lf
+Dockerfile text eol=lf
+
+# --- Scripts ---
+*.sh     text eol=lf
+*.bat    text eol=crlf
+*.cmd    text eol=crlf
+
+# --- Binários (nunca converter EOL) ---
+*.png    -text
+*.jpg    -text
+*.jpeg   -text
+*.gif    -text
+*.ico    -text
+*.pdf    -text
+*.zip    -text
+*.7z     -text
+*.exe    -text
+*.dll    -text
+
+# --- Arquivos de lock (tratados como binário para evitar confusão) ---
+package-lock.json -text
+yarn.lock         -text
+pnpm-lock.yaml    -text

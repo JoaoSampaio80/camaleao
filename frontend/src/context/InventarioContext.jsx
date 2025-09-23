@@ -194,10 +194,70 @@ export function InventarioProvider({ children }) {
     return data;
   }, []);
 
+  // Recarrega o registro atual (edição)
+  const reload = useCallback(async () => {
+    if (!recordId) return null;
+    return loadInventario(recordId);
+  }, [recordId, loadInventario]);
+
   // Monta o payload final (caso precise adaptar nomes, faça aqui)
   const buildPayload = useCallback((f) => {
-    return { ...f };
+    // Mapeamento 1:1 explícito como “guarda de segurança”
+    const out = {};
+    for (const k of Object.keys(DEFAULT_FORM)) {
+      out[k] = f[k];
+    }
+    return out;
   }, []);
+
+  // ===== Salvar por ETAPA (edição) -> PATCH APENAS dos campos do step =====
+  const saveStep = useCallback(
+    async (fieldsThisStep) => {
+      if (!recordId) {
+        const err = new Error(
+          'Não é possível salvar etapa sem estar editando um registro.'
+        );
+        err.type = 'not_editing';
+        throw err;
+      }
+
+      const allowed = await ensureAllowedFields();
+      // apenas campos válidos e pertencentes ao step
+      const whitelist = fieldsThisStep.filter((f) => allowed.includes(f));
+
+      // payload apenas do step, com nomes garantidos pelo buildPayload
+      const payloadAll = buildPayload(form);
+      const payload = pick(payloadAll, whitelist);
+
+      // detecta multipart (se algum campo for arquivo)
+      const hasFile = Object.values(payload).some(isFileLike);
+      let resp;
+      if (hasFile) {
+        const fd = new FormData();
+        for (const [k, v] of Object.entries(payload)) {
+          if (Array.isArray(v)) v.forEach((item) => fd.append(k, item));
+          else if (v !== undefined && v !== null) fd.append(k, v);
+        }
+        resp = await AxiosInstance.patch(`inventarios/${recordId}/`, fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      } else {
+        resp = await AxiosInstance.patch(`inventarios/${recordId}/`, payload);
+      }
+
+      // Sincroniza com retorno (apenas chaves conhecidas)
+      const saved = resp?.data || {};
+      const synced = { ...form };
+      whitelist.forEach((k) => {
+        if (saved[k] != null) synced[k] = String(saved[k]);
+        // se o backend não devolveu, mantemos o valor que acabamos de enviar
+      });
+      setForm(synced);
+
+      return saved;
+    },
+    [recordId, form, ensureAllowedFields, buildPayload]
+  );
 
   // Salvar ao backend (só na página 3)
   const saveInventario = useCallback(async () => {
@@ -260,6 +320,15 @@ export function InventarioProvider({ children }) {
     return saved;
   }, [form, recordId, ensureAllowedFields, buildPayload, validateAll]);
 
+  // Limpa apenas os campos de uma etapa (útil para “Cancelar” na criação)
+  const clearStep = useCallback((fieldsThisStep) => {
+    setForm((prev) => {
+      const next = { ...prev };
+      fieldsThisStep.forEach((k) => (next[k] = DEFAULT_FORM[k] ?? ''));
+      return next;
+    });
+  }, []);
+
   // Reset total (ex.: após “Salvar e novo” ou “Salvar e ir para a lista”)
   const reset = useCallback(() => {
     setForm({ ...DEFAULT_FORM });
@@ -276,13 +345,28 @@ export function InventarioProvider({ children }) {
       setForm,
       recordId,
       setRecordId,
-      saveInventario,   // envia ao backend (só use na página 3)
-      loadInventario,   // carrega para edição
+      saveInventario, // envia ao backend (só use na página 3)
+      saveStep, // salva apenas os campos de uma etapa (edição)
+      loadInventario, // carrega para edição
+      reload, // recarrega o registro atual
+      clearStep, // limpa somente os campos do step (criação)
       reset,
       loadingMeta,
-      validateAll,      // disponível caso queira validar por etapa
+      validateAll, // disponível caso queira validar por etapa
     }),
-    [form, recordId, loadingMeta, saveInventario, loadInventario, reset, setField, validateAll]
+    [
+      form,
+      recordId,
+      loadingMeta,
+      saveInventario,
+      saveStep,
+      loadInventario,
+      reload,
+      clearStep,
+      reset,
+      setField,
+      validateAll,
+    ]
   );
 
   return <CTX.Provider value={value}>{children}</CTX.Provider>;
@@ -290,6 +374,7 @@ export function InventarioProvider({ children }) {
 
 export function useInventario() {
   const ctx = useContext(CTX);
-  if (!ctx) throw new Error('useInventario deve ser usado dentro de <InventarioProvider>');
+  if (!ctx)
+    throw new Error('useInventario deve ser usado dentro de <InventarioProvider>');
   return ctx;
 }

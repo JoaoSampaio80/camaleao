@@ -1,4 +1,4 @@
-from rest_framework import status
+from datetime import timedelta
 from rest_framework import viewsets, permissions, status, filters
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
@@ -41,37 +41,33 @@ from collections import Counter
 from .serializers import (
     MyTokenObtainPairSerializer,
     UserSerializer,
+    DocumentosLGPDSerializer,
     ChecklistSerializer,
     InventarioDadosSerializer,
     RiskSerializer,
     ActionPlanSerializer,
     MonitoringActionSerializer,
     IncidentSerializer,
-    ExigenciaLGPDSerializer,
 )
-from . import models as _m
-
-# sempre existentes no seu models.py atual
-User = _m.User
-InventarioDados = _m.InventarioDados
-
-# variação de nome (aceita ExigenciasLGPD ou ExigenciaLGPD)
-ExigenciasLGPD = getattr(_m, "ExigenciasLGPD", None) or getattr(
-    _m, "ExigenciaLGPD", None
+from .models import (
+    User,
+    DocumentosLGPD,
+    Checklist,
+    InventarioDados,
+    Risk,
+    ActionPlan,
+    MonitoringAction,
+    Incident,
+    LikelihoodItem,
+    ImpactItem,
 )
-
-# mapeia novos/antigos nomes (mantém endpoints funcionando)
-Risk = getattr(_m, "Risk", None) or getattr(_m, "MatrizRisco", None)
-ActionPlan = getattr(_m, "ActionPlan", None) or getattr(_m, "PlanoAcao", None)
-
-# opcionais
-MonitoringAction = getattr(_m, "MonitoringAction", None)
-Incident = getattr(_m, "Incident", None)
-LikelihoodItem = getattr(_m, "LikelihoodItem", None)
-ImpactItem = getattr(_m, "ImpactItem", None)
-Checklist = getattr(_m, "Checklist", None)
-
-from .permissions import IsRoleAdmin, IsAdminOrDPO, IsDPOOrManager, SimpleRolePermission
+from .permissions import (
+    IsRoleAdmin,
+    IsRoleDPO,
+    IsAuthenticatedReadOnly,
+    IsAdminOrDPO,
+    SimpleRolePermission,
+)
 from .pagination import DefaultPagination
 
 from .utils.email import send_html_email
@@ -92,6 +88,138 @@ except Exception:
 class MyTokenObtainPairView(TokenObtainPairView):
     permission_classes = [AllowAny]
     serializer_class = MyTokenObtainPairSerializer
+
+
+# Helpers p/ cookie httpOnly do refresh
+# ---------------------------------------------------------
+REFRESH_COOKIE_NAME = "refresh_token"
+
+
+def _refresh_cookie_kwargs():
+    """
+    Define as flags do cookie do refresh.
+    - path: restrito à sub-API de auth (ajuste se sua API base mudar)
+    - secure: True em produção
+    - samesite: 'Lax' (bom p/ SPA)
+    """
+    lifetime = settings.SIMPLE_JWT.get("REFRESH_TOKEN_LIFETIME", timedelta(minutes=15))
+    return dict(
+        max_age=int(lifetime.total_seconds()),
+        httponly=True,
+        secure=not settings.DEBUG,
+        samesite="Lax",
+        path="/api/v1/auth/",  # <- ajuste se sua API base não for /api/v1/
+    )
+
+
+def _set_refresh_cookie(resp, refresh_str: str):
+    resp.set_cookie(REFRESH_COOKIE_NAME, refresh_str, **_refresh_cookie_kwargs())
+    return resp
+
+
+def _clear_refresh_cookie(resp):
+    # max_age=0 apaga; manter mesmas flags e path
+    resp.delete_cookie(
+        REFRESH_COOKIE_NAME, path=_refresh_cookie_kwargs()["path"], samesite="Lax"
+    )
+    return resp
+
+
+# ---------------------------------------------------------
+# 1) Login que SETA cookie httpOnly com refresh
+#    (mantém o body padrão com access/refresh para compatibilidade)
+# ---------------------------------------------------------
+class CookieTokenObtainPairView(TokenObtainPairView):
+    permission_classes = [AllowAny]
+    serializer_class = MyTokenObtainPairSerializer  # seu serializer custom
+
+    def post(self, request, *args, **kwargs):
+        res = super().post(request, *args, **kwargs)
+        refresh = res.data.get("refresh")
+        if refresh:
+            _set_refresh_cookie(res, refresh)
+        # Se quiser não enviar o refresh no body em prod:
+        # if not settings.DEBUG:
+        #     res.data.pop("refresh", None)
+        return res
+
+
+# ---------------------------------------------------------
+# 2) Refresh que LÊ o cookie httpOnly e devolve novo access
+#    - Se ROTATE_REFRESH_TOKENS=True, rotaciona o refresh e atualiza o cookie
+# ---------------------------------------------------------
+class CookieTokenRefreshView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        raw = request.COOKIES.get(REFRESH_COOKIE_NAME)
+        if not raw:
+            return Response(
+                {"detail": "Refresh ausente."}, status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            current_rt = RefreshToken(raw)
+        except TokenError:
+            return Response(
+                {"detail": "Refresh inválido."}, status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        rotate = settings.SIMPLE_JWT.get("ROTATE_REFRESH_TOKENS", False)
+        blacklist_after = (
+            settings.SIMPLE_JWT.get("BLACKLIST_AFTER_ROTATION", False)
+            and SIMPLEJWT_BLACKLIST_AVAILABLE
+        )
+
+        # Gera access
+        access_str = str(current_rt.access_token)
+
+        new_refresh_str = raw
+        if rotate:
+            # Blacklist do anterior (se habilitado)
+            if blacklist_after:
+                try:
+                    current_rt.blacklist()
+                except Exception:
+                    pass
+
+            # Emite um novo refresh para o mesmo usuário
+            user_id = current_rt.get("user_id")
+            UserModel = get_user_model()
+            try:
+                user = UserModel.objects.get(pk=user_id)
+            except UserModel.DoesNotExist:
+                return Response(
+                    {"detail": "Usuário não encontrado."},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+
+            new_rt = RefreshToken.for_user(user)
+            new_refresh_str = str(new_rt)
+            access_str = str(new_rt.access_token)
+
+        resp = Response({"access": access_str})
+        if rotate:
+            _set_refresh_cookie(resp, new_refresh_str)
+        return resp
+
+
+# ---------------------------------------------------------
+# 3) Logout: apaga cookie e (se possível) coloca refresh na blacklist
+# ---------------------------------------------------------
+class CookieTokenLogoutView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        raw = request.COOKIES.get(REFRESH_COOKIE_NAME)
+        resp = Response({"detail": "OK"})
+        if raw and SIMPLEJWT_BLACKLIST_AVAILABLE:
+            try:
+                RefreshToken(raw).blacklist()
+            except TokenError:
+                pass
+        _clear_refresh_cookie(resp)
+        return resp
 
 
 # ViewSet para o modelo User
@@ -250,53 +378,69 @@ class UserViewSet(viewsets.ModelViewSet):
         )
 
 
-# ViewSet para ExigenciaLGPD
-class ExigenciaLGPDViewSet(viewsets.ModelViewSet):
-    queryset = (
-        ExigenciasLGPD.objects.all().order_by("-data_upload")
-        if ExigenciasLGPD
-        else User.objects.none()
-    )
-    serializer_class = ExigenciaLGPDSerializer
+class DocumentosLGPDViewSet(viewsets.ModelViewSet):
+    queryset = DocumentosLGPD.objects.all().order_by("-created_at")
+    serializer_class = DocumentosLGPDSerializer
+    permission_classes = [SimpleRolePermission]
+    OWN_FIELD = "criado_por"
+    ROLE_PERMS = {
+        # leitura liberada para todos autenticados
+        "list": {"admin": "any", "dpo": "any", "user": "any"},
+        "retrieve": {"admin": "any", "dpo": "any", "user": "any"},
+        # escrita só admin/dpo
+        "create": {"admin": "any", "dpo": "any"},
+        "update": {"admin": "any", "dpo": "any"},
+        "partial_update": {"admin": "any", "dpo": "any"},
+        "destroy": {"admin": "any", "dpo": "any"},
+        # ações extras
+        "upload": {"admin": "any", "dpo": "any"},
+        "choices": {"admin": "any", "dpo": "any", "user": "any"},
+        # fallback (opcional)
+        "*": {"admin": "any", "dpo": "any"},
+    }
 
-    # leitura para autenticados; escrita só admin/dpo
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAdminOrDPO()]
-        # leitura
-        return [permissions.IsAuthenticated()]
-
-    def perform_create(self, serializer):
-        # Automaticamente define o usuário que fez o upload
-        serializer.save(upload_por=self.request.user)
-
-    # Action para download do arquivo
-    @action(
-        detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated]
-    )
-    def download(self, request, pk=None):
-        instance = self.get_object()
-        if instance.arquivo_comprovacao:
-            try:
-                return FileResponse(
-                    open(instance.arquivo_comprovacao.path, "rb"),
-                    filename=instance.arquivo_comprovacao.name,
-                    as_attachment=True,
-                )
-            except FileNotFoundError:
-                raise Http404("Arquivo não encontrado.")
+    @action(detail=False, methods=["get"])
+    def choices(self, request):
+        m = DocumentosLGPD
         return Response(
-            {"detail": "Nenhum arquivo anexado."}, status=status.HTTP_404_NOT_FOUND
+            {
+                "dimensao": list(
+                    m.Dimensao.choices
+                ),  # [["GPV","Gestão de privacidade"], ...]
+                "criticidade": list(
+                    m.Criticidade.choices
+                ),  # [["NA","Não aplicável"], ...]
+                "status": list(m.Status.choices),  # [["NA","Não aplicável"], ...]
+            }
         )
+
+    @action(detail=True, methods=["post"], parser_classes=[MultiPartParser, FormParser])
+    def upload(self, request, pk=None):
+        doc = self.get_object()
+        # Permissão adicional já é validada pelo permission_classes em métodos de escrita,
+        # mas mantemos uma checagem explícita aqui para upload:
+        if (
+            not request.user.is_staff
+            and not request.user.groups.filter(name="DPO").exists()
+        ):
+            return Response(
+                {"detail": "Sem permissão."}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        file_obj = request.FILES.get("arquivo")
+        if not file_obj:
+            return Response(
+                {"detail": "Envie o arquivo no campo 'arquivo'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        doc.arquivo = file_obj
+        doc.save()
+        return Response(self.get_serializer(doc).data, status=status.HTTP_200_OK)
 
 
 # ViewSet para gerenciar o checklist da LGPD
 class ChecklistViewSet(viewsets.ModelViewSet):
-    queryset = (
-        Checklist.objects.all().order_by("id")
-        if Checklist is not None
-        else User.objects.none()
-    )
+    queryset = Checklist.objects.all().order_by("id")
     serializer_class = ChecklistSerializer
 
     # Esta função controla as permissões de acesso para cada ação da API
@@ -761,7 +905,7 @@ class InventarioDadosViewSet(viewsets.ModelViewSet):
 class RiskViewSet(viewsets.ModelViewSet):
     queryset = Risk.objects.all().select_related("probabilidade", "impacto", "eficacia")
     serializer_class = RiskSerializer
-    permission_classes = [IsDPOOrManager]
+    permission_classes = [IsAdminOrDPO]
 
     # filtros/busca/ordenação padrão
     filter_backends = [
@@ -1279,7 +1423,7 @@ class RiskViewSet(viewsets.ModelViewSet):
 class ActionPlanViewSet(viewsets.ModelViewSet):
     queryset = ActionPlan.objects.all().select_related("risco")
     serializer_class = ActionPlanSerializer
-    permission_classes = [IsDPOOrManager]
+    permission_classes = [IsAdminOrDPO]
 
     filter_backends = [
         DjangoFilterBackend,
@@ -1339,14 +1483,9 @@ class ActionPlanViewSet(viewsets.ModelViewSet):
 
 
 class MonitoringActionViewSet(viewsets.ModelViewSet):
-    queryset = (
-        MonitoringAction.objects.all()
-        if MonitoringAction is not None
-        else User.objects.none()
-    )
+    queryset = MonitoringAction.objects.all()
     serializer_class = MonitoringActionSerializer
-
-    permission_classes = [IsDPOOrManager]
+    permission_classes = [IsAdminOrDPO]
 
     filter_backends = [
         DjangoFilterBackend,
@@ -1359,9 +1498,9 @@ class MonitoringActionViewSet(viewsets.ModelViewSet):
 
 
 class IncidentViewSet(viewsets.ModelViewSet):
-    queryset = Incident.objects.all() if Incident is not None else User.objects.none()
+    queryset = Incident.objects.all()
     serializer_class = IncidentSerializer
-    permission_classes = [IsDPOOrManager]
+    permission_classes = [IsAdminOrDPO]
 
     filter_backends = [
         DjangoFilterBackend,
