@@ -1339,8 +1339,13 @@ class ActionPlanViewSet(viewsets.ModelViewSet):
 
 
 class MonitoringActionViewSet(viewsets.ModelViewSet):
-    queryset = MonitoringAction.objects.all()
+    queryset = (
+        MonitoringAction.objects.all()
+        if MonitoringAction is not None
+        else User.objects.none()
+    )
     serializer_class = MonitoringActionSerializer
+
     permission_classes = [IsDPOOrManager]
 
     filter_backends = [
@@ -1354,7 +1359,7 @@ class MonitoringActionViewSet(viewsets.ModelViewSet):
 
 
 class IncidentViewSet(viewsets.ModelViewSet):
-    queryset = Incident.objects.all()
+    queryset = Incident.objects.all() if Incident is not None else User.objects.none()
     serializer_class = IncidentSerializer
     permission_classes = [IsDPOOrManager]
 
