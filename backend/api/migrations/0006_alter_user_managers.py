@@ -2,19 +2,20 @@
 
 import api.models
 from django.db import migrations
+from django.contrib.auth.models import UserManager
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0005_user_avatar'),
+        ("api", "0005_user_avatar"),
     ]
 
     operations = [
         migrations.AlterModelManagers(
-            name='user',
+            name="user",
             managers=[
-                ('objects', api.models.CustomUserManager()),
+                ("objects", UserManager()),
             ],
         ),
     ]

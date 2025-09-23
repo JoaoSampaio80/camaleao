@@ -7,17 +7,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0006_alter_user_managers'),
+        ("api", "0006_alter_user_managers"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='user',
-            name='job_title',
+            model_name="user",
+            name="job_title",
         ),
         migrations.AlterField(
-            model_name='user',
-            name='avatar',
-            field=models.ImageField(blank=True, null=True, upload_to=api.models.avatar_upload_to),
+            model_name="user",
+            name="avatar",
+            field=models.ImageField(blank=True, null=True, upload_to="avatars/"),
         ),
     ]
