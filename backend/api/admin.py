@@ -18,6 +18,13 @@ from .models import (
 )
 
 
+def get_model_or_none(app_label: str, model_name: str):
+    try:
+        return apps.get_model(app_label, model_name)
+    except LookupError:
+        return None
+
+
 # ===== User admin =====
 class UserCreationFormEmail(UserCreationForm):
     class Meta(UserCreationForm.Meta):
@@ -234,15 +241,15 @@ class ExigenciaLGPDAdmin(admin.ModelAdmin):
 
 
 # ===== Registros condicionais (só se os models existirem) =====
-Risk = apps.get_model("api", "Risk")
-ActionPlan = apps.get_model("api", "ActionPlan")
-MonitoringAction = apps.get_model("api", "MonitoringAction")
-Incident = apps.get_model("api", "Incident")
-LikelihoodItem = apps.get_model("api", "LikelihoodItem")
-ImpactItem = apps.get_model("api", "ImpactItem")
-ControlEffectivenessItem = apps.get_model("api", "ControlEffectivenessItem")
-RiskLevelBand = apps.get_model("api", "RiskLevelBand")
-Instruction = apps.get_model("api", "Instruction")
+Risk = get_model_or_none("api", "Risk")
+ActionPlan = get_model_or_none("api", "ActionPlan")
+MonitoringAction = get_model_or_none("api", "MonitoringAction")
+Incident = get_model_or_none("api", "Incident")
+LikelihoodItem = get_model_or_none("api", "LikelihoodItem")
+ImpactItem = get_model_or_none("api", "ImpactItem")
+ControlEffectivenessItem = get_model_or_none("api", "ControlEffectivenessItem")
+RiskLevelBand = get_model_or_none("api", "RiskLevelBand")
+Instruction = get_model_or_none("api", "Instruction")
 
 # Parametrizações
 if LikelihoodItem:
