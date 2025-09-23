@@ -1,0 +1,12 @@
+Olá{% if first_name %} {{ first_name }}{% endif %},
+
+Bem-vindo(a) ao Camaleão! Para acessar, defina sua senha no link abaixo:
+
+{{ reset-url }}
+
+Este link expira em {{ expire-hours }} horas.
+
+Em caso de dúvida, procure o DPO ou o administrador do sistema.
+
+---
+Este é um e-mail automático. Não responda.
