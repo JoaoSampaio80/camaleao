@@ -127,40 +127,93 @@ class UserAdmin(BaseUserAdmin):
 # ===== Inventário =====
 @admin.register(InventarioDados)
 class InventarioDadosAdmin(admin.ModelAdmin):
-    list_display = (
-        "processo_negocio",
-        "unidade",
-        "setor",
-        "tipo_dado",
-        "formato",
-        "controlador_operador",
-        "criado_por",
-        "data_criacao",
-    )
-    list_filter = (
-        "unidade",
-        "tipo_dado",
-        "formato",
-        "impresso",
-        "dados_menores",
-        "controlador_operador",
-        "transferencia_terceiros",
-        "transferencia_internacional",
-        "adequado_contratualmente",
-        "criado_por",
-    )
-    search_fields = (
-        "processo_negocio",
-        "setor",
-        "responsavel_email",
-        "empresa_terceira",
-        "paises_tratamento",
-    )
-    raw_id_fields = ("criado_por",)
-    date_hierarchy = "data_criacao"
-    list_select_related = ("criado_por",)
-    ordering = ("-data_criacao",)
-    readonly_fields = ("data_criacao", "data_atualizacao")
+    # helper para ler os nomes de campos do model
+    def _fieldnames(self):
+        return {f.name for f in self.model._meta.get_fields()}
+
+    # list_display dinâmico
+    def get_list_display(self, request):
+        f = self._fieldnames()
+        disp = []
+        if "processo" in f:
+            disp.append("processo")
+        elif "processo_negocio" in f:
+            disp.append("processo_negocio")
+
+        for name in (
+            "unidade",
+            "setor",
+            "tipo_dado",
+            "formato",
+            "controlador_operador",
+            "criado_por",
+            "data_criacao",
+        ):
+            if name in f:
+                disp.append(name)
+        return tuple(disp)
+
+    # list_filter dinâmico
+    def get_list_filter(self, request):
+        f = self._fieldnames()
+        names = []
+        for name in (
+            "unidade",
+            "tipo_dado",
+            "formato",
+            "impresso",
+            "dados_menores",
+            "controlador_operador",
+            "transferencia_terceiros",
+            "transferencia_internacional",
+            "adequado_contratualmente",
+            "criado_por",
+            "data_criacao",
+        ):
+            if name in f:
+                names.append(name)
+        return tuple(names)
+
+    # search_fields dinâmico
+    def get_search_fields(self, request):
+        f = self._fieldnames()
+        return tuple(
+            name
+            for name in (
+                "processo",
+                "processo_negocio",
+                "setor",
+                "responsavel_email",
+                "empresa_terceira",
+                "paises_tratamento",
+            )
+            if name in f
+        )
+
+    # readonly_fields dinâmico
+    def get_readonly_fields(self, request, obj=None):
+        f = self._fieldnames()
+        ro = []
+        for name in ("data_criacao", "data_atualizacao"):
+            if name in f:
+                ro.append(name)
+        return tuple(ro)
+
+    # select_related dinâmico
+    def get_list_select_related(self, request):
+        f = self._fieldnames()
+        rel = []
+        if "criado_por" in f:
+            rel.append("criado_por")
+        return tuple(rel)
+
+    # ordering dinâmico
+    def get_ordering(self, request):
+        return ("-data_criacao",) if "data_criacao" in self._fieldnames() else ()
+
+    # date_hierarchy dinâmico (suportado nas versões recentes do Django)
+    def get_date_hierarchy(self, request):
+        return "data_criacao" if "data_criacao" in self._fieldnames() else None
 
     fieldsets = (
         (
@@ -227,14 +280,15 @@ class InventarioDadosAdmin(admin.ModelAdmin):
 @admin.register(ExigenciasLGPD)
 class ExigenciaLGPDAdmin(admin.ModelAdmin):
     list_display = (
-        "titulo",
-        "artigos_referencia",
+        "atividade",
+        "base_legal",
+        "classificacao",
         "upload_por",
         "data_upload",
         "arquivo_comprovacao",
     )
-    list_filter = ("upload_por", "data_upload")
-    search_fields = ("titulo", "descricao", "artigos_referencia")
+    list_filter = ("classificacao", "status", "dimensao", "upload_por", "data_upload")
+    search_fields = ("atividade", "evidencia", "base_legal")
     raw_id_fields = ("upload_por",)
     date_hierarchy = "data_upload"
     list_select_related = ("upload_por",)
