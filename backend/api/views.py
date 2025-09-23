@@ -253,7 +253,7 @@ class UserViewSet(viewsets.ModelViewSet):
 # ViewSet para ExigenciaLGPD
 class ExigenciaLGPDViewSet(viewsets.ModelViewSet):
     queryset = (
-        ExigenciasLGPD.objects.all().order_by("titulo")
+        ExigenciasLGPD.objects.all().order_by("-data_upload")
         if ExigenciasLGPD
         else User.objects.none()
     )
