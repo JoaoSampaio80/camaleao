@@ -26,7 +26,14 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Precisamos acessar suas fotos para atualizar o avatar.",
+          "cameraPermission": "Precisamos acessar a câmera para tirar uma foto do avatar."
+        }
+      ]
     ]
   }
 }

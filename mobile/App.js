@@ -1,15 +1,17 @@
 // App.js
-import "react-native-gesture-handler";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { useFonts } from "expo-font";
+import { FontAwesome5 } from "@expo/vector-icons"; // use a família que você realmente usa
 
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import DrawerContent from "@/components/SidebarDrawer";
 import AppHeader from "@/components/AppHeader";
 
-// ✅ importa tudo de um único lugar (barrel)
+// ✅ importa telas
 import {
   HomeScreen,
   LoginScreen,
@@ -17,6 +19,11 @@ import {
   PlaceholderScreen,
   CadastroUsuarioScreen,
 } from "@/screens";
+import PerfilScreen from "@/screens/PerfilScreen";
+
+// ✅ habilita LayoutAnimation no Android (arquitetura antiga)
+import { enableLayoutAnimationAndroid } from "@/utils/enableLayoutAnimationAndroid";
+enableLayoutAnimationAndroid();
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -28,16 +35,11 @@ function AppDrawer() {
       drawerContent={(props) => <DrawerContent {...props} />}
       screenOptions={{ header: (props) => <AppHeader {...props} /> }}
     >
-      {/* Home (grid principal) */}
       <Drawer.Screen
         name="Home"
         component={HomeScreen}
         options={{ title: "Home" }}
       />
-
-      {/* ====== ROTAS ALINHADAS COM SidebarDrawer.jsx ====== */}
-      {/* Use PlaceholderScreen até criar as telas reais, trocando o component depois */}
-
       <Drawer.Screen
         name="DASHBOARDS"
         component={PlaceholderScreen}
@@ -58,14 +60,11 @@ function AppDrawer() {
         component={PlaceholderScreen}
         options={{ title: "Notificação" }}
       />
-
-      {/* Encarregado = tela real já implementada */}
       <Drawer.Screen
         name="ENCARREGADO"
         component={EncarregadoScreen}
         options={{ title: "Encarregado" }}
       />
-
       <Drawer.Screen
         name="MONITORAMENTO"
         component={PlaceholderScreen}
@@ -98,7 +97,7 @@ function AppDrawer() {
       />
       <Drawer.Screen
         name="PERFIL"
-        component={PlaceholderScreen}
+        component={PerfilScreen}
         options={{ title: "Perfil" }}
       />
     </Drawer.Navigator>
@@ -115,18 +114,26 @@ function AuthStack() {
 
 function RootSwitch() {
   const { user, loading } = useAuth();
-  if (loading) return null; // pode exibir um Splash aqui
+  if (loading) return null; // poderia exibir Splash aqui
   return user ? <AppDrawer /> : <AuthStack />;
 }
 
 export default function App() {
+  // (opcional) pré-carrega a fonte de ícones pra evitar flicker
+  const [fontsLoaded] = useFonts({
+    ...FontAwesome5.font, // troque/adicione Ionicons.font, MaterialIcons.font, etc. se usar
+  });
+  if (!fontsLoaded) return null;
+
   return (
-    <AuthProvider>
-      <SafeAreaProvider>
-        <NavigationContainer>
-          <RootSwitch />
-        </NavigationContainer>
-      </SafeAreaProvider>
-    </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <SafeAreaProvider>
+          <NavigationContainer>
+            <RootSwitch />
+          </NavigationContainer>
+        </SafeAreaProvider>
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }

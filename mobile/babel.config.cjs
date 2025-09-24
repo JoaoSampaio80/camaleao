@@ -7,22 +7,15 @@ module.exports = function (api) {
       [
         "module:react-native-dotenv",
         {
-          moduleName: "@env",
-          path: ".env",
-          allowUndefined: false,
+          moduleName: "@env", // <- importa como "@env"
+          path: ".env", // <- arquivo que será lido (o seu script troca esse arquivo)
           safe: false,
+          allowUndefined: true,
         },
       ],
-      [
-        "module-resolver",
-        {
-          root: ["./src"],
-          alias: {
-            "@": "./src",
-          },
-          extensions: [".js", ".jsx", ".json"],
-        },
-      ],
+      ["module-resolver", { root: ["./"], alias: { "@": "./src" } }],
+      // ⚠️ NADA de '@babel/plugin-transform-react-jsx-self/source' aqui
+      "react-native-worklets/plugin", // novo nome do plugin do Reanimated — DEVE ser o último
     ],
   };
 };
