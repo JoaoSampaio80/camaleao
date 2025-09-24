@@ -1,5 +1,5 @@
 // src/screens/PerfilScreen.jsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { Colors, Radius, Space } from "@/theme/tokens";
 import { http } from "@/api/http";
 import { useAuth } from "@/context/AuthContext";
@@ -22,7 +23,6 @@ import { useAuth } from "@/context/AuthContext";
 const MAX_AVATAR_MB = 5;
 const ACCEPTED = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
-// config para garantir multipart no RN + não transformar o body
 const multipartCfg = {
   headers: { "Content-Type": "multipart/form-data" },
   transformRequest: (data) => data,
@@ -34,30 +34,26 @@ export default function PerfilScreen() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(false);
+
   const [message, setMessage] = useState("");
   const [kind, setKind] = useState(""); // success | danger | warning
   const [errors, setErrors] = useState({});
   const [avatarError, setAvatarError] = useState(false);
+
+  // estado “servidor”: valores efetivos atuais
   const [form, setForm] = useState({
     email: "",
     role: "",
     current_password: "",
     password: "",
     password2: "",
-    avatar: null,
-    avatar_url: "",
+    avatar_url: "", // URL atual vinda do servidor
   });
 
-  // (compat) usado no web para revogar blob URLs; aqui fica inócuo mas mantemos a estrutura
-  const objectUrlRef = useRef(null);
-  const revokeLocalPreview = () => {
-    if (objectUrlRef.current) {
-      try {
-        URL.revokeObjectURL(objectUrlRef.current);
-      } catch {}
-      objectUrlRef.current = null;
-    }
-  };
+  // estado “temporário de edição”: pré-visualização e arquivo para envio
+  const [tempAvatarUri, setTempAvatarUri] = useState(null);
+  const [tempAvatarFile, setTempAvatarFile] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -72,9 +68,9 @@ export default function PerfilScreen() {
           current_password: "",
           password: "",
           password2: "",
-          avatar: null,
           avatar_url: data?.avatar || "",
         }));
+        setAvatarError(false);
       } catch {
         if (!mounted) return;
         setKind("danger");
@@ -83,12 +79,38 @@ export default function PerfilScreen() {
         if (mounted) setLoading(false);
       }
     })();
-    return () => revokeLocalPreview();
+    return () => {};
   }, []);
 
   function setField(name, value) {
     setForm((p) => ({ ...p, [name]: value }));
     if (errors[name]) setErrors((e) => ({ ...e, [name]: undefined }));
+  }
+
+  function enterEdit() {
+    setKind("");
+    setMessage("");
+    setErrors({});
+    setAvatarError(false);
+    setEditing(true);
+  }
+
+  function cancelEdit() {
+    // descarta qualquer avatar temporário e erros
+    setTempAvatarUri(null);
+    setTempAvatarFile(null);
+    setAvatarError(false);
+    setErrors({});
+    setKind("");
+    setMessage("");
+    // limpa campos de senha temporários
+    setForm((p) => ({
+      ...p,
+      current_password: "",
+      password: "",
+      password2: "",
+    }));
+    setEditing(false);
   }
 
   function validate() {
@@ -107,7 +129,7 @@ export default function PerfilScreen() {
     return e;
   }
 
-  function buildFormData({ removeAvatar = false } = {}) {
+  function buildFormData() {
     const fd = new FormData();
     const wants = !!(form.password || form.password2);
     if (wants) {
@@ -116,10 +138,8 @@ export default function PerfilScreen() {
       const refresh = authTokens?.refresh;
       if (refresh) fd.append("refresh", refresh);
     }
-    if (form.avatar) {
-      fd.append("avatar", form.avatar);
-    } else if (removeAvatar) {
-      fd.append("remove_avatar", "true");
+    if (tempAvatarFile) {
+      fd.append("avatar", tempAvatarFile);
     }
     return fd;
   }
@@ -141,7 +161,6 @@ export default function PerfilScreen() {
     const a = res.assets?.[0];
     if (!a) return;
 
-    // tamanhos do ImagePicker podem vir em fileSize/size (varia por SO)
     const size = a.fileSize ?? a.size;
     if (size && size > MAX_AVATAR_MB * 1024 * 1024) {
       setErrors((p) => ({
@@ -157,18 +176,16 @@ export default function PerfilScreen() {
       }));
       return;
     }
-    revokeLocalPreview();
+
+    // apenas pré-visualização durante edição
     setErrors((p) => ({ ...p, avatar: undefined }));
     setAvatarError(false);
-    setForm((p) => ({
-      ...p,
-      avatar: {
-        uri: a.uri,
-        type: a.mimeType || "image/jpeg",
-        name: a.fileName || "avatar.jpg",
-      },
-      avatar_url: a.uri,
-    }));
+    setTempAvatarUri(a.uri);
+    setTempAvatarFile({
+      uri: a.uri,
+      type: a.mimeType || "image/jpeg",
+      name: a.fileName || "avatar.jpg",
+    });
   }
 
   async function takePhoto() {
@@ -182,21 +199,19 @@ export default function PerfilScreen() {
     const a = res.assets?.[0];
     if (!a) return;
 
-    revokeLocalPreview();
+    // apenas pré-visualização durante edição
     setErrors((p) => ({ ...p, avatar: undefined }));
     setAvatarError(false);
-    setForm((p) => ({
-      ...p,
-      avatar: {
-        uri: a.uri,
-        type: a.mimeType || "image/jpeg",
-        name: a.fileName || "avatar.jpg",
-      },
-      avatar_url: a.uri,
-    }));
+    setTempAvatarUri(a.uri);
+    setTempAvatarFile({
+      uri: a.uri,
+      type: a.mimeType || "image/jpeg",
+      name: a.fileName || "avatar.jpg",
+    });
   }
 
   function choosePhoto() {
+    if (!editing) return;
     if (Platform.OS === "ios") {
       import("react-native").then(({ ActionSheetIOS }) => {
         ActionSheetIOS.showActionSheetWithOptions(
@@ -219,40 +234,8 @@ export default function PerfilScreen() {
     }
   }
 
-  async function handleRemoveAvatar() {
-    if (saving) return;
-    setMessage("");
-    setKind("");
-    setErrors({});
-    setSaving(true);
-    try {
-      const fd = buildFormData({ removeAvatar: true });
-      await http.patch("users/me/", fd, multipartCfg); // <- garante multipart
-      setKind("success");
-      setMessage("Foto removida com sucesso.");
-      revokeLocalPreview();
-      setAvatarError(false);
-      setForm((p) => ({ ...p, avatar: null, avatar_url: "" }));
-      await refreshUser();
-      setTimeout(() => {
-        setKind("");
-        setMessage("");
-      }, 2500);
-    } catch (e) {
-      const st = e?.response?.status;
-      setKind("danger");
-      setMessage(
-        st === 413
-          ? `Arquivo muito grande. Tamanho máximo: ${MAX_AVATAR_MB}MB.`
-          : "Falha ao remover a foto. Tente novamente."
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function onSubmit() {
-    if (saving) return;
+    if (!editing || saving) return;
     setMessage("");
     setKind("");
     setErrors({});
@@ -266,7 +249,7 @@ export default function PerfilScreen() {
     }
 
     const wantsPasswordChange = !!(form.password || form.password2);
-    const hasAvatarUpload = !!form.avatar;
+    const hasAvatarUpload = !!tempAvatarFile;
     if (!wantsPasswordChange && !hasAvatarUpload) {
       setKind("warning");
       setMessage("Nenhuma alteração para salvar.");
@@ -278,10 +261,9 @@ export default function PerfilScreen() {
     }
 
     const fd = buildFormData();
-
     setSaving(true);
     try {
-      const resp = await http.patch("users/me/", fd, multipartCfg); // <- garante multipart
+      const resp = await http.patch("users/me/", fd, multipartCfg);
 
       if (resp?.data?.reauth_required) {
         setKind("success");
@@ -292,6 +274,7 @@ export default function PerfilScreen() {
         return;
       }
 
+      // aplica definitivamente o avatar retornado
       setKind("success");
       setMessage("Perfil atualizado com sucesso.");
       setForm((p) => ({
@@ -299,11 +282,16 @@ export default function PerfilScreen() {
         current_password: "",
         password: "",
         password2: "",
-        avatar: null,
         avatar_url: resp?.data?.avatar || p.avatar_url,
       }));
-      revokeLocalPreview();
+      // limpa estados temporários
+      setTempAvatarUri(null);
+      setTempAvatarFile(null);
+      setAvatarError(false);
+
       await refreshUser();
+      setEditing(false);
+
       setTimeout(() => {
         setKind("");
         setMessage("");
@@ -335,6 +323,10 @@ export default function PerfilScreen() {
     }
   }
 
+  // fonte da imagem: se estiver editando e houver preview, usa o temporário; senão, usa o atual
+  const effectiveAvatarUri =
+    editing && tempAvatarUri ? tempAvatarUri : form.avatar_url;
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: Colors.bgPage }}
@@ -345,12 +337,10 @@ export default function PerfilScreen() {
         contentContainerStyle={{ paddingBottom: bottom + 16 }}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Título */}
         <Text style={[styles.pageTitle, { paddingTop: top + 8 }]}>
           Meu Perfil
         </Text>
 
-        {/* bloco em gradiente */}
         <LinearGradient
           colors={[Colors.gradA, Colors.gradB]}
           start={{ x: 0, y: 0 }}
@@ -376,6 +366,52 @@ export default function PerfilScreen() {
             </View>
           )}
 
+          {/* Avatar */}
+          <Text
+            style={[styles.label, { marginTop: Space.xs, textAlign: "center" }]}
+          >
+            Foto de perfil
+          </Text>
+
+          <View style={styles.avatarCenterBlock}>
+            <Pressable
+              onPress={choosePhoto}
+              disabled={!editing}
+              style={styles.avatarWrapper}
+            >
+              {effectiveAvatarUri && !avatarError ? (
+                <Image
+                  source={{ uri: effectiveAvatarUri }}
+                  style={styles.avatar}
+                  resizeMode="cover"
+                  onError={() => setAvatarError(true)}
+                />
+              ) : (
+                <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                  <Text style={styles.avatarPlaceholderText}>sem foto</Text>
+                </View>
+              )}
+
+              {editing && (
+                <View style={styles.camBadge}>
+                  <Ionicons name="camera-outline" size={18} color="#fff" />
+                </View>
+              )}
+            </Pressable>
+
+            {editing && (
+              <Text style={[styles.helperTxt, { textAlign: "center" }]}>
+                Toque para escolher da Galeria ou Câmera. JPG/PNG/WEBP, até 5MB.
+              </Text>
+            )}
+
+            {!!errors.avatar && (
+              <Text style={[styles.errTxt, { textAlign: "center" }]}>
+                {errors.avatar}
+              </Text>
+            )}
+          </View>
+
           {/* E-mail */}
           <View style={styles.fieldBlock}>
             <Text style={styles.label}>E-mail</Text>
@@ -397,113 +433,99 @@ export default function PerfilScreen() {
             </View>
           </View>
 
-          {/* Senha atual */}
-          <View style={styles.fieldBlock}>
-            <Text style={styles.label}>Senha atual</Text>
-            <TextInput
-              style={[
-                styles.inputLight,
-                errors.current_password && styles.inputErr,
-              ]}
-              placeholder="Obrigatória ao trocar a senha"
-              placeholderTextColor="#6b7280"
-              secureTextEntry
-              value={form.current_password}
-              onChangeText={(v) => setField("current_password", v)}
-              autoCapitalize="none"
-            />
-            {!!errors.current_password && (
-              <Text style={styles.errTxt}>{errors.current_password}</Text>
-            )}
-          </View>
-
-          {/* Nova senha */}
-          <View style={styles.fieldBlock}>
-            <Text style={styles.label}>Nova senha</Text>
-            <TextInput
-              style={[styles.inputLight, errors.password && styles.inputErr]}
-              placeholder="Deixe em branco para não alterar"
-              placeholderTextColor="#6b7280"
-              secureTextEntry
-              value={form.password}
-              onChangeText={(v) => setField("password", v)}
-              autoCapitalize="none"
-            />
-            {!!errors.password && (
-              <Text style={styles.errTxt}>{errors.password}</Text>
-            )}
-          </View>
-
-          {/* Confirmar nova senha */}
-          <View style={styles.fieldBlock}>
-            <Text style={styles.label}>Confirmar nova senha</Text>
-            <TextInput
-              style={[styles.inputLight, errors.password2 && styles.inputErr]}
-              placeholder="Repita a senha"
-              placeholderTextColor="#6b7280"
-              secureTextEntry
-              value={form.password2}
-              onChangeText={(v) => setField("password2", v)}
-              autoCapitalize="none"
-            />
-            {!!errors.password2 && (
-              <Text style={styles.errTxt}>{errors.password2}</Text>
-            )}
-          </View>
-
-          {/* Avatar + ações centralizadas */}
-          <Text
-            style={[styles.label, { marginTop: Space.md, textAlign: "center" }]}
-          >
-            Foto de perfil
-          </Text>
-
-          <View style={styles.avatarCenterBlock}>
-            {form?.avatar_url && !avatarError ? (
-              <Image
-                source={{ uri: form.avatar_url }}
-                style={styles.avatar}
-                resizeMode="cover"
-                onError={() => setAvatarError(true)}
-              />
-            ) : (
-              <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                <Text style={styles.avatarPlaceholderText}>sem foto</Text>
+          {/* Senhas (apenas edição) */}
+          {editing && (
+            <>
+              <View style={styles.fieldBlock}>
+                <Text style={styles.label}>Senha atual</Text>
+                <TextInput
+                  style={[
+                    styles.inputLight,
+                    errors.current_password && styles.inputErr,
+                  ]}
+                  placeholder="Obrigatória ao trocar a senha"
+                  placeholderTextColor="#6b7280"
+                  secureTextEntry
+                  value={form.current_password}
+                  onChangeText={(v) => setField("current_password", v)}
+                  autoCapitalize="none"
+                />
+                {!!errors.current_password && (
+                  <Text style={styles.errTxt}>{errors.current_password}</Text>
+                )}
               </View>
-            )}
 
-            <View style={styles.avatarButtonsRow}>
-              <Pressable onPress={choosePhoto} style={styles.btnHollow}>
-                <Text style={styles.btnHollowTxt}>Selecionar foto</Text>
-              </Pressable>
+              <View style={styles.fieldBlock}>
+                <Text style={styles.label}>Nova senha</Text>
+                <TextInput
+                  style={[
+                    styles.inputLight,
+                    errors.password && styles.inputErr,
+                  ]}
+                  placeholder="Deixe em branco para não alterar"
+                  placeholderTextColor="#6b7280"
+                  secureTextEntry
+                  value={form.password}
+                  onChangeText={(v) => setField("password", v)}
+                  autoCapitalize="none"
+                />
+                {!!errors.password && (
+                  <Text style={styles.errTxt}>{errors.password}</Text>
+                )}
+              </View>
 
+              <View style={styles.fieldBlock}>
+                <Text style={styles.label}>Confirmar nova senha</Text>
+                <TextInput
+                  style={[
+                    styles.inputLight,
+                    errors.password2 && styles.inputErr,
+                  ]}
+                  placeholder="Repita a senha"
+                  placeholderTextColor="#6b7280"
+                  secureTextEntry
+                  value={form.password2}
+                  onChangeText={(v) => setField("password2", v)}
+                  autoCapitalize="none"
+                />
+                {!!errors.password2 && (
+                  <Text style={styles.errTxt}>{errors.password2}</Text>
+                )}
+              </View>
+            </>
+          )}
+
+          {/* Botões centralizados */}
+          <View style={styles.buttonsRowCenter}>
+            {editing ? (
+              <>
+                <Pressable
+                  onPress={onSubmit}
+                  style={[styles.btnPrimary, { minWidth: 180 }]}
+                  disabled={saving}
+                >
+                  <Text style={styles.btnPrimaryTxt}>
+                    {saving ? "Salvando..." : "Salvar alterações"}
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={cancelEdit}
+                  style={[styles.btnHollow, { minWidth: 140 }]}
+                  disabled={saving}
+                >
+                  <Text style={styles.btnHollowTxt}>Cancelar</Text>
+                </Pressable>
+              </>
+            ) : (
               <Pressable
-                onPress={handleRemoveAvatar}
-                style={[styles.btnHollow, { borderColor: "#b91c1c" }]}
-                disabled={saving || !form?.avatar_url}
+                onPress={enterEdit}
+                style={[styles.btnPrimary, { minWidth: 140 }]}
+                disabled={loading}
               >
-                <Text style={[styles.btnHollowTxt, { color: "#b91c1c" }]}>
-                  Remover foto
-                </Text>
+                <Text style={styles.btnPrimaryTxt}>Editar</Text>
               </Pressable>
-            </View>
-
-            <Text style={[styles.helperTxt, { textAlign: "center" }]}>
-              JPG/PNG/WEBP, até 5MB.
-            </Text>
-          </View>
-
-          {/* Botão salvar centralizado */}
-          <View style={{ alignItems: "center", marginTop: Space.md }}>
-            <Pressable
-              onPress={onSubmit}
-              style={styles.btnPrimary}
-              disabled={saving}
-            >
-              <Text style={styles.btnPrimaryTxt}>
-                {saving ? "Salvando..." : "Salvar alterações"}
-              </Text>
-            </Pressable>
+            )}
           </View>
         </LinearGradient>
       </ScrollView>
@@ -537,9 +559,7 @@ const styles = StyleSheet.create({
   },
   alertTxt: { color: Colors.white },
 
-  fieldBlock: {
-    marginBottom: Space.md,
-  },
+  fieldBlock: { marginBottom: Space.md },
 
   label: {
     color: "white",
@@ -579,12 +599,13 @@ const styles = StyleSheet.create({
     marginTop: Space.xs,
     marginBottom: Space.sm,
   },
+  avatarWrapper: { position: "relative" },
   avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 112,
+    height: 112,
+    borderRadius: 56,
     backgroundColor: "#e9ecef",
-    marginBottom: Space.sm,
+    marginBottom: Space.xs,
   },
   avatarPlaceholder: {
     alignItems: "center",
@@ -595,13 +616,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
-  avatarButtonsRow: {
+  camBadge: {
+    position: "absolute",
+    right: 6,
+    bottom: 6,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.5)",
+  },
+
+  buttonsRowCenter: {
+    marginTop: Space.md,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 10,
     flexWrap: "wrap",
-    marginBottom: 6,
   },
 
   btnHollow: {
@@ -611,14 +646,20 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     paddingVertical: 10,
     paddingHorizontal: 14,
+    alignItems: "center",
   },
-  btnHollowTxt: { color: Colors.white, fontWeight: "800" },
+  btnHollowTxt: {
+    color: Colors.white,
+    fontWeight: "800",
+    textAlign: "center",
+  },
 
   btnPrimary: {
     backgroundColor: Colors.white,
     paddingVertical: 12,
     paddingHorizontal: 18,
     borderRadius: Radius.md,
+    alignItems: "center",
   },
-  btnPrimaryTxt: { color: Colors.ink, fontWeight: "800" },
+  btnPrimaryTxt: { color: Colors.ink, fontWeight: "800", textAlign: "center" },
 });
