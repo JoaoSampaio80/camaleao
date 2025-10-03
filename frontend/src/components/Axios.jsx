@@ -34,7 +34,7 @@ const COOKIE_MODE =
 const ENDPOINTS = COOKIE_MODE
   ? {
       login: 'auth/login/', // CookieTokenObtainPairView (sua view cookie)
-      refresh: 'auth/refresh-cookie/', // CookieTokenRefreshView (sua view cookie)
+      refresh: 'auth/refresh/', // CookieTokenRefreshView (sua view cookie)
       logout: 'auth/logout/', // CookieTokenLogoutView (opcional)
     }
   : {
@@ -42,6 +42,10 @@ const ENDPOINTS = COOKIE_MODE
       refresh: 'auth/token/refresh/', // padrão SimpleJWT
       logout: 'auth/logout/', // opcional (se você criou)
     };
+
+if (import.meta?.env?.DEV) {
+  console.debug('[Axios] COOKIE_MODE =', COOKIE_MODE, 'ENDPOINTS =', ENDPOINTS);
+}
 
 /** =========================
  *  JWT helpers + storage
