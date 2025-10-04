@@ -34,7 +34,7 @@ const COOKIE_MODE =
 const ENDPOINTS = COOKIE_MODE
   ? {
       login: 'auth/login/', // CookieTokenObtainPairView (sua view cookie)
-      refresh: 'auth/refresh-cookie/', // CookieTokenRefreshView (sua view cookie)
+      refresh: 'auth/refresh/', // CookieTokenRefreshView (sua view cookie)
       logout: 'auth/logout/', // CookieTokenLogoutView (opcional)
     }
   : {
