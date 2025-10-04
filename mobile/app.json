@@ -33,7 +33,8 @@
           "photosPermission": "Precisamos acessar suas fotos para atualizar o avatar.",
           "cameraPermission": "Precisamos acessar a câmera para tirar uma foto do avatar."
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }

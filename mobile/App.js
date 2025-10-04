@@ -15,11 +15,12 @@ import AppHeader from "@/components/AppHeader";
 import {
   HomeScreen,
   LoginScreen,
+  PerfilScreen,
   EncarregadoScreen,
   PlaceholderScreen,
   CadastroUsuarioScreen,
+  DocumentosScreen,
 } from "@/screens";
-import PerfilScreen from "@/screens/PerfilScreen";
 
 // ✅ habilita LayoutAnimation no Android (arquitetura antiga)
 import { enableLayoutAnimationAndroid } from "@/utils/enableLayoutAnimationAndroid";
@@ -72,7 +73,7 @@ function AppDrawer() {
       />
       <Drawer.Screen
         name="DOCUMENTOS"
-        component={PlaceholderScreen}
+        component={DocumentosScreen}
         options={{ title: "Documentos" }}
       />
       <Drawer.Screen
