@@ -25,6 +25,15 @@ export default function ResetPassword() {
   const [variant, setVariant] = useState('success');
   const [submitting, setSubmitting] = useState(false);
 
+  // helper de mensagens (3s)
+  const showFlash = (v, t, ms = 3000) => {
+    setVariant(v);
+    setMsg(t);
+    if (ms) {
+      setTimeout(() => setMsg(''), ms);
+    }
+  };
+
   const canSubmit = Boolean(uid && token && p1 && p2);
   const invalidLink = !uid || !token;
 
@@ -34,8 +43,7 @@ export default function ResetPassword() {
     setVariant('success');
 
     if (p1 !== p2) {
-      setMsg('As senhas não coincidem.');
-      setVariant('danger');
+      showFlash('danger', 'As senhas não coincidem.');
       return;
     }
 
@@ -48,18 +56,52 @@ export default function ResetPassword() {
         new_password2: p2,
       });
       if (resp.status === 200) {
-        setMsg('Senha redefinida com sucesso. Você já pode entrar.');
-        setVariant('success');
-        setTimeout(() => navigate(ROUTES.LOGIN), 1500);
+        showFlash('success', 'Senha redefinida com sucesso. Você já pode entrar.');
+        setTimeout(() => navigate(ROUTES.LOGIN), 1500); // mantido
+      } else {
+        showFlash(
+          'warning',
+          'Não foi possível concluir. Tente novamente. Se o problema persistir, contate o administrador.'
+        );
       }
     } catch (err) {
+      const st = err?.response?.status;
       const data = err?.response?.data;
+
+      // Normaliza mensagens vindas do backend
+      const normalizedObj =
+        data && typeof data === 'object'
+          ? Object.entries(data)
+              .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(' ') : v}`)
+              .join(' | ')
+          : '';
+
       if (Array.isArray(data?.new_password) && data.new_password.length) {
-        setMsg(data.new_password.join(' ')); // mensagens dos validadores do Django
-        setVariant('danger');
+        showFlash('danger', data.new_password.join(' '));
+      } else if (st === 400) {
+        showFlash(
+          'danger',
+          normalizedObj ||
+            'Requisição inválida. Verifique o link e tente novamente. Se o problema persistir, contate o administrador.'
+        );
+      } else if (st === 401 || st === 403) {
+        showFlash(
+          'danger',
+          'Link inválido ou não autorizado. Solicite um novo e-mail de redefinição.'
+        );
+      } else if (st === 410) {
+        showFlash('danger', 'Este link expirou. Solicite um novo e-mail de redefinição.');
+      } else if (st === 429) {
+        showFlash(
+          'warning',
+          'Muitas tentativas. Aguarde alguns instantes e tente novamente.'
+        );
       } else {
-        setMsg(data?.detail || 'Link inválido ou expirado.');
-        setVariant('danger');
+        showFlash(
+          'danger',
+          data?.detail ||
+            'Link inválido ou expirado. Se o problema persistir, contate o administrador.'
+        );
       }
     } finally {
       setSubmitting(false);
@@ -80,8 +122,12 @@ export default function ResetPassword() {
   };
   const score = Object.values(criteria).filter(Boolean).length;
   const meterNow = (score / 5) * 100;
-  const meterVariant = ['danger', 'danger', 'warning', 'info', 'success'][Math.max(0, score - 1)];
-  const meterLabel = ['Muito fraca', 'Fraca', 'Média', 'Boa', 'Forte'][Math.max(0, score - 1)];
+  const meterVariant = ['danger', 'danger', 'warning', 'info', 'success'][
+    Math.max(0, score - 1)
+  ];
+  const meterLabel = ['Muito fraca', 'Fraca', 'Média', 'Boa', 'Forte'][
+    Math.max(0, score - 1)
+  ];
 
   return (
     <div
@@ -93,7 +139,10 @@ export default function ResetPassword() {
         padding: '24px',
       }}
     >
-      <Card className="shadow-lg border-0" style={{ width: '100%', maxWidth: 1100, borderRadius: 18 }}>
+      <Card
+        className="shadow-lg border-0"
+        style={{ width: '100%', maxWidth: 1100, borderRadius: 18 }}
+      >
         <div className="row g-0">
           {/* Painel ilustrativo */}
           <div
@@ -147,14 +196,13 @@ export default function ResetPassword() {
             <Card.Body className="p-4 p-lg-5">
               <div className="mb-3 text-center text-lg-start">
                 <h4 className="mb-1">Redefinir senha</h4>
-                <div className="text-muted">
-                  Escolha uma nova senha para continuar.
-                </div>
+                <div className="text-muted">Escolha uma nova senha para continuar.</div>
               </div>
 
               {invalidLink ? (
                 <Alert variant="danger" className="mb-4">
-                  Link inválido ou expirado. Solicite novamente em <strong>Esqueci a senha</strong>.
+                  Link inválido ou expirado. Solicite novamente em{' '}
+                  <strong>Esqueci a senha</strong>.
                 </Alert>
               ) : (
                 <Form onSubmit={onSubmit} noValidate>
@@ -188,7 +236,10 @@ export default function ResetPassword() {
                       <span>Força da senha</span>
                       <span className="text-capitalize">{p1 ? meterLabel : '—'}</span>
                     </div>
-                    <ProgressBar now={meterNow} variant={p1 ? meterVariant : 'secondary'} />
+                    <ProgressBar
+                      now={meterNow}
+                      variant={p1 ? meterVariant : 'secondary'}
+                    />
                   </div>
 
                   {/* Checklist de critérios */}
