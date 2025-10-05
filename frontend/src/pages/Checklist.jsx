@@ -1,5 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Table, Container, Form, Spinner, Alert, Pagination } from 'react-bootstrap';
+import {
+  Table,
+  Container,
+  Form,
+  Spinner,
+  Alert,
+  Pagination,
+  Button,
+  Modal,
+  Row,
+  Col,
+  Dropdown,
+} from 'react-bootstrap';
 import Sidebar from '../components/Sidebar';
 import AxiosInstance from '../components/Axios';
 import { useAuth } from '../context/AuthContext';
@@ -11,8 +23,15 @@ function Checklist() {
 
   const [rows, setRows] = useState([]); // sempre array
   const [loading, setLoading] = useState(true);
+
+  // mensagens globais
   const [msg, setMsg] = useState('');
   const [variant, setVariant] = useState('warning');
+  const showFlash = (v, t) => {
+    setVariant(v);
+    setMsg(t);
+    setTimeout(() => setMsg(''), 3000);
+  };
 
   // paginação
   const [page, setPage] = useState(1);
@@ -21,55 +40,67 @@ function Checklist() {
   const [next, setNext] = useState(null);
   const [previous, setPrevious] = useState(null);
 
+  // ===== Modal criação/edição =====
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    atividade: '',
+    descricao: '',
+  });
+
+  // ===== Modal de confirmação de exclusão =====
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTarget, setConfirmTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
   // ===== FETCH com normalização segura =====
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const params = { page, page_size: pageSize };
-        const resp = await AxiosInstance.get('checklists/', { params });
-        const data = resp?.data;
+  const loadList = async (targetPage = page, targetPageSize = pageSize) => {
+    setLoading(true);
+    try {
+      const params = { page: targetPage, page_size: targetPageSize };
+      const resp = await AxiosInstance.get('checklists/', { params });
+      const data = resp?.data;
 
-        // aceita: [ ... ]  ou  { results: [ ... ], count, next, previous }
-        const list = Array.isArray(data)
-          ? data
-          : Array.isArray(data?.results)
-            ? data.results
-            : [];
+      // aceita: [ ... ]  ou  { results: [ ... ], count, next, previous }
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.results)
+          ? data.results
+          : [];
 
-        if (!mounted) return;
-
-        setRows(list || []);
-        if (Array.isArray(data)) {
-          setCount(data.length);
-          setNext(null);
-          setPrevious(null);
-        } else {
-          setCount(Number.isFinite(data?.count) ? data.count : (list?.length ?? 0));
-          setNext(data?.next ?? null);
-          setPrevious(data?.previous ?? null);
-        }
-        setMsg('');
-      } catch (error) {
-        console.error(
-          'Erro ao buscar o checklist:',
-          error?.response?.data || error.message
-        );
-        if (!mounted) return;
-        setRows([]);
-        setCount(0);
+      setRows(list || []);
+      if (Array.isArray(data)) {
+        setCount(data.length);
         setNext(null);
         setPrevious(null);
-        setMsg('Falha ao carregar itens do checklist.');
-        setVariant('danger');
-      } finally {
-        if (mounted) setLoading(false);
+      } else {
+        setCount(Number.isFinite(data?.count) ? data.count : (list?.length ?? 0));
+        setNext(data?.next ?? null);
+        setPrevious(data?.previous ?? null);
       }
-    })();
-    return () => {
-      mounted = false;
-    };
+      // NÃO limpar msg aqui para não apagar mensagens de sucesso de criar/editar
+    } catch (error) {
+      console.error(
+        'Erro ao buscar o checklist:',
+        error?.response?.data || error.message
+      );
+      setRows([]);
+      setCount(0);
+      setNext(null);
+      setPrevious(null);
+      showFlash(
+        'danger',
+        'Falha ao carregar itens do checklist. Se o problema persistir, contate o administrador.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadList(page, pageSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize]);
 
   // total de páginas (se backend não paginar, vira 1 página só)
@@ -117,13 +148,101 @@ function Checklist() {
       );
       setRows(snapshot); // reverte UI
       const st = error?.response?.status;
-      setVariant(st === 403 ? 'warning' : 'danger');
-      setMsg(
+      showFlash(
+        st === 403 ? 'warning' : 'danger',
         st === 403
           ? 'Você não tem permissão para alterar este item.'
-          : 'Não foi possível atualizar o item. Tente novamente.'
+          : 'Não foi possível atualizar o item. Se o problema persistir, contate o administrador.'
       );
-      setTimeout(() => setMsg(''), 3000);
+    }
+  };
+
+  // ===== Novo / Editar =====
+  const openCreate = () => {
+    if (!canToggle) return;
+    setEditing(null);
+    setForm({ atividade: '', descricao: '' });
+    setShowModal(true);
+  };
+
+  const openEdit = (row) => {
+    if (!canToggle) return;
+    setEditing(row);
+    setForm({
+      atividade: row.atividade || '',
+      descricao: row.descricao || '',
+    });
+    setShowModal(true);
+  };
+
+  const parseErrorMsg = (e) => {
+    let base = 'Erro ao salvar. Verifique os dados e a conexão.';
+    if (e?.response) {
+      const { status, data } = e.response;
+      if (status === 403) base = 'Sem permissão. (Apenas Admin/DPO podem salvar aqui.)';
+      else if (typeof data === 'string') base = data;
+      else if (data && typeof data === 'object') {
+        try {
+          const parts = Object.entries(data).map(([k, v]) => {
+            const val = Array.isArray(v) ? v.join('; ') : String(v);
+            return `${k}: ${val}`;
+          });
+          base = parts.join(' | ');
+        } catch {
+          base = 'Erro ao salvar (validação).';
+        }
+      }
+    }
+    return `${base} Se o problema persistir, contate o administrador.`;
+  };
+
+  const handleSave = async (ev) => {
+    ev.preventDefault();
+    if (!canToggle || saving) return;
+    setSaving(true);
+    try {
+      if (editing) {
+        await AxiosInstance.put(`checklists/${editing.id}/`, form);
+        showFlash('success', 'Item atualizado com sucesso!');
+      } else {
+        // cria sempre como não concluído (regra de negócio)
+        await AxiosInstance.post('checklists/', { ...form, is_completed: false });
+        showFlash('success', 'Item criado com sucesso!');
+      }
+      setShowModal(false);
+      await loadList(page, pageSize);
+    } catch (e) {
+      console.error(e);
+      showFlash('danger', parseErrorMsg(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ===== Excluir com modal de confirmação =====
+  const askDelete = (row) => {
+    if (!canToggle) return;
+    setConfirmTarget(row);
+    setConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!confirmTarget) return;
+    setDeleting(true);
+    try {
+      await AxiosInstance.delete(`checklists/${confirmTarget.id}/`);
+      showFlash('success', 'Excluído com sucesso!');
+      setConfirmOpen(false);
+      setConfirmTarget(null);
+      await loadList(page, pageSize);
+    } catch (e) {
+      console.error(e);
+      showFlash(
+        'danger',
+        'Falha ao excluir o item. Se o problema persistir, contate o administrador.'
+      );
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -158,8 +277,7 @@ function Checklist() {
         white-space: nowrap;
       }
 
-      /* Corpo: linhas alternadas (branco ↔ azul) por LINHA inteira)
-         Mantemos a 1ª linha branca (odd) e a 2ª azul (even), igual ao seu exemplo */
+      /* Corpo: linhas alternadas (branco ↔ azul) por LINHA inteira) */
       .custom-table tbody tr:nth-child(odd) td  { background: #ffffff !important; color: #212529; }
       .custom-table tbody tr:nth-child(even) td { background: #005b96 !important; color: #ffffff; }
 
@@ -168,7 +286,7 @@ function Checklist() {
         background: #004b80 !important; color: #fff;
       }
 
-      /* MUITO IMPORTANTE: manter selects/inputs/brancos dentro das linhas azuis e no hover */
+      /* Manter selects/inputs/brancos dentro das linhas azuis e no hover */
       .custom-table tbody tr:nth-child(even) td .form-select,
       .custom-table tbody tr:nth-child(even) td .form-control,
       .custom-table tbody tr:nth-child(even) td .btn,
@@ -180,10 +298,32 @@ function Checklist() {
         border-color: #ced4da !important;
         box-shadow: none !important;
       }
-      /* foco visível no select em fundo branco */
       .custom-table tbody tr:nth-child(even) td .form-select:focus {
         border-color: #80bdff !important;
       }
+
+      /* ===== MODAL estilo "card" azul (igual documentos) ===== */
+      .lgpd-modal-dialog { max-width: min(900px, 95vw); margin: 2rem auto; }
+      .lgpd-modal-content { border: 0; border-radius: 1rem; overflow: hidden; }
+      .lgpd-modal-content .modal-header { background: #063a6b; color: #fff; }
+      .lgpd-modal-content .modal-header .btn-close { filter: invert(1); opacity: .9; }
+      .lgpd-modal-content .modal-title { width: 100%; text-align: center; margin: 0; }
+      .lgpd-modal-content .modal-body   { background: #063a6b; }
+      .lgpd-modal-content .modal-footer { background: #063a6b; border-top: 1px solid rgba(255,255,255,0.15); }
+      .lgpd-modal-content .modal-body label { color: #ffffff; font-weight: 600; }
+      .lgpd-modal-content .modal-body .form-control,
+      .lgpd-modal-content .modal-body .form-select {
+        background: #ffffff !important;
+        color: #212529 !important;
+        border-color: #ced4da !important;
+        box-shadow: none !important;
+      }
+
+      /* ===== MODAL CONFIRMAÇÃO ===== */
+      .confirm-modal-content .modal-header { background: #0b2e59; color: #fff; }
+      .confirm-modal-content .modal-footer { background: #0b2e59; border-top: 1px solid rgba(255,255,255,0.15); }
+      .confirm-modal-content .btn-cancel { background: #ffffff; color: #0b2e59; border: none; }
+      .confirm-modal-content .btn-delete { background: #c82333; border-color: #c82333; }
     `}</style>
 
       <Sidebar />
@@ -191,39 +331,54 @@ function Checklist() {
       <div
         style={{
           flex: 1,
-          background: '#f5f5f5', // mesma base do formulário de atividades
+          background: '#f5f5f5',
           padding: '2rem 0',
           marginTop: '56px',
         }}
       >
         {/* TÍTULO (centralizado, cor da identidade) */}
-        <div className="text-center mb-4">
+        <div className="text-center mb-3">
           <h2 style={{ color: '#071744', fontWeight: 700 }}>Checklist Itens da LGPD</h2>
         </div>
 
+        {/* Mensagens globais (sucesso/erro) */}
+        {msg && (
+          <div className="px-3 mb-2">
+            <Alert variant={variant} onClose={() => setMsg('')} dismissible>
+              {msg}
+            </Alert>
+          </div>
+        )}
+
         <Container fluid className="px-0">
-          {/* Controles superiores */}
-          <div className="d-flex justify-content-end align-items-center gap-2 px-3 mb-2">
-            <Form.Label className="mb-0" style={{ color: '#071744' }}>
-              Tamanho da página
-            </Form.Label>
-            <Form.Select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setPage(1);
-              }}
-              style={{ width: 120 }}
-            >
-              {[5, 10, 20, 50].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </Form.Select>
+          {/* Controles superiores: tamanho da página + Novo */}
+          <div className="d-flex justify-content-between align-items-center gap-2 px-3 mb-2 flex-wrap">
+            <div className="d-flex align-items-center gap-2">
+              <Form.Label className="mb-0" style={{ color: '#071744' }}>
+                Tamanho da página
+              </Form.Label>
+              <Form.Select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+                style={{ width: 120 }}
+              >
+                {[5, 10, 20, 50].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </Form.Select>
+            </div>
+
+            <Button variant="primary" onClick={openCreate} disabled={readOnly}>
+              + Novo
+            </Button>
           </div>
 
-          {/* Tabela (full width) com o mesmo skin do formulário de atividades */}
+          {/* Tabela (full width) */}
           <Table
             bordered
             hover
@@ -236,6 +391,7 @@ function Checklist() {
                 <th style={{ width: '25%' }}>Atividade</th>
                 <th>Descrição</th>
                 <th style={{ width: 140, textAlign: 'center' }}>Situação</th>
+                <th style={{ width: 120, textAlign: 'center' }}>Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -253,11 +409,34 @@ function Checklist() {
                       style={{ cursor: readOnly ? 'not-allowed' : 'pointer' }}
                     />
                   </td>
+                  <td className="text-center">
+                    <Dropdown align="end">
+                      <Dropdown.Toggle
+                        size="sm"
+                        variant="outline-secondary"
+                        disabled={readOnly}
+                      >
+                        Ações
+                      </Dropdown.Toggle>
+                      <Dropdown.Menu>
+                        <Dropdown.Item onClick={() => openEdit(item)} disabled={readOnly}>
+                          Editar
+                        </Dropdown.Item>
+                        <Dropdown.Item
+                          className="text-danger"
+                          onClick={() => askDelete(item)}
+                          disabled={readOnly}
+                        >
+                          Excluir
+                        </Dropdown.Item>
+                      </Dropdown.Menu>
+                    </Dropdown>
+                  </td>
                 </tr>
               ))}
               {(Array.isArray(rows) ? rows : []).length === 0 && (
                 <tr>
-                  <td colSpan={3} className="text-center text-muted py-4">
+                  <td colSpan={4} className="text-center text-muted py-4">
                     Nenhum item encontrado.
                   </td>
                 </tr>
@@ -309,6 +488,113 @@ function Checklist() {
             </Pagination>
           </div>
         </Container>
+
+        {/* Modal de criação/edição — sem checkbox de concluído */}
+        <Modal
+          show={showModal}
+          onHide={() => setShowModal(false)}
+          size="lg"
+          centered
+          scrollable
+          dialogClassName="lgpd-modal-dialog"
+          contentClassName="lgpd-modal-content"
+        >
+          <Form onSubmit={handleSave}>
+            <Modal.Header closeButton closeVariant="white">
+              <Modal.Title className="w-100 text-center m-0">
+                {editing ? 'Editar Item do Checklist' : 'Novo Item do Checklist'}
+              </Modal.Title>
+            </Modal.Header>
+
+            <Modal.Body>
+              <Row className="mb-3">
+                <Col md={12}>
+                  <Form.Label>Atividade</Form.Label>
+                  <Form.Control
+                    value={form.atividade}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, atividade: e.target.value }))
+                    }
+                    required
+                    placeholder="Ex.: Nomear o DPO e divulgar seu contato"
+                  />
+                </Col>
+              </Row>
+
+              <Row>
+                <Col md={12}>
+                  <Form.Label>Descrição</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={3}
+                    value={form.descricao}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, descricao: e.target.value }))
+                    }
+                    required
+                    placeholder="Detalhes da exigência, responsáveis, links, etc."
+                  />
+                </Col>
+              </Row>
+            </Modal.Body>
+
+            <Modal.Footer>
+              <Button variant="secondary" onClick={() => setShowModal(false)}>
+                Cancelar
+              </Button>
+              <Button variant="primary" type="submit" disabled={saving || readOnly}>
+                {saving ? 'Salvando…' : editing ? 'Salvar alterações' : 'Criar'}
+              </Button>
+            </Modal.Footer>
+          </Form>
+        </Modal>
+
+        {/* Modal de confirmação de exclusão (bonito e moderno) */}
+        <Modal
+          show={confirmOpen}
+          onHide={() => !deleting && setConfirmOpen(false)}
+          centered
+          contentClassName="confirm-modal-content"
+        >
+          <Modal.Header closeButton closeVariant="white">
+            <Modal.Title>Confirmar exclusão</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p className="mb-2">
+              Tem certeza de que deseja <strong>excluir</strong> este item do checklist?
+            </p>
+            {confirmTarget && (
+              <div
+                className="p-3 rounded"
+                style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}
+              >
+                <div>
+                  <strong>Atividade:</strong> {confirmTarget.atividade}
+                </div>
+                <div className="text-muted">
+                  <strong>Descrição:</strong> {confirmTarget.descricao}
+                </div>
+              </div>
+            )}
+          </Modal.Body>
+          <Modal.Footer>
+            <Button
+              className="btn-cancel"
+              onClick={() => setConfirmOpen(false)}
+              disabled={deleting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              className="btn-delete"
+              variant="danger"
+              onClick={confirmDelete}
+              disabled={deleting}
+            >
+              {deleting ? 'Excluindo…' : 'Excluir'}
+            </Button>
+          </Modal.Footer>
+        </Modal>
       </div>
     </div>
   );
