@@ -73,6 +73,9 @@ function InventarioDados() {
   const [savingStep, setSavingStep] = React.useState(false);
   const [serverErrors, setServerErrors] = React.useState({}); // <— novo
 
+  // toast padrão 3s
+  const TOAST = { autoClose: 3000 };
+
   // Se vier ?id, carrega para edição (uma vez)
   React.useEffect(() => {
     const id = params.get('id');
@@ -103,7 +106,7 @@ function InventarioDados() {
       const msg =
         'Para salvar esta página, primeiro é necessário estar em modo de edição.';
       try {
-        toast.warn(msg);
+        toast.warn(msg, TOAST);
       } catch {}
       return;
     }
@@ -112,9 +115,9 @@ function InventarioDados() {
     try {
       await saveStep(fieldsThisStep); // PATCH só dos campos do step
       await reload(); // mantém o form sincronizado
-      const okMsg = 'Inventário atualizado com sucesso.';
+      const okMsg = 'Item atualizado com sucesso.';
       try {
-        toast.success(okMsg);
+        toast.success(okMsg, TOAST);
       } catch {}
       navigate(ROUTES.INVENTARIO_LISTA, { state: { flash: okMsg } });
     } catch (e) {
@@ -128,9 +131,11 @@ function InventarioDados() {
 
       if (onlyNonField) {
         setServerErrors({ _general: mapped.non_field_errors });
-        const msg = mapped.non_field_errors[0] || 'Falha ao salvar esta página.';
+        const msg =
+          mapped.non_field_errors[0] ||
+          'Falha ao salvar esta página. Se o problema persistir, contate o administrador.';
         try {
-          toast.error(msg);
+          toast.error(msg, TOAST);
         } catch {}
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
@@ -141,12 +146,13 @@ function InventarioDados() {
         const firstMsg =
           (firstField && mapped[firstField]?.[0]) ||
           mapped._general?.[0] ||
-          'Falha ao salvar esta página.';
+          'Falha ao salvar esta página. Se o problema persistir, contate o administrador.';
         try {
           toast.error(
             firstField
               ? `${FIELD_LABELS[firstField] || firstField}: ${firstMsg}`
-              : firstMsg
+              : firstMsg,
+            TOAST
           );
         } catch {}
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -160,7 +166,7 @@ function InventarioDados() {
     reset();
     const msg = 'Alterações descartadas.';
     try {
-      toast.info(msg);
+      toast.info(msg, TOAST);
     } catch {}
     navigate(ROUTES.INVENTARIO_LISTA, { state: { flash: msg } });
   }

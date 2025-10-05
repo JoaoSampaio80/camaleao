@@ -5,6 +5,7 @@ import Sidebar from '../components/Sidebar';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ROUTES } from '../routes';
 import { useInventario } from '../context/InventarioContext';
+import { toast } from 'react-toastify';
 
 const FIELDS_STEP1 = [
   'unidade',
@@ -140,10 +141,17 @@ function InventarioDados3() {
 
   const [saving, setSaving] = React.useState(false);
   const [warn, setWarn] = React.useState(false);
-  const [msg, setMsg] = React.useState('');
-  const [variant, setVariant] = React.useState('');
   const [serverErrors, setServerErrors] = React.useState({});
   const [clientErrors, setClientErrors] = React.useState({});
+
+  // padrão de mensagens (toast 3s) + flash no topo
+  const TOAST = { autoClose: 3000 };
+  const [flash, setFlash] = React.useState({ variant: '', msg: '' });
+  React.useEffect(() => {
+    if (!flash.msg) return;
+    const t = setTimeout(() => setFlash({ variant: '', msg: '' }), 3000);
+    return () => clearTimeout(t);
+  }, [flash]);
 
   React.useEffect(() => {
     const id = params.get('id');
@@ -155,34 +163,41 @@ function InventarioDados3() {
 
   const startNew = () => {
     reset();
-    setMsg('');
-    setVariant('');
     setWarn(false);
     setServerErrors({});
     setClientErrors({});
+    setFlash({ variant: 'info', msg: 'Novo inventário iniciado.' });
+    try {
+      toast.info('Novo inventário iniciado.', TOAST);
+    } catch {}
     navigate(location.pathname, { replace: true });
   };
 
   const startEdit = () => {
     const input = window.prompt('Informe o ID do inventário para editar:');
     if (!input) return;
-    setMsg('');
-    setVariant('');
     setWarn(false);
     setServerErrors({});
     setClientErrors({});
+    setFlash({ variant: 'info', msg: `Abrindo inventário #${input.trim()}...` });
+    try {
+      toast.info(`Abrindo inventário #${input.trim()}...`, TOAST);
+    } catch {}
     navigate(`${location.pathname}?id=${encodeURIComponent(input.trim())}`);
   };
 
   const handleCancel = () => {
-    setMsg('');
-    setVariant('');
     setWarn(false);
     setServerErrors({});
     setClientErrors({});
     reset();
+    const msg = 'Alterações desta página descartadas.';
+    setFlash({ variant: 'info', msg });
+    try {
+      toast.info(msg, TOAST);
+    } catch {}
     navigate(ROUTES.INVENTARIO_LISTA, {
-      state: { flash: 'Alterações desta página descartadas.', variant: 'info' },
+      state: { flash: msg, variant: 'info' },
     });
   };
 
@@ -206,19 +221,20 @@ function InventarioDados3() {
   // next: 'new' | 'list'
   const handleSave = async (next) => {
     if (!next) return;
-    setMsg('');
-    setVariant('');
     setSaving(true);
     setServerErrors({});
     setClientErrors({});
 
-    // 1) validação cliente da etapa 3 (mantém UX atual)
+    // 1) validação cliente da etapa 3
     const nextClientErrors = validateStep3();
     if (Object.keys(nextClientErrors).length > 0) {
       setClientErrors(nextClientErrors);
       setWarn(true);
-      setVariant('warning');
-      setMsg('Existem campos pendentes ou inválidos. Corrija os destaques.');
+      const msg = 'Existem campos pendentes ou inválidos. Corrija os destaques.';
+      setFlash({ variant: 'warning', msg });
+      try {
+        toast.warn(msg, TOAST);
+      } catch {}
       window.scrollTo({ top: 0, behavior: 'smooth' });
       setSaving(false);
       return;
@@ -226,12 +242,10 @@ function InventarioDados3() {
 
     try {
       if (recordId) {
-        // 2A) EDIÇÃO → PATCH de TODOS os campos para garantir envio completo
-        await saveStep(ALL_FIELDS); // garante que o backend recebe tudo
+        // Edição → PATCH de todos os campos
+        await saveStep(ALL_FIELDS);
       } else {
-        // 2B) CRIAÇÃO → POST (garantir que todos os campos sigam no payload)
-        // Se o seu saveInventario() já usa o form inteiro do contexto, ótimo.
-        // Caso não, este bloco ainda ajuda a diagnosticar quando nada é enviado.
+        // Criação → POST
         if (process.env.NODE_ENV === 'development') {
           // eslint-disable-next-line no-console
           console.debug(
@@ -239,17 +253,21 @@ function InventarioDados3() {
             Object.fromEntries(ALL_FIELDS.map((k) => [k, form[k]]))
           );
         }
-        await saveInventario(); // POST/PATCH conforme seu contexto
+        await saveInventario();
       }
 
       const okMsg = recordId
-        ? 'Inventário atualizado com sucesso.'
-        : 'Inventário criado com sucesso.';
+        ? 'Item atualizado com sucesso.'
+        : 'Item adicionado ao Inventário com sucesso.';
 
       setWarn(false);
+      try {
+        toast.success(okMsg, TOAST);
+      } catch {}
 
       if (next === 'new') {
         reset();
+        setFlash({ variant: 'success', msg: okMsg });
         navigate(ROUTES.INVENTARIO_DADOS);
         return;
       }
@@ -263,7 +281,6 @@ function InventarioDados3() {
       const st = e?.response?.status;
       const mapped = normalizeServerErrors(e?.response?.data);
 
-      // Se for 400/422 (validação), trate por campo; nunca deixe non_field_errors virar "campo"
       if (st === 400 || st === 422) {
         const onlyNonField =
           mapped?.non_field_errors &&
@@ -275,7 +292,6 @@ function InventarioDados3() {
         }
 
         if (onlyNonField) {
-          // Em dev, se o backend disser só non_field_errors, verifique se o POST veio vazio
           if (process.env.NODE_ENV === 'development') {
             const sent = Object.fromEntries(ALL_FIELDS.map((k) => [k, form[k]]));
             const emptyCount = Object.values(sent).filter(
@@ -290,8 +306,13 @@ function InventarioDados3() {
 
           setServerErrors({ _general: mapped.non_field_errors });
           setWarn(true);
-          setVariant('warning');
-          setMsg(mapped.non_field_errors[0] || 'Existem campos pendentes.');
+          const msg =
+            mapped.non_field_errors[0] ||
+            'Existem campos pendentes. Se o problema persistir, contate o administrador.';
+          setFlash({ variant: 'warning', msg });
+          try {
+            toast.warn(msg, TOAST);
+          } catch {}
           window.scrollTo({ top: 0, behavior: 'smooth' });
           setSaving(false);
           return;
@@ -301,28 +322,36 @@ function InventarioDados3() {
         delete cleaned.non_field_errors;
         setServerErrors(cleaned);
         setWarn(true);
-        setVariant('warning');
 
         const firstField = Object.keys(cleaned).find((k) => k !== '_general');
         const firstMsg =
           (firstField && cleaned[firstField]?.[0]) ||
           cleaned._general?.[0] ||
-          'Existem campos pendentes.';
+          'Existem campos pendentes. Se o problema persistir, contate o administrador.';
 
-        setMsg(
-          firstField
-            ? `Corrija o campo “${FIELD_LABELS[firstField] || firstField}”: ${firstMsg}`
-            : firstMsg
-        );
+        const msg = firstField
+          ? `Corrija o campo “${FIELD_LABELS[firstField] || firstField}”: ${firstMsg}`
+          : firstMsg;
+
+        setFlash({ variant: 'danger', msg });
+        try {
+          toast.error(msg, TOAST);
+        } catch {}
         window.scrollTo({ top: 0, behavior: 'smooth' });
         setSaving(false);
         return;
       }
 
       // Outros status (403, 5xx)
-      setVariant('danger');
-      if (st === 403) setMsg('Você não tem permissão para salvar este inventário.');
-      else setMsg(e?.response?.data?.detail || 'Falha ao salvar inventário.');
+      const msg =
+        st === 403
+          ? 'Você não tem permissão para salvar item do inventário.'
+          : e?.response?.data?.detail ||
+            'Falha ao salvar item. Se o problema persistir, contate o administrador.';
+      setFlash({ variant: 'danger', msg });
+      try {
+        toast.error(msg, TOAST);
+      } catch {}
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setSaving(false);
@@ -372,21 +401,12 @@ function InventarioDados3() {
           <h2 className="mb-4 page-title-ink flex-grow-1 text-center">
             Inventário de Dados
           </h2>
-          <div className="mb-3 d-flex align-items-center gap-2">
-            <small className="text-muted me-3">
-              {recordId ? `Editando ID #${recordId}` : 'Novo inventário'}
-            </small>
-            <Button variant="outline-secondary" size="sm" onClick={startNew}>
-              Novo
-            </Button>
-            <Button variant="outline-primary" size="sm" onClick={startEdit}>
-              Editar…
-            </Button>
-          </div>
         </div>
 
         <Container fluid className="container-gradient">
-          {msg && <Alert variant={variant}>{msg}</Alert>}
+          {/* flash curto no topo (3s) */}
+          {flash.msg && <Alert variant={flash.variant}>{flash.msg}</Alert>}
+
           {consolidatedErrors.length > 0 && (
             <Alert variant="danger">
               <strong>Não foi possível salvar. Corrija os itens abaixo:</strong>

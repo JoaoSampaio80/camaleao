@@ -14,6 +14,7 @@ import {
   Toast,
   ToastContainer,
   Dropdown,
+  Modal, // ← adicionado
 } from 'react-bootstrap';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
@@ -338,7 +339,7 @@ function InventarioLista() {
       setTotal(Number.isFinite(data.count) ? data.count : 0);
     } catch (e) {
       setVariant('danger');
-      setMsg('Falha ao carregar inventários.');
+      setMsg('Falha ao carregar itens do inventário.');
     } finally {
       setLoading(false);
     }
@@ -366,21 +367,37 @@ function InventarioLista() {
     navigate(ROUTES.INVENTARIO_DADOS + `?id=${id}`);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Tem certeza que deseja excluir este inventário?')) return;
+  // ====== Confirmação de exclusão (modal no padrão) ======
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const [confirmTarget, setConfirmTarget] = React.useState(null);
+  const [deleting, setDeleting] = React.useState(false);
+
+  const askDelete = (id) => {
+    setConfirmTarget(id);
+    setConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!confirmTarget) return;
+    setDeleting(true);
     try {
-      await AxiosInstance.delete(`inventarios/${id}/`);
+      await AxiosInstance.delete(`inventarios/${confirmTarget}/`);
       setVariant('success');
-      setMsg('Inventário excluído com sucesso.');
+      setMsg('Item excluído com sucesso.');
       fetchList();
     } catch (e) {
       const st = e?.response?.status;
       const detail = e?.response?.data?.detail;
       setVariant('danger');
-      if (st === 403) setMsg('Você não tem permissão para excluir este inventário.');
-      else setMsg(detail || 'Falha ao excluir inventário.');
+      if (st === 403) setMsg('Você não tem permissão para excluir item do inventário.');
+      else setMsg(detail || 'Falha ao excluir item.');
+    } finally {
+      setDeleting(false);
+      setConfirmOpen(false);
+      setConfirmTarget(null);
     }
   };
+  // ================================================
 
   const [toastShow, setToastShow] = React.useState(false);
   const [toastMsg, setToastMsg] = React.useState('');
@@ -785,7 +802,7 @@ function InventarioLista() {
                               <Button
                                 size="sm"
                                 variant="outline-danger"
-                                onClick={() => handleDelete(it.id)}
+                                onClick={() => askDelete(it.id)} /* ← abre modal */
                               >
                                 Excluir
                               </Button>
@@ -821,6 +838,32 @@ function InventarioLista() {
           </Container>
         </div>
       </div>
+
+      {/* Modal de confirmação de exclusão (padrão Bootstrap, discreto) */}
+      <Modal
+        show={confirmOpen}
+        onHide={() => !deleting && setConfirmOpen(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Confirmar exclusão</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Tem certeza de que deseja <strong>excluir</strong> este inventário?
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setConfirmOpen(false)}
+            disabled={deleting}
+          >
+            Cancelar
+          </Button>
+          <Button variant="danger" onClick={confirmDelete} disabled={deleting}>
+            {deleting ? 'Excluindo…' : 'Excluir'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </>
   );
 }

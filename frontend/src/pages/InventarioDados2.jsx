@@ -64,7 +64,6 @@ function validateField(key, value, form) {
       if (!CHOICES.transferencia_internacional.includes(v)) return ['Seleção inválida.'];
       break;
     case 'periodo_retencao': {
-      // aceita "12 meses", "2 anos", etc., mas não obrigatório ser numérico; exige mínimo 3 chars
       if (v.length < 3) return ['Digite ao menos 3 caracteres (ex.: "12 meses").'];
       break;
     }
@@ -85,7 +84,6 @@ function validateField(key, value, form) {
       break;
   }
 
-  // regra opcional: se transferência p/ terceiros = "sim", reforça detalhamento
   if (
     key === 'quais_dados_transferidos' &&
     String(form.transferencia_terceiros || '').trim() === 'sim' &&
@@ -122,6 +120,8 @@ function InventarioDados2() {
   const [serverErrors, setServerErrors] = React.useState({});
   const [clientErrors, setClientErrors] = React.useState({});
 
+  // padrão de mensagens (toast 3s) + flash no topo
+  const TOAST = { autoClose: 3000 };
   const [flash, setFlash] = React.useState({ variant: '', msg: '' });
   React.useEffect(() => {
     if (!flash.msg) return;
@@ -155,13 +155,22 @@ function InventarioDados2() {
     navigate(ROUTES.INVENTARIO_DADOS3 + (recordId ? `?id=${recordId}` : ''));
   };
 
+  const handleCancelStep = React.useCallback(() => {
+    reset();
+    const msg = 'Alterações descartadas.';
+    try {
+      toast.info(msg, TOAST);
+    } catch {}
+    navigate(ROUTES.INVENTARIO_LISTA, { state: { flash: msg } });
+  }, [navigate, reset]);
+
   async function handleSaveStep() {
     if (!recordId) {
       const msg =
         'Para salvar esta página, primeiro é necessário estar em modo de edição.';
       setFlash({ variant: 'warning', msg });
       try {
-        toast.warn(msg);
+        toast.warn(msg, TOAST);
       } catch {}
       return;
     }
@@ -169,7 +178,7 @@ function InventarioDados2() {
     setServerErrors({});
     setClientErrors({});
 
-    // validação cliente da etapa
+    // validação cliente
     const nextClientErrors = {};
     fieldsThisStep.forEach((k) => {
       const errs = validateField(k, form[k], form);
@@ -187,10 +196,10 @@ function InventarioDados2() {
     try {
       await saveStep(fieldsThisStep);
       await reload();
-      const okMsg = 'Inventário atualizado com sucesso.';
+      const okMsg = 'Item atualizado com sucesso.';
       setFlash({ variant: 'success', msg: 'Alterações desta página salvas!' });
       try {
-        toast.success(okMsg);
+        toast.success(okMsg, TOAST);
       } catch {}
       navigate(ROUTES.INVENTARIO_LISTA, { state: { flash: okMsg } });
     } catch (e) {
@@ -203,10 +212,12 @@ function InventarioDados2() {
 
       if (onlyNonField) {
         setServerErrors({ _general: mapped.non_field_errors });
-        const msg = mapped.non_field_errors[0] || 'Falha ao salvar esta página.';
+        const msg =
+          mapped.non_field_errors[0] ||
+          'Falha ao salvar esta página. Se o problema persistir, contate o administrador.';
         setFlash({ variant: 'danger', msg });
         try {
-          toast.error(msg);
+          toast.error(msg, TOAST);
         } catch {}
       } else {
         setServerErrors(mapped);
@@ -216,13 +227,13 @@ function InventarioDados2() {
         const firstMsg =
           (firstField && mapped[firstField]?.[0]) ||
           mapped._general?.[0] ||
-          'Falha ao salvar esta página.';
+          'Falha ao salvar esta página. Se o problema persistir, contate o administrador.';
         const msg = firstField
           ? `${FIELD_LABELS[firstField] || firstField}: ${firstMsg}`
           : firstMsg;
         setFlash({ variant: 'danger', msg });
         try {
-          toast.error(msg);
+          toast.error(msg, TOAST);
         } catch {}
       }
 
@@ -245,7 +256,7 @@ function InventarioDados2() {
       (arr || []).forEach((m) => list.push(`${FIELD_LABELS[k] || k}: ${m}`))
     );
     Object.entries(serverErrors).forEach(([k, arr]) => {
-      if (k === '_general' || k === 'non_field_errors') return; // não listar non_field_errors
+      if (k === '_general' || k === 'non_field_errors') return;
       (arr || []).forEach((m) => list.push(`${FIELD_LABELS[k] || k}: ${m}`));
     });
     (serverErrors._general || []).forEach((m) => list.push(String(m)));
@@ -271,6 +282,9 @@ function InventarioDados2() {
         <h2 className="mb-4 page-title-ink">Inventário de Dados</h2>
 
         <Container fluid className="container-gradient">
+          {/* flash curto no topo (3s) */}
+          {flash.msg && <Alert variant={flash.variant}>{flash.msg}</Alert>}
+
           {warn && (
             <Alert variant="warning">
               Existem campos obrigatórios pendentes. Preencha os campos destacados.
