@@ -1,3 +1,4 @@
+// src/pages/InventarioDados.jsx
 import React from 'react';
 import { Container, Row, Col, Form, Button, Alert } from 'react-bootstrap';
 import Sidebar from '../components/Sidebar';
@@ -23,30 +24,54 @@ const requiredStep1 = [
   'base_legal',
 ];
 
-const fieldsThisStep = [
-  'unidade',
-  'setor',
-  'responsavel_email',
-  'processo_negocio',
-  'finalidade',
-  'dados_pessoais',
-  'tipo_dado',
-  'origem',
-  'formato',
-  'impresso',
-  'titulares',
-  'dados_menores',
-  'base_legal',
-];
+const fieldsThisStep = [...requiredStep1];
+
+// Nomes amigáveis para as mensagens
+const FIELD_LABELS = {
+  unidade: 'Unidade (Matriz / Filial)',
+  setor: 'Setor',
+  responsavel_email: 'Responsável (E-mail)',
+  processo_negocio: 'Processo de Negócio',
+  finalidade: 'Finalidade',
+  dados_pessoais: 'Dados pessoais coletados / tratados',
+  tipo_dado: 'Tipo de dado',
+  origem: 'Origem',
+  formato: 'Formato',
+  impresso: 'Impresso?',
+  titulares: 'Titulares dos dados',
+  dados_menores: 'Dados de menores',
+  base_legal: 'Base Legal',
+};
+
+function normalizeServerErrors(data) {
+  // Espera algo no formato DRF: { campo: ["msg1","msg2"], non_field_errors: [...], detail: "..." }
+  const map = {};
+  if (!data || typeof data !== 'object') return map;
+
+  // detail genérico
+  if (data.detail) {
+    map._general = Array.isArray(data.detail) ? data.detail : [String(data.detail)];
+  }
+
+  Object.entries(data).forEach(([k, v]) => {
+    if (k === 'detail') return;
+    if (Array.isArray(v)) map[k] = v.map((x) => String(x));
+    else if (typeof v === 'string') map[k] = [v];
+    else if (v && typeof v === 'object') map[k] = [JSON.stringify(v)];
+  });
+
+  return map;
+}
 
 function InventarioDados() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { form, setField, loadInventario, recordId, saveStep, reload, clearStep, reset } =
+  const { form, setField, loadInventario, recordId, saveStep, reload, reset } =
     useInventario();
 
   const [warn, setWarn] = React.useState(false);
   const [savingStep, setSavingStep] = React.useState(false);
+  const [serverErrors, setServerErrors] = React.useState({}); // <— novo
 
   // Se vier ?id, carrega para edição (uma vez)
   React.useEffect(() => {
@@ -55,7 +80,7 @@ function InventarioDados() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Validação da etapa 1
+  // Validação da etapa 1 (cliente)
   const missing = requiredStep1.filter((k) => !String(form[k] ?? '').trim());
   const canGoNext = missing.length === 0;
 
@@ -83,26 +108,55 @@ function InventarioDados() {
       return;
     }
     setSavingStep(true);
+    setServerErrors({}); // limpa erros antigos
     try {
-      await saveStep(fieldsThisStep); // <— usa o contexto (PATCH só dos campos do step)
-      await reload(); // mantém o form sincronizado com o backend
+      await saveStep(fieldsThisStep); // PATCH só dos campos do step
+      await reload(); // mantém o form sincronizado
       const okMsg = 'Inventário atualizado com sucesso.';
       try {
         toast.success(okMsg);
       } catch {}
-
       navigate(ROUTES.INVENTARIO_LISTA, { state: { flash: okMsg } });
-    } catch {
-      try {
-        toast.error('Falha ao salvar esta página.');
-      } catch {}
+    } catch (e) {
+      const payload = e?.response?.data;
+      const mapped = normalizeServerErrors(payload);
+
+      // Se vier APENAS non_field_errors, trata como mensagem geral
+      const onlyNonField =
+        mapped?.non_field_errors &&
+        !Object.keys(mapped).some((k) => !['_general', 'non_field_errors'].includes(k));
+
+      if (onlyNonField) {
+        setServerErrors({ _general: mapped.non_field_errors });
+        const msg = mapped.non_field_errors[0] || 'Falha ao salvar esta página.';
+        try {
+          toast.error(msg);
+        } catch {}
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        setServerErrors(mapped);
+        const firstField = Object.keys(mapped).find(
+          (k) => !['_general', 'non_field_errors'].includes(k)
+        );
+        const firstMsg =
+          (firstField && mapped[firstField]?.[0]) ||
+          mapped._general?.[0] ||
+          'Falha ao salvar esta página.';
+        try {
+          toast.error(
+            firstField
+              ? `${FIELD_LABELS[firstField] || firstField}: ${firstMsg}`
+              : firstMsg
+          );
+        } catch {}
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     } finally {
       setSavingStep(false);
     }
   }
 
   function handleCancelStep() {
-    // limpa tudo e navega para a lista
     reset();
     const msg = 'Alterações descartadas.';
     try {
@@ -111,12 +165,28 @@ function InventarioDados() {
     navigate(ROUTES.INVENTARIO_LISTA, { state: { flash: msg } });
   }
 
+  // helper para invalidar campo
+  const isInvalid = (key) =>
+    (!!serverErrors[key] && serverErrors[key].length > 0) ||
+    (!String(form[key] || '').trim() && warn);
+
+  // Lista consolidada para o Alert
+  const consolidatedErrors = React.useMemo(() => {
+    const list = [];
+    Object.entries(serverErrors).forEach(([k, arr]) => {
+      if (k === '_general' || k === 'non_field_errors') return; // nunca listar non_field_errors
+      (arr || []).forEach((msg) => list.push(`${FIELD_LABELS[k] || k}: ${msg}`));
+    });
+    (serverErrors._general || []).forEach((msg) => list.push(String(msg)));
+    return list;
+  }, [serverErrors]);
+
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
       <Sidebar />
       <div
         style={{
-          background: '#f5f5f5', // igual à página aceita
+          background: '#f5f5f5',
           minHeight: '100vh',
           width: '100vw',
           marginTop: '56px',
@@ -135,6 +205,16 @@ function InventarioDados() {
               Existem campos obrigatórios pendentes. Preencha os campos destacados.
             </Alert>
           )}
+          {consolidatedErrors.length > 0 && (
+            <Alert variant="danger">
+              <strong>Não foi possível salvar. Corrija os itens abaixo:</strong>
+              <ul className="mb-0">
+                {consolidatedErrors.map((msg, i) => (
+                  <li key={i}>{msg}</li>
+                ))}
+              </ul>
+            </Alert>
+          )}
 
           <Form>
             <Row className="mb-3">
@@ -145,13 +225,19 @@ function InventarioDados() {
                 <Form.Select
                   value={form.unidade || ''}
                   onChange={(e) => setField('unidade', e.target.value)}
-                  isInvalid={!String(form.unidade || '').trim() && warn}
+                  isInvalid={isInvalid('unidade')}
                 >
                   <option value="">Select...</option>
                   <option value="matriz">Matriz</option>
                   <option value="filial">Filial</option>
+                  <option value="matriz_filial">Matriz / Filial</option>
                 </Form.Select>
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {serverErrors.unidade?.[0] && (
+                  <div className="invalid-feedback d-block">
+                    {serverErrors.unidade[0]}
+                  </div>
+                )}
               </Col>
 
               <Col md={3}>
@@ -162,9 +248,12 @@ function InventarioDados() {
                   placeholder="TextField"
                   value={form.setor || ''}
                   onChange={(e) => setField('setor', e.target.value)}
-                  isInvalid={!String(form.setor || '').trim() && warn}
+                  isInvalid={isInvalid('setor')}
                 />
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {serverErrors.setor?.[0] && (
+                  <div className="invalid-feedback d-block">{serverErrors.setor[0]}</div>
+                )}
               </Col>
 
               <Col md={3}>
@@ -176,9 +265,14 @@ function InventarioDados() {
                   placeholder="email@empresa.com"
                   value={form.responsavel_email || ''}
                   onChange={(e) => setField('responsavel_email', e.target.value)}
-                  isInvalid={!String(form.responsavel_email || '').trim() && warn}
+                  isInvalid={isInvalid('responsavel_email')}
                 />
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {serverErrors.responsavel_email?.[0] && (
+                  <div className="invalid-feedback d-block">
+                    {serverErrors.responsavel_email[0]}
+                  </div>
+                )}
               </Col>
 
               <Col md={3}>
@@ -189,9 +283,14 @@ function InventarioDados() {
                   placeholder="TextField"
                   value={form.processo_negocio || ''}
                   onChange={(e) => setField('processo_negocio', e.target.value)}
-                  isInvalid={!String(form.processo_negocio || '').trim() && warn}
+                  isInvalid={isInvalid('processo_negocio')}
                 />
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {serverErrors.processo_negocio?.[0] && (
+                  <div className="invalid-feedback d-block">
+                    {serverErrors.processo_negocio[0]}
+                  </div>
+                )}
               </Col>
             </Row>
 
@@ -204,9 +303,14 @@ function InventarioDados() {
                   placeholder="TextField"
                   value={form.finalidade || ''}
                   onChange={(e) => setField('finalidade', e.target.value)}
-                  isInvalid={!String(form.finalidade || '').trim() && warn}
+                  isInvalid={isInvalid('finalidade')}
                 />
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {serverErrors.finalidade?.[0] && (
+                  <div className="invalid-feedback d-block">
+                    {serverErrors.finalidade[0]}
+                  </div>
+                )}
               </Col>
             </Row>
 
@@ -220,9 +324,14 @@ function InventarioDados() {
                   placeholder="TextField"
                   value={form.dados_pessoais || ''}
                   onChange={(e) => setField('dados_pessoais', e.target.value)}
-                  isInvalid={!String(form.dados_pessoais || '').trim() && warn}
+                  isInvalid={isInvalid('dados_pessoais')}
                 />
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {serverErrors.dados_pessoais?.[0] && (
+                  <div className="invalid-feedback d-block">
+                    {serverErrors.dados_pessoais[0]}
+                  </div>
+                )}
               </Col>
             </Row>
 
@@ -234,7 +343,7 @@ function InventarioDados() {
                 <Form.Select
                   value={form.tipo_dado || ''}
                   onChange={(e) => setField('tipo_dado', e.target.value)}
-                  isInvalid={!String(form.tipo_dado || '').trim() && warn}
+                  isInvalid={isInvalid('tipo_dado')}
                 >
                   <option value="">Select...</option>
                   <option value="pessoal">Pessoal</option>
@@ -242,6 +351,11 @@ function InventarioDados() {
                   <option value="anonimizado">Anonimizado</option>
                 </Form.Select>
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {serverErrors.tipo_dado?.[0] && (
+                  <div className="invalid-feedback d-block">
+                    {serverErrors.tipo_dado[0]}
+                  </div>
+                )}
               </Col>
 
               <Col md={3}>
@@ -252,9 +366,12 @@ function InventarioDados() {
                   placeholder="TextField"
                   value={form.origem || ''}
                   onChange={(e) => setField('origem', e.target.value)}
-                  isInvalid={!String(form.origem || '').trim() && warn}
+                  isInvalid={isInvalid('origem')}
                 />
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {serverErrors.origem?.[0] && (
+                  <div className="invalid-feedback d-block">{serverErrors.origem[0]}</div>
+                )}
               </Col>
 
               <Col md={3}>
@@ -264,7 +381,7 @@ function InventarioDados() {
                 <Form.Select
                   value={form.formato || ''}
                   onChange={(e) => setField('formato', e.target.value)}
-                  isInvalid={!String(form.formato || '').trim() && warn}
+                  isInvalid={isInvalid('formato')}
                 >
                   <option value="">Select...</option>
                   <option value="digital">Digital</option>
@@ -272,6 +389,11 @@ function InventarioDados() {
                   <option value="hibrido">Físico e Digital</option>
                 </Form.Select>
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {serverErrors.formato?.[0] && (
+                  <div className="invalid-feedback d-block">
+                    {serverErrors.formato[0]}
+                  </div>
+                )}
               </Col>
 
               <Col md={3}>
@@ -281,13 +403,18 @@ function InventarioDados() {
                 <Form.Select
                   value={form.impresso || ''}
                   onChange={(e) => setField('impresso', e.target.value)}
-                  isInvalid={!String(form.impresso || '').trim() && warn}
+                  isInvalid={isInvalid('impresso')}
                 >
                   <option value="">Select...</option>
                   <option value="sim">Sim</option>
                   <option value="nao">Não</option>
                 </Form.Select>
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {serverErrors.impresso?.[0] && (
+                  <div className="invalid-feedback d-block">
+                    {serverErrors.impresso[0]}
+                  </div>
+                )}
               </Col>
             </Row>
 
@@ -300,9 +427,14 @@ function InventarioDados() {
                   placeholder="TextField"
                   value={form.titulares || ''}
                   onChange={(e) => setField('titulares', e.target.value)}
-                  isInvalid={!String(form.titulares || '').trim() && warn}
+                  isInvalid={isInvalid('titulares')}
                 />
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {serverErrors.titulares?.[0] && (
+                  <div className="invalid-feedback d-block">
+                    {serverErrors.titulares[0]}
+                  </div>
+                )}
               </Col>
             </Row>
 
@@ -314,13 +446,18 @@ function InventarioDados() {
                 <Form.Select
                   value={form.dados_menores || ''}
                   onChange={(e) => setField('dados_menores', e.target.value)}
-                  isInvalid={!String(form.dados_menores || '').trim() && warn}
+                  isInvalid={isInvalid('dados_menores')}
                 >
                   <option value="">Select...</option>
                   <option value="sim">Sim</option>
                   <option value="nao">Não</option>
                 </Form.Select>
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {serverErrors.dados_menores?.[0] && (
+                  <div className="invalid-feedback d-block">
+                    {serverErrors.dados_menores[0]}
+                  </div>
+                )}
               </Col>
 
               <Col md={9}>
@@ -331,20 +468,24 @@ function InventarioDados() {
                   placeholder="TextField"
                   value={form.base_legal || ''}
                   onChange={(e) => setField('base_legal', e.target.value)}
-                  isInvalid={!String(form.base_legal || '').trim() && warn}
+                  isInvalid={isInvalid('base_legal')}
                 />
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {serverErrors.base_legal?.[0] && (
+                  <div className="invalid-feedback d-block">
+                    {serverErrors.base_legal[0]}
+                  </div>
+                )}
               </Col>
             </Row>
 
-            {/* Barra de Salvar/Cancelar desta página (só exibe em EDIÇÃO) */}
             {recordId && (
               <SaveCancelBar
                 className="mt-3"
                 onSave={handleSaveStep}
                 onCancel={handleCancelStep}
                 saving={savingStep}
-                disabled={false} // se quiser, compute "isDirty" comparando snapshot/local
+                disabled={false}
               />
             )}
 

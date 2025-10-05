@@ -146,12 +146,18 @@ export function InventarioProvider({ children }) {
 
   // OPTIONS do DRF para descobrir campos permitidos (se disponível)
   const ensureAllowedFields = useCallback(async () => {
-    if (allowedFields && Array.isArray(allowedFields)) return allowedFields;
+    if (allowedFields && Array.isArray(allowedFields) && allowedFields.length > 0) {
+      return allowedFields;
+    }
     try {
       setLoadingMeta(true);
       const resp = await AxiosInstance.options('inventarios/');
-      const postSchema = resp?.data?.actions?.POST || {};
-      const fields = Object.keys(postSchema);
+      const postSchema = resp?.data?.actions?.POST;
+      // Fallback: se não houver schema de POST ou vier vazio, usa TODOS os campos do form
+      const fields =
+        postSchema && typeof postSchema === 'object' && Object.keys(postSchema).length > 0
+          ? Object.keys(postSchema)
+          : Object.keys(DEFAULT_FORM);
       setAllowedFields(fields);
       return fields;
     } catch {
@@ -222,8 +228,12 @@ export function InventarioProvider({ children }) {
       }
 
       const allowed = await ensureAllowedFields();
-      // apenas campos válidos e pertencentes ao step
-      const whitelist = fieldsThisStep.filter((f) => allowed.includes(f));
+      // apenas campos válidos e pertencentes ao step; se allowed vier vazio, não filtre
+      const base =
+        Array.isArray(allowed) && allowed.length > 0
+          ? allowed
+          : Object.keys(DEFAULT_FORM);
+      const whitelist = fieldsThisStep.filter((f) => base.includes(f));
 
       // payload apenas do step, com nomes garantidos pelo buildPayload
       const payloadAll = buildPayload(form);
@@ -271,7 +281,11 @@ export function InventarioProvider({ children }) {
     }
 
     // 2) Determina campos permitidos
-    const fields = await ensureAllowedFields();
+    let fields = await ensureAllowedFields();
+    if (!Array.isArray(fields) || fields.length === 0) {
+      // Fallback duro: nunca mande {} — use todas as chaves do form
+      fields = Object.keys(DEFAULT_FORM);
+    }
 
     // 3) Prepara payload
     const payloadObj = pick(buildPayload(form), fields);

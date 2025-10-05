@@ -119,7 +119,11 @@ class InventarioDados(models.Model):
     """
 
     # Choices usados no frontend
-    UNIDADE_CHOICES = (("matriz", "Matriz"), ("filial", "Filial"))
+    UNIDADE_CHOICES = (
+        ("matriz", "Matriz"),
+        ("filial", "Filial"),
+        ("matriz_filial", "Matriz / Filial"),
+    )
     TIPO_DADO_CHOICES = (
         ("pessoal", "Pessoal"),
         ("sensivel", "Sensível"),
@@ -154,7 +158,7 @@ class InventarioDados(models.Model):
 
     # --------- ETAPA 1 ---------
     unidade = models.CharField(
-        max_length=10, choices=UNIDADE_CHOICES, blank=True, null=True
+        max_length=15, choices=UNIDADE_CHOICES, blank=True, null=True
     )
     setor = models.CharField(max_length=120, blank=True, null=True)
     responsavel_email = models.EmailField(max_length=254, blank=True, null=True)

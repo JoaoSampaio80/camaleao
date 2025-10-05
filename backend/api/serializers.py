@@ -416,9 +416,9 @@ class InventarioDadosSerializer(serializers.ModelSerializer):
                 if not str(value or "").strip():
                     missing.append(f)
             if missing:
-                # mensagem genérica (o front já destaca localmente)
+                # devolve erros específicos, um por campo
                 raise serializers.ValidationError(
-                    "Existem campos obrigatórios pendentes."
+                    {f: "Campo obrigatório." for f in missing}
                 )
         return attrs
 
@@ -517,8 +517,9 @@ class RiskSerializer(serializers.ModelSerializer):
                 if not self._norm(val if isinstance(val, str) else str(val or "")):
                     missing.append(f)
             if missing:
+                # retorna erro por campo (em vez de non_field_errors)
                 raise serializers.ValidationError(
-                    "Existem campos obrigatórios pendentes."
+                    {f: "Campo obrigatório." for f in missing}
                 )
 
         # coerência das medidas de controle com tipo/eficacia (sua lógica, mantida)

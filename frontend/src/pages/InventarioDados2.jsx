@@ -1,3 +1,4 @@
+// src/pages/InventarioDados2.jsx
 import React from 'react';
 import { Container, Row, Col, Form, Button, Alert } from 'react-bootstrap';
 import Sidebar from '../components/Sidebar';
@@ -23,18 +24,103 @@ const requiredStep2 = [
   'transferencia_internacional',
   'empresa_terceira',
 ];
-
-// campos desta página (para PATCH/cancelar)
 const fieldsThisStep = [...requiredStep2];
+
+const FIELD_LABELS = {
+  pessoas_acesso: 'Pessoas com acesso',
+  atualizacoes: 'Atualizações',
+  transmissao_interna: 'Transmissão Interna',
+  transmissao_externa: 'Transmissão Externa',
+  local_armazenamento_digital: 'Local de Armazenamento (Digital)',
+  controlador_operador: 'Controlador / Operador',
+  motivo_retencao: 'Motivo de Retenção',
+  periodo_retencao: 'Período de Retenção',
+  exclusao: 'Exclusão',
+  forma_exclusao: 'Forma de exclusão',
+  transferencia_terceiros: 'Transferência para terceiros',
+  quais_dados_transferidos: 'Quais dados são transferidos',
+  transferencia_internacional: 'Transferência Internacional',
+  empresa_terceira: 'Empresa terceira',
+};
+
+const CHOICES = {
+  controlador_operador: ['controlador', 'operador', 'ambos'],
+  transferencia_terceiros: ['sim', 'nao'],
+  transferencia_internacional: ['sim', 'nao'],
+};
+
+function validateField(key, value, form) {
+  const v = String(value ?? '').trim();
+  if (!v) return ['Obrigatório.'];
+
+  switch (key) {
+    case 'controlador_operador':
+      if (!CHOICES.controlador_operador.includes(v)) return ['Seleção inválida.'];
+      break;
+    case 'transferencia_terceiros':
+      if (!CHOICES.transferencia_terceiros.includes(v)) return ['Seleção inválida.'];
+      break;
+    case 'transferencia_internacional':
+      if (!CHOICES.transferencia_internacional.includes(v)) return ['Seleção inválida.'];
+      break;
+    case 'periodo_retencao': {
+      // aceita "12 meses", "2 anos", etc., mas não obrigatório ser numérico; exige mínimo 3 chars
+      if (v.length < 3) return ['Digite ao menos 3 caracteres (ex.: "12 meses").'];
+      break;
+    }
+    // textos
+    case 'pessoas_acesso':
+    case 'atualizacoes':
+    case 'transmissao_interna':
+    case 'transmissao_externa':
+    case 'local_armazenamento_digital':
+    case 'motivo_retencao':
+    case 'exclusao':
+    case 'forma_exclusao':
+    case 'quais_dados_transferidos':
+    case 'empresa_terceira':
+      if (v.length < 3) return ['Digite ao menos 3 caracteres.'];
+      break;
+    default:
+      break;
+  }
+
+  // regra opcional: se transferência p/ terceiros = "sim", reforça detalhamento
+  if (
+    key === 'quais_dados_transferidos' &&
+    String(form.transferencia_terceiros || '').trim() === 'sim' &&
+    v.length < 3
+  ) {
+    return ['Descreva os dados transferidos (mín. 3 caracteres).'];
+  }
+
+  return [];
+}
+
+function normalizeServerErrors(data) {
+  const map = {};
+  if (!data || typeof data !== 'object') return map;
+  if (data.detail)
+    map._general = Array.isArray(data.detail) ? data.detail : [String(data.detail)];
+  Object.entries(data).forEach(([k, v]) => {
+    if (k === 'detail') return;
+    if (Array.isArray(v)) map[k] = v.map(String);
+    else if (typeof v === 'string') map[k] = [v];
+    else if (v && typeof v === 'object') map[k] = [JSON.stringify(v)];
+  });
+  return map;
+}
 
 function InventarioDados2() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { form, setField, loadInventario, recordId, saveStep, reload, clearStep, reset } =
+  const { form, setField, loadInventario, recordId, saveStep, reload, reset } =
     useInventario();
 
   const [warn, setWarn] = React.useState(false);
   const [savingStep, setSavingStep] = React.useState(false);
+  const [serverErrors, setServerErrors] = React.useState({});
+  const [clientErrors, setClientErrors] = React.useState({});
 
   const [flash, setFlash] = React.useState({ variant: '', msg: '' });
   React.useEffect(() => {
@@ -69,7 +155,6 @@ function InventarioDados2() {
     navigate(ROUTES.INVENTARIO_DADOS3 + (recordId ? `?id=${recordId}` : ''));
   };
 
-  // ===== Salvar/Cancelar SOMENTE desta página =====
   async function handleSaveStep() {
     if (!recordId) {
       const msg =
@@ -81,6 +166,24 @@ function InventarioDados2() {
       return;
     }
     setSavingStep(true);
+    setServerErrors({});
+    setClientErrors({});
+
+    // validação cliente da etapa
+    const nextClientErrors = {};
+    fieldsThisStep.forEach((k) => {
+      const errs = validateField(k, form[k], form);
+      if (errs.length) nextClientErrors[k] = errs;
+    });
+
+    if (Object.keys(nextClientErrors).length > 0) {
+      setClientErrors(nextClientErrors);
+      setWarn(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setSavingStep(false);
+      return;
+    }
+
     try {
       await saveStep(fieldsThisStep);
       await reload();
@@ -90,33 +193,71 @@ function InventarioDados2() {
         toast.success(okMsg);
       } catch {}
       navigate(ROUTES.INVENTARIO_LISTA, { state: { flash: okMsg } });
-    } catch {
-      setFlash({ variant: 'danger', msg: 'Falha ao salvar esta página.' });
-      try {
-        toast.error('Falha ao salvar esta página.');
-      } catch {}
+    } catch (e) {
+      const payload = e?.response?.data;
+      const mapped = normalizeServerErrors(payload);
+
+      const onlyNonField =
+        mapped?.non_field_errors &&
+        !Object.keys(mapped).some((k) => !['_general', 'non_field_errors'].includes(k));
+
+      if (onlyNonField) {
+        setServerErrors({ _general: mapped.non_field_errors });
+        const msg = mapped.non_field_errors[0] || 'Falha ao salvar esta página.';
+        setFlash({ variant: 'danger', msg });
+        try {
+          toast.error(msg);
+        } catch {}
+      } else {
+        setServerErrors(mapped);
+        const firstField = Object.keys(mapped).find(
+          (k) => !['_general', 'non_field_errors'].includes(k)
+        );
+        const firstMsg =
+          (firstField && mapped[firstField]?.[0]) ||
+          mapped._general?.[0] ||
+          'Falha ao salvar esta página.';
+        const msg = firstField
+          ? `${FIELD_LABELS[firstField] || firstField}: ${firstMsg}`
+          : firstMsg;
+        setFlash({ variant: 'danger', msg });
+        try {
+          toast.error(msg);
+        } catch {}
+      }
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setSavingStep(false);
     }
   }
 
-  function handleCancelStep() {
-    // limpa tudo e navega para a lista
-    reset();
-    const msg = 'Alterações descartadas.';
-    setFlash({ variant: 'info', msg });
-    try {
-      toast.info(msg);
-    } catch {}
-    navigate(ROUTES.INVENTARIO_LISTA, { state: { flash: msg } });
-  }
+  const hasError = (key) =>
+    !!clientErrors[key]?.length ||
+    !!serverErrors[key]?.length ||
+    (!String(form[key] || '').trim() && warn);
+
+  const getFirstError = (key) => clientErrors[key]?.[0] || serverErrors[key]?.[0] || null;
+
+  const consolidatedErrors = React.useMemo(() => {
+    const list = [];
+    Object.entries(clientErrors).forEach(([k, arr]) =>
+      (arr || []).forEach((m) => list.push(`${FIELD_LABELS[k] || k}: ${m}`))
+    );
+    Object.entries(serverErrors).forEach(([k, arr]) => {
+      if (k === '_general' || k === 'non_field_errors') return; // não listar non_field_errors
+      (arr || []).forEach((m) => list.push(`${FIELD_LABELS[k] || k}: ${m}`));
+    });
+    (serverErrors._general || []).forEach((m) => list.push(String(m)));
+    return list;
+  }, [clientErrors, serverErrors]);
 
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
       <Sidebar />
       <div
         style={{
-          background: '#f5f5f5', // igual ao padrão aprovado
+          background: '#f5f5f5',
           minHeight: '100vh',
           width: '100vw',
           marginTop: '56px',
@@ -135,6 +276,16 @@ function InventarioDados2() {
               Existem campos obrigatórios pendentes. Preencha os campos destacados.
             </Alert>
           )}
+          {consolidatedErrors.length > 0 && (
+            <Alert variant="danger">
+              <strong>Não foi possível salvar. Corrija os itens abaixo:</strong>
+              <ul className="mb-0">
+                {consolidatedErrors.map((msg, i) => (
+                  <li key={i}>{msg}</li>
+                ))}
+              </ul>
+            </Alert>
+          )}
 
           <Form>
             <Row className="mb-3">
@@ -146,9 +297,14 @@ function InventarioDados2() {
                   placeholder="TextField"
                   value={form.pessoas_acesso || ''}
                   onChange={(e) => setField('pessoas_acesso', e.target.value)}
-                  isInvalid={!String(form.pessoas_acesso || '').trim() && warn}
+                  isInvalid={hasError('pessoas_acesso')}
                 />
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {getFirstError('pessoas_acesso') && (
+                  <div className="invalid-feedback d-block">
+                    {getFirstError('pessoas_acesso')}
+                  </div>
+                )}
               </Col>
               <Col md={6}>
                 <Form.Label>
@@ -158,9 +314,14 @@ function InventarioDados2() {
                   placeholder="TextField"
                   value={form.atualizacoes || ''}
                   onChange={(e) => setField('atualizacoes', e.target.value)}
-                  isInvalid={!String(form.atualizacoes || '').trim() && warn}
+                  isInvalid={hasError('atualizacoes')}
                 />
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {getFirstError('atualizacoes') && (
+                  <div className="invalid-feedback d-block">
+                    {getFirstError('atualizacoes')}
+                  </div>
+                )}
               </Col>
             </Row>
 
@@ -173,9 +334,14 @@ function InventarioDados2() {
                   placeholder="TextField"
                   value={form.transmissao_interna || ''}
                   onChange={(e) => setField('transmissao_interna', e.target.value)}
-                  isInvalid={!String(form.transmissao_interna || '').trim() && warn}
+                  isInvalid={hasError('transmissao_interna')}
                 />
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {getFirstError('transmissao_interna') && (
+                  <div className="invalid-feedback d-block">
+                    {getFirstError('transmissao_interna')}
+                  </div>
+                )}
               </Col>
             </Row>
 
@@ -188,9 +354,14 @@ function InventarioDados2() {
                   placeholder="TextField"
                   value={form.transmissao_externa || ''}
                   onChange={(e) => setField('transmissao_externa', e.target.value)}
-                  isInvalid={!String(form.transmissao_externa || '').trim() && warn}
+                  isInvalid={hasError('transmissao_externa')}
                 />
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {getFirstError('transmissao_externa') && (
+                  <div className="invalid-feedback d-block">
+                    {getFirstError('transmissao_externa')}
+                  </div>
+                )}
               </Col>
             </Row>
 
@@ -205,11 +376,14 @@ function InventarioDados2() {
                   onChange={(e) =>
                     setField('local_armazenamento_digital', e.target.value)
                   }
-                  isInvalid={
-                    !String(form.local_armazenamento_digital || '').trim() && warn
-                  }
+                  isInvalid={hasError('local_armazenamento_digital')}
                 />
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {getFirstError('local_armazenamento_digital') && (
+                  <div className="invalid-feedback d-block">
+                    {getFirstError('local_armazenamento_digital')}
+                  </div>
+                )}
               </Col>
               <Col md={4}>
                 <Form.Label>
@@ -218,7 +392,7 @@ function InventarioDados2() {
                 <Form.Select
                   value={form.controlador_operador || ''}
                   onChange={(e) => setField('controlador_operador', e.target.value)}
-                  isInvalid={!String(form.controlador_operador || '').trim() && warn}
+                  isInvalid={hasError('controlador_operador')}
                 >
                   <option value="">Select...</option>
                   <option value="controlador">Controlador</option>
@@ -226,6 +400,11 @@ function InventarioDados2() {
                   <option value="ambos">Ambos</option>
                 </Form.Select>
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {getFirstError('controlador_operador') && (
+                  <div className="invalid-feedback d-block">
+                    {getFirstError('controlador_operador')}
+                  </div>
+                )}
               </Col>
               <Col md={4}>
                 <Form.Label>
@@ -235,9 +414,14 @@ function InventarioDados2() {
                   placeholder="TextField"
                   value={form.motivo_retencao || ''}
                   onChange={(e) => setField('motivo_retencao', e.target.value)}
-                  isInvalid={!String(form.motivo_retencao || '').trim() && warn}
+                  isInvalid={hasError('motivo_retencao')}
                 />
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {getFirstError('motivo_retencao') && (
+                  <div className="invalid-feedback d-block">
+                    {getFirstError('motivo_retencao')}
+                  </div>
+                )}
               </Col>
             </Row>
 
@@ -250,9 +434,14 @@ function InventarioDados2() {
                   placeholder="TextField"
                   value={form.periodo_retencao || ''}
                   onChange={(e) => setField('periodo_retencao', e.target.value)}
-                  isInvalid={!String(form.periodo_retencao || '').trim() && warn}
+                  isInvalid={hasError('periodo_retencao')}
                 />
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {getFirstError('periodo_retencao') && (
+                  <div className="invalid-feedback d-block">
+                    {getFirstError('periodo_retencao')}
+                  </div>
+                )}
               </Col>
               <Col md={3}>
                 <Form.Label>
@@ -262,9 +451,14 @@ function InventarioDados2() {
                   placeholder="TextField"
                   value={form.exclusao || ''}
                   onChange={(e) => setField('exclusao', e.target.value)}
-                  isInvalid={!String(form.exclusao || '').trim() && warn}
+                  isInvalid={hasError('exclusao')}
                 />
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {getFirstError('exclusao') && (
+                  <div className="invalid-feedback d-block">
+                    {getFirstError('exclusao')}
+                  </div>
+                )}
               </Col>
               <Col md={3}>
                 <Form.Label>
@@ -274,9 +468,14 @@ function InventarioDados2() {
                   placeholder="TextField"
                   value={form.forma_exclusao || ''}
                   onChange={(e) => setField('forma_exclusao', e.target.value)}
-                  isInvalid={!String(form.forma_exclusao || '').trim() && warn}
+                  isInvalid={hasError('forma_exclusao')}
                 />
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {getFirstError('forma_exclusao') && (
+                  <div className="invalid-feedback d-block">
+                    {getFirstError('forma_exclusao')}
+                  </div>
+                )}
               </Col>
               <Col md={3}>
                 <Form.Label>
@@ -286,13 +485,18 @@ function InventarioDados2() {
                 <Form.Select
                   value={form.transferencia_terceiros || ''}
                   onChange={(e) => setField('transferencia_terceiros', e.target.value)}
-                  isInvalid={!String(form.transferencia_terceiros || '').trim() && warn}
+                  isInvalid={hasError('transferencia_terceiros')}
                 >
                   <option value="">Select...</option>
                   <option value="sim">Sim</option>
                   <option value="nao">Não</option>
                 </Form.Select>
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {getFirstError('transferencia_terceiros') && (
+                  <div className="invalid-feedback d-block">
+                    {getFirstError('transferencia_terceiros')}
+                  </div>
+                )}
               </Col>
             </Row>
 
@@ -305,9 +509,14 @@ function InventarioDados2() {
                   placeholder="TextField"
                   value={form.quais_dados_transferidos || ''}
                   onChange={(e) => setField('quais_dados_transferidos', e.target.value)}
-                  isInvalid={!String(form.quais_dados_transferidos || '').trim() && warn}
+                  isInvalid={hasError('quais_dados_transferidos')}
                 />
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {getFirstError('quais_dados_transferidos') && (
+                  <div className="invalid-feedback d-block">
+                    {getFirstError('quais_dados_transferidos')}
+                  </div>
+                )}
               </Col>
               <Col md={6}>
                 <Form.Label>
@@ -319,15 +528,18 @@ function InventarioDados2() {
                   onChange={(e) =>
                     setField('transferencia_internacional', e.target.value)
                   }
-                  isInvalid={
-                    !String(form.transferencia_internacional || '').trim() && warn
-                  }
+                  isInvalid={hasError('transferencia_internacional')}
                 >
                   <option value="">Select...</option>
                   <option value="sim">Sim</option>
                   <option value="nao">Não</option>
                 </Form.Select>
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {getFirstError('transferencia_internacional') && (
+                  <div className="invalid-feedback d-block">
+                    {getFirstError('transferencia_internacional')}
+                  </div>
+                )}
               </Col>
             </Row>
 
@@ -340,13 +552,17 @@ function InventarioDados2() {
                   placeholder="TextField"
                   value={form.empresa_terceira || ''}
                   onChange={(e) => setField('empresa_terceira', e.target.value)}
-                  isInvalid={!String(form.empresa_terceira || '').trim() && warn}
+                  isInvalid={hasError('empresa_terceira')}
                 />
                 <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {getFirstError('empresa_terceira') && (
+                  <div className="invalid-feedback d-block">
+                    {getFirstError('empresa_terceira')}
+                  </div>
+                )}
               </Col>
             </Row>
 
-            {/* Barra de Salvar/Cancelar desta página (só em EDIÇÃO) */}
             {recordId && (
               <SaveCancelBar
                 className="mt-3"

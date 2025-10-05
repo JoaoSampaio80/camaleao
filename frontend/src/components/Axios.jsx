@@ -43,6 +43,10 @@ const ENDPOINTS = COOKIE_MODE
       logout: 'auth/logout/', // opcional (se você criou)
     };
 
+if (import.meta?.env?.DEV) {
+  console.debug('[Axios] COOKIE_MODE =', COOKIE_MODE, 'ENDPOINTS =', ENDPOINTS);
+}
+
 /** =========================
  *  JWT helpers + storage
  *  ========================= */
