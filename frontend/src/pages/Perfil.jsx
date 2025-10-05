@@ -1,3 +1,4 @@
+// src/pages/Perfil.jsx
 import React, { useEffect, useState, useRef } from 'react';
 import {
   Container,
@@ -6,10 +7,9 @@ import {
   Row,
   Col,
   Alert,
-  Card,
   Spinner,
   Image,
-  Modal, // <-- adicionado
+  Modal,
 } from 'react-bootstrap';
 import AxiosInstance from '../components/Axios';
 import Sidebar from '../components/Sidebar';
@@ -22,25 +22,27 @@ const ACCEPTED = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 function Perfil() {
   const navigate = useNavigate();
   const { refreshUser, logout, authTokens } = useAuth();
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [variant, setVariant] = useState('');
   const [errors, setErrors] = useState({});
+  const [isEditing, setIsEditing] = useState(false);
 
   const [form, setForm] = useState({
     email: '',
     role: '',
-    // troca de senha
     current_password: '',
     password: '',
     password2: '',
-    // avatar
     avatar: null,
     avatar_url: '',
   });
 
-  // === helper de mensagens (3s) ===
+  // snapshot para restaurar no "Cancelar"
+  const snapshotRef = useRef(null);
+
   const showFlash = (v, t) => {
     setVariant(v);
     setMessage(t);
@@ -50,19 +52,14 @@ function Perfil() {
     }, 3000);
   };
 
-  // refs para preview e input file
   const fileInputRef = useRef(null);
   const objectUrlRef = useRef(null);
-
   const revokeLocalPreview = () => {
     if (objectUrlRef.current) {
       try {
         URL.revokeObjectURL(objectUrlRef.current);
-      } catch (_) {
-        // silencioso
-      } finally {
-        objectUrlRef.current = null;
-      }
+      } catch (_) {}
+      objectUrlRef.current = null;
     }
   };
 
@@ -72,9 +69,7 @@ function Perfil() {
       try {
         const resp = await AxiosInstance.get('users/me/');
         if (!mounted) return;
-
-        setForm((f) => ({
-          ...f,
+        const next = {
           email: resp.data?.email || '',
           role: resp.data?.role || '',
           current_password: '',
@@ -82,9 +77,10 @@ function Perfil() {
           password2: '',
           avatar: null,
           avatar_url: resp.data?.avatar || '',
-        }));
-      } catch (e) {
-        if (!mounted) return;
+        };
+        setForm(next);
+        snapshotRef.current = next; // salva snapshot inicial
+      } catch {
         showFlash(
           'danger',
           'Falha ao carregar seu perfil. Se o problema persistir, contate o administrador.'
@@ -93,7 +89,6 @@ function Perfil() {
         if (mounted) setLoading(false);
       }
     })();
-
     return () => {
       mounted = false;
       revokeLocalPreview();
@@ -102,43 +97,28 @@ function Perfil() {
 
   const onChange = (e) => {
     const { name, value, files } = e.target;
-
     if (name === 'avatar' && files && files[0]) {
       const file = files[0];
-      // validação rápida no cliente
       if (!ACCEPTED.includes(file.type)) {
-        setErrors((prev) => ({
-          ...prev,
-          avatar: 'Formato inválido. Use jpeg/jpg/png/webp',
-        }));
+        setErrors((p) => ({ ...p, avatar: 'Formato inválido. Use jpeg/jpg/png/webp' }));
         if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
       if (file.size > MAX_AVATAR_MB * 1024 * 1024) {
-        setErrors((prev) => ({
-          ...prev,
-          avatar: `Arquivo maior que ${MAX_AVATAR_MB}MB.`,
-        }));
+        setErrors((p) => ({ ...p, avatar: `Arquivo maior que ${MAX_AVATAR_MB}MB.` }));
         if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
-
-      // libera preview antigo (se houver)
       revokeLocalPreview();
-
       const url = URL.createObjectURL(file);
       objectUrlRef.current = url;
-
-      setErrors((prev) => ({ ...prev, avatar: undefined }));
-      setForm((prev) => ({ ...prev, avatar: file, avatar_url: url }));
-
-      // permite re-selecionar o mesmo arquivo
+      setErrors((p) => ({ ...p, avatar: undefined }));
+      setForm((p) => ({ ...p, avatar: file, avatar_url: url }));
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
-
-    setForm((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: undefined }));
+    setForm((p) => ({ ...p, [name]: value }));
+    if (errors[name]) setErrors((p) => ({ ...p, [name]: undefined }));
   };
 
   const validateClient = () => {
@@ -157,35 +137,25 @@ function Perfil() {
 
   const buildFormData = ({ removeAvatar = false } = {}) => {
     const fd = new FormData();
-
-    // troca de senha (se solicitada)
     const wantsPasswordChange = !!(form.password || form.password2);
     if (wantsPasswordChange) {
       fd.append('current_password', form.current_password);
       fd.append('password', form.password);
-      // envia refresh para blacklist (se existir)
       const refresh = authTokens?.refresh;
-      if (refresh) {
-        fd.append('refresh', refresh);
-      }
+      if (refresh) fd.append('refresh', refresh);
     }
-
-    // upload/remoção de avatar
     if (form.avatar) {
       fd.append('avatar', form.avatar);
     } else if (removeAvatar) {
       fd.append('remove_avatar', 'true');
     }
-
     return fd;
   };
 
-  // ====== Confirmação de remoção de foto (modal, padrão 3s) ======
+  // ====== Remoção de avatar (modal) ======
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deletingAvatar, setDeletingAvatar] = useState(false);
-
   const askRemoveAvatar = () => setConfirmOpen(true);
-
   const handleRemoveAvatar = async () => {
     if (deletingAvatar) return;
     setDeletingAvatar(true);
@@ -195,38 +165,55 @@ function Perfil() {
     try {
       const fd = buildFormData({ removeAvatar: true });
       await AxiosInstance.patch('users/me/', fd);
-
       showFlash('success', 'Foto removida com sucesso.');
-
-      // Revoga o preview local, se houver
       revokeLocalPreview();
-
-      setForm((prev) => ({ ...prev, avatar: null, avatar_url: '' }));
+      setForm((p) => ({ ...p, avatar: null, avatar_url: '' }));
+      snapshotRef.current = { ...snapshotRef.current, avatar: null, avatar_url: '' };
       await refreshUser();
     } catch (err) {
       const st = err?.response?.status;
-      if (st === 413) {
+      if (st === 413)
         showFlash('danger', `Arquivo muito grande. Tamanho máximo: ${MAX_AVATAR_MB}MB.`);
-      } else {
+      else
         showFlash(
           'danger',
           'Falha ao remover a foto. Tente novamente. Se o problema persistir, contate o administrador.'
         );
-      }
     } finally {
       setDeletingAvatar(false);
       setConfirmOpen(false);
     }
   };
 
+  const handleStartEdit = () => {
+    snapshotRef.current = { ...form, avatar: null }; // snapshot do estado visível (sem arquivo blob)
+    setIsEditing(true);
+  };
+
+  const handleCancel = () => {
+    // restaura snapshot e limpa previews/erros
+    const snap = snapshotRef.current;
+    revokeLocalPreview();
+    setErrors({});
+    setForm({
+      email: snap.email,
+      role: snap.role,
+      current_password: '',
+      password: '',
+      password2: '',
+      avatar: null,
+      avatar_url: snap.avatar_url,
+    });
+    setIsEditing(false);
+  };
+
   const onSubmit = async (e) => {
     e.preventDefault();
-    if (saving) return;
+    if (!isEditing || saving) return; // só salva quando em edição
 
     setMessage('');
     setVariant('');
     setErrors({});
-
     const clientErrs = validateClient();
     if (Object.keys(clientErrs).length) {
       setErrors(clientErrs);
@@ -235,8 +222,6 @@ function Perfil() {
     }
 
     const fd = buildFormData();
-
-    // nada para enviar?
     if (![...fd.keys()].length) {
       showFlash('warning', 'Nenhuma alteração para salvar.');
       return;
@@ -247,7 +232,6 @@ function Perfil() {
       const resp = await AxiosInstance.patch('users/me/', fd);
 
       if (resp?.data?.reauth_required) {
-        // mantém lógica original do redirecionamento rápido
         setVariant('success');
         setMessage('Senha alterada com sucesso. Você será redirecionado para o login.');
         setTimeout(() => {
@@ -258,8 +242,6 @@ function Perfil() {
       }
 
       showFlash('success', 'Perfil atualizado com sucesso.');
-
-      // limpa campos de senha
       setForm((prev) => ({
         ...prev,
         current_password: '',
@@ -268,12 +250,20 @@ function Perfil() {
         avatar: null,
         avatar_url: resp.data.avatar || prev.avatar_url,
       }));
-
-      // se o upload foi local (blob), podemos revogar
       revokeLocalPreview();
-
-      // sincroniza AuthContext
       await refreshUser();
+      // fecha modo de edição após salvar
+      setIsEditing(false);
+      // atualiza snapshot para refletir os dados persistidos
+      snapshotRef.current = {
+        email: form.email,
+        role: form.role,
+        current_password: '',
+        password: '',
+        password2: '',
+        avatar: null,
+        avatar_url: resp.data.avatar || form.avatar_url,
+      };
     } catch (err) {
       console.log('users/me/ error payload:', err?.response?.data);
       const st = err?.response?.status;
@@ -327,7 +317,6 @@ function Perfil() {
 
         {message && <Alert variant={variant}>{message}</Alert>}
 
-        {/* Form direto no gradiente, padrão aprovado */}
         <Container fluid className="container-gradient" style={{ maxWidth: 960 }}>
           {loading ? (
             <div className="py-5 text-center">
@@ -335,6 +324,98 @@ function Perfil() {
             </div>
           ) : (
             <Form onSubmit={onSubmit} noValidate>
+              {/* Avatar centralizado + título */}
+              <div className="text-center mb-3">
+                <div
+                  className="mb-2"
+                  style={{ fontWeight: 600, color: '#fff' }} // <- título branco
+                >
+                  Foto de perfil
+                </div>
+                {form.avatar_url ? (
+                  <Image
+                    src={form.avatar_url}
+                    roundedCircle
+                    width={120}
+                    height={120}
+                    alt="Avatar"
+                    style={{ objectFit: 'cover', background: '#fff' }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 120,
+                      height: 120,
+                      borderRadius: '50%',
+                      background: '#e9ecef',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 12,
+                      color: '#6c757d',
+                      margin: '0 auto',
+                    }}
+                  >
+                    sem foto
+                  </div>
+                )}
+              </div>
+
+              {/* Inputs de avatar só em edição (logo abaixo da foto) */}
+              {isEditing && (
+                <Row className="mb-4 justify-content-center">
+                  <Col
+                    md="auto"
+                    className="d-flex flex-wrap justify-content-center align-items-start gap-3"
+                  >
+                    {/* Botão customizado para escolher arquivo */}
+                    <div className="text-center">
+                      <Button
+                        variant="light"
+                        className="btn-white-custom"
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={saving}
+                      >
+                        Escolher arquivo
+                      </Button>
+                      <input
+                        type="file"
+                        name="avatar"
+                        accept={ACCEPTED.join(',')}
+                        onChange={onChange}
+                        ref={fileInputRef}
+                        style={{ display: 'none' }}
+                      />
+                      <Form.Text
+                        className="text-light d-block mt-1"
+                        style={{ fontSize: '0.85rem', lineHeight: 1 }}
+                      >
+                        JPG/PNG/WEBP, até {MAX_AVATAR_MB}MB.
+                      </Form.Text>
+                      {errors.avatar && (
+                        <div className="invalid-feedback d-block">{errors.avatar}</div>
+                      )}
+                    </div>
+
+                    {/* Botão remover foto alinhado */}
+                    <div className="text-center">
+                      <Button
+                        className="btn-white-custom"
+                        variant="outline-secondary"
+                        type="button"
+                        onClick={askRemoveAvatar}
+                        disabled={saving || !form.avatar_url}
+                        style={{ height: '38px', marginTop: '2px' }} // força alinhamento perfeito
+                      >
+                        Remover foto
+                      </Button>
+                    </div>
+                  </Col>
+                </Row>
+              )}
+
+              {/* E-mail e Função (sempre visíveis, somente leitura) */}
               <Row className="mb-3">
                 <Col md={6}>
                   <Form.Label>E-mail</Form.Label>
@@ -346,131 +427,97 @@ function Perfil() {
                 <Col md={6}>
                   <Form.Label>Função</Form.Label>
                   <Form.Control value={form.role} disabled />
-                </Col>
-              </Row>
-
-              {/* Troca de senha */}
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Form.Label>Senha atual</Form.Label>
-                  <Form.Control
-                    type="password"
-                    name="current_password"
-                    value={form.current_password}
-                    onChange={onChange}
-                    autoComplete="current-password"
-                    isInvalid={!!errors.current_password}
-                    placeholder="Obrigatória ao trocar a senha"
-                    disabled={saving}
-                  />
-                  <Form.Control.Feedback type="invalid">
-                    {errors.current_password}
-                  </Form.Control.Feedback>
-                </Col>
-                <Col md={4}>
-                  <Form.Label>Nova senha</Form.Label>
-                  <Form.Control
-                    type="password"
-                    name="password"
-                    value={form.password}
-                    onChange={onChange}
-                    autoComplete="new-password"
-                    placeholder="Deixe em branco para não alterar"
-                    isInvalid={!!errors.password}
-                    disabled={saving}
-                  />
-                  <Form.Control.Feedback type="invalid">
-                    {errors.password}
-                  </Form.Control.Feedback>
-                </Col>
-                <Col md={4}>
-                  <Form.Label>Confirmar nova senha</Form.Label>
-                  <Form.Control
-                    type="password"
-                    name="password2"
-                    value={form.password2}
-                    onChange={onChange}
-                    autoComplete="new-password"
-                    isInvalid={!!errors.password2}
-                    disabled={saving}
-                  />
-                  <Form.Control.Feedback type="invalid">
-                    {errors.password2}
-                  </Form.Control.Feedback>
-                </Col>
-              </Row>
-
-              <Row className="mb-4 align-items-center">
-                <Col md="auto">
-                  {form.avatar_url ? (
-                    <Image
-                      src={form.avatar_url}
-                      roundedCircle
-                      width={96}
-                      height={96}
-                      alt="Avatar"
-                      style={{ objectFit: 'cover', background: '#fff' }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: 96,
-                        height: 96,
-                        borderRadius: '50%',
-                        background: '#e9ecef',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: 12,
-                        color: '#6c757d',
-                      }}
-                    >
-                      sem foto
-                    </div>
-                  )}
-                </Col>
-                <Col>
-                  <Form.Label>Foto de perfil</Form.Label>
-                  <Form.Control
-                    type="file"
-                    name="avatar"
-                    accept={ACCEPTED.join(',')}
-                    onChange={onChange}
-                    isInvalid={!!errors.avatar}
-                    disabled={saving}
-                    ref={fileInputRef}
-                  />
                   <Form.Text className="text-light">
-                    JPG/PNG/WEBP, até {MAX_AVATAR_MB}MB.
+                    Função não pode ser alterada aqui.
                   </Form.Text>
-                  <Form.Control.Feedback type="invalid">
-                    {errors.avatar}
-                  </Form.Control.Feedback>
                 </Col>
-                <Col md="auto" className="mt-3 mt-md-0">
+              </Row>
+
+              {/* Campos de senha somente em edição */}
+              {isEditing && (
+                <Row className="mb-3">
+                  <Col md={4}>
+                    <Form.Label>Senha atual</Form.Label>
+                    <Form.Control
+                      type="password"
+                      name="current_password"
+                      value={form.current_password}
+                      onChange={onChange}
+                      autoComplete="current-password"
+                      isInvalid={!!errors.current_password}
+                      placeholder="Obrigatória ao trocar a senha"
+                      disabled={saving}
+                    />
+                    <Form.Control.Feedback type="invalid">
+                      {errors.current_password}
+                    </Form.Control.Feedback>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Label>Nova senha</Form.Label>
+                    <Form.Control
+                      type="password"
+                      name="password"
+                      value={form.password}
+                      onChange={onChange}
+                      autoComplete="new-password"
+                      placeholder="Deixe em branco para não alterar"
+                      isInvalid={!!errors.password}
+                      disabled={saving}
+                    />
+                    <Form.Control.Feedback type="invalid">
+                      {errors.password}
+                    </Form.Control.Feedback>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Label>Confirmar nova senha</Form.Label>
+                    <Form.Control
+                      type="password"
+                      name="password2"
+                      value={form.password2}
+                      onChange={onChange}
+                      autoComplete="new-password"
+                      isInvalid={!!errors.password2}
+                      disabled={saving}
+                    />
+                    <Form.Control.Feedback type="invalid">
+                      {errors.password2}
+                    </Form.Control.Feedback>
+                  </Col>
+                </Row>
+              )}
+
+              {/* Botões */}
+              <div className="d-flex justify-content-end mt-3 gap-2">
+                {!isEditing ? (
                   <Button
                     className="btn-white-custom"
-                    variant="outline-secondary"
                     type="button"
-                    onClick={askRemoveAvatar} // <-- abre o modal de confirmação
-                    disabled={saving || !form.avatar_url}
+                    onClick={handleStartEdit}
                   >
-                    Remover foto
+                    Editar
                   </Button>
-                </Col>
-              </Row>
-
-              <div className="d-flex justify-content-end mt-3">
-                <Button className="btn-white-custom" type="submit" disabled={saving}>
-                  {saving ? 'Salvando...' : 'Salvar alterações'}
-                </Button>
+                ) : (
+                  <>
+                    <Button
+                      variant="secondary"
+                      type="button"
+                      onClick={handleCancel}
+                      disabled={saving}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button className="btn-white-custom" type="submit" disabled={saving}>
+                      {saving ? 'Salvando...' : 'Salvar alterações'}
+                    </Button>
+                  </>
+                )}
               </div>
             </Form>
           )}
         </Container>
       </div>
 
-      {/* Modal de confirmação para remover a foto (padrão usado nas outras telas) */}
+      {/* Modal confirmar remoção da foto */}
       <Modal
         show={confirmOpen}
         onHide={() => !deletingAvatar && setConfirmOpen(false)}
