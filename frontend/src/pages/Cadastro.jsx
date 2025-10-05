@@ -11,6 +11,7 @@ import {
   Card,
   Badge,
   Pagination,
+  Modal,
 } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import AxiosInstance from '../components/Axios';
@@ -20,13 +21,10 @@ const NameMax = 60;
 
 const sanitizeName = (s) =>
   (s || '')
-    // permite letras unicode, espaço, hífen, apóstrofo ASCII (') e apóstrofo tipográfico (’)
     .replace(/[^\p{L}\s\-'\u2019]/gu, '')
-    // colapsa repetições
     .replace(/\s{2,}/g, ' ')
     .replace(/-{2,}/g, '-')
     .replace(/['\u2019]{2,}/g, "'")
-    // remove espaços/apóstrofos/hífens do início
     .replace(/^[\s'\u2019-]+/, '')
     .slice(0, NameMax);
 
@@ -35,12 +33,10 @@ const addYearsToISODate = (yyyy_mm_dd, years = 2) => {
   const [y, m, d] = yyyy_mm_dd.split('-').map(Number);
   if (!y || !m || !d) return '';
 
-  // Trabalha em UTC para evitar deslocamentos por fuso/horário de verão
   const base = new Date(Date.UTC(y, m - 1, d));
   const out = new Date(base);
   out.setUTCFullYear(base.getUTCFullYear() + years);
 
-  // Se mudou o mês, é caso 29/02 -> ajusta para o último dia do mês anterior (28/02)
   if (out.getUTCMonth() !== base.getUTCMonth()) {
     out.setUTCDate(0);
   }
@@ -90,14 +86,14 @@ function Cadastro() {
   const [mode, setMode] = useState('create'); // 'create' | 'edit'
   const [selectedId, setSelectedId] = useState(null);
 
-  const [users, setUsers] = useState([]); // lista normalizada
+  const [users, setUsers] = useState([]);
   const [listLoading, setListLoading] = useState(true);
   const [query, setQuery] = useState('');
 
   // paginação
-  const [page, setPage] = useState(1); // página atual
-  const [pageSize, setPageSize] = useState(10); // itens por página
-  const [count, setCount] = useState(0); // total de itens (quando paginado)
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [count, setCount] = useState(0);
   const [next, setNext] = useState(null);
   const [previous, setPrevious] = useState(null);
 
@@ -108,26 +104,38 @@ function Cadastro() {
 
   const [originalRole, setOriginalRole] = useState(null);
 
+  // ====== flash helper 3s ======
+  const showFlash = (v, t) => {
+    setVariant(v);
+    setMessage(t);
+    setTimeout(() => {
+      setMessage('');
+      setVariant('');
+    }, 3000);
+  };
+
+  // ====== modal confirmação exclusão ======
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTarget, setConfirmTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
   const totalPages = useMemo(() => {
     const base = count || users.length || 0;
     return Math.max(1, Math.ceil(base / pageSize));
   }, [count, users.length, pageSize]);
 
-  // ------- Lista de usuários (com normalização e paginação) -------
+  // ------- Lista de usuários -------
   const fetchUsers = async () => {
     setListLoading(true);
     try {
       const params = {};
       if (query) params.q = query;
-
-      // Suporta PageNumberPagination padrão do DRF: page / page_size
       params.page = page;
       params.page_size = pageSize;
 
       const resp = await AxiosInstance.get('users/', { params });
       const data = resp?.data;
 
-      // Aceita: [ {...}, {...} ]  ou  { results: [ {...} ], count, next, previous }
       const list = Array.isArray(data)
         ? data
         : Array.isArray(data?.results)
@@ -136,7 +144,6 @@ function Cadastro() {
       setUsers(list);
 
       if (Array.isArray(data)) {
-        // sem paginação no backend -> finge uma página única
         setCount(data.length);
         setNext(null);
         setPrevious(null);
@@ -146,9 +153,11 @@ function Cadastro() {
         setPrevious(data?.previous ?? null);
       }
     } catch (e) {
-      setUsers([]); // garante array mesmo em erro
-      setVariant('danger');
-      setMessage('Falha ao carregar usuários.');
+      setUsers([]);
+      showFlash(
+        'danger',
+        'Falha ao carregar usuários. Se o problema persistir, contate o administrador.'
+      );
     } finally {
       setListLoading(false);
     }
@@ -156,10 +165,10 @@ function Cadastro() {
 
   useEffect(() => {
     fetchUsers(); /* eslint-disable-next-line */
-  }, [page, pageSize]); // atualiza ao trocar página/tamanho
+  }, [page, pageSize]);
   useEffect(() => {
     fetchUsers(); /* eslint-disable-next-line */
-  }, []); // primeira carga
+  }, []);
 
   // ------- Handlers -------
   const handleChange = (e) => {
@@ -168,17 +177,14 @@ function Cadastro() {
     setFormData((prev) => {
       const next = { ...prev, [name]: value ?? '' };
 
-      // Normalizações do "estado seguinte"
       const nextRole = name === 'role' ? value : prev.role;
       const nextAppointmentDate =
         name === 'appointment_date' ? value : prev.appointment_date;
 
-      // 1) Recalcula SEMPRE que a data mudar (se for DPO)
       if (name === 'appointment_date' && nextRole === 'dpo') {
         next.appointment_validity = value ? addYearsToISODate(value, 2) : '';
       }
 
-      // 2) Ao trocar papel para DPO: se já existe data, calcula
       if (name === 'role' && value === 'dpo' && nextAppointmentDate) {
         next.appointment_validity = addYearsToISODate(nextAppointmentDate, 2);
       }
@@ -208,7 +214,6 @@ function Cadastro() {
 
     if (mode === 'create') {
       if (!isProdLike) {
-        // DEV: exige e pode ser mais flexível (3+)
         if (!formData.password) e.password = 'Senha é obrigatória.';
         if (formData.password && formData.password.length < 3)
           e.password = 'A senha deve ter pelo menos 3 caracteres.';
@@ -216,11 +221,9 @@ function Cadastro() {
           e.password2 = 'As senhas não coincidem.';
       }
     } else {
-      // EDIÇÃO: se for trocar a senha, aplique critérios
       if (formData.password || formData.password2) {
         if (!formData.password) e.password = 'Informe a nova senha.';
         if (!formData.password2) e.password2 = 'Confirme a nova senha.';
-        // Em produção, seja mais rígido (8+); em dev mantenha 3+
         const minLen = isProdLike ? 8 : 3;
         if (formData.password && formData.password.length < minLen) {
           e.password = `A senha deve ter pelo menos ${minLen} caracteres.`;
@@ -237,7 +240,6 @@ function Cadastro() {
       e.last_name = 'Use apenas letras, espaços, hífen e apóstrofo.';
     }
 
-    // Campos obrigatórios para DPO
     if (formData.role === 'dpo') {
       const len = digitsOnly(formData.phone_number).length;
       if (!len) e.phone_number = 'Telefone é obrigatório para DPO.';
@@ -263,7 +265,6 @@ function Cadastro() {
     if (formData.role === 'dpo') {
       const date = formData.appointment_date || null;
       const validity = date ? addYearsToISODate(date, 2) : null;
-
       data.appointment_date = date;
       data.appointment_validity = validity;
     } else {
@@ -294,8 +295,7 @@ function Cadastro() {
     const clientErrs = validateClient();
     if (Object.keys(clientErrs).length) {
       setErrors(clientErrs);
-      setVariant('danger');
-      setMessage('Corrija os campos destacados.');
+      showFlash('danger', 'Corrija os campos destacados.');
       return;
     }
 
@@ -305,28 +305,18 @@ function Cadastro() {
       if (mode === 'create') {
         const response = await AxiosInstance.post('users/', dataToSend);
         if (response.status === 201) {
-          setVariant('success');
-          setMessage('Usuário cadastrado com sucesso!');
+          showFlash('success', 'Usuário cadastrado com sucesso!');
           await fetchUsers();
           resetForm({ clearFlash: false });
           window.scrollTo({ top: 0, behavior: 'smooth' });
-          setTimeout(() => {
-            setMessage('');
-            setVariant('');
-          }, 3000);
         }
       } else {
         const response = await AxiosInstance.patch(`users/${selectedId}/`, dataToSend);
         if ([200, 204].includes(response.status)) {
-          setVariant('success');
-          setMessage('Dados alterados com sucesso!');
+          showFlash('success', 'Dados alterados com sucesso!');
           await fetchUsers();
-          resetForm({ clearFlash: false }); // mantém a mensagem
+          resetForm({ clearFlash: false });
           window.scrollTo({ top: 0, behavior: 'smooth' });
-          setTimeout(() => {
-            setMessage('');
-            setVariant('');
-          }, 3000);
         }
       }
     } catch (error) {
@@ -339,14 +329,17 @@ function Cadastro() {
           normalized[k] = Array.isArray(v) ? v.join(' ') : String(v);
         });
         setErrors(normalized);
-        setVariant('danger');
-        setMessage('Corrija os campos destacados.');
+        showFlash('danger', 'Corrija os campos destacados.');
       } else if (st === 403) {
-        setVariant('danger');
-        setMessage('Você não tem permissão para executar esta ação.');
+        showFlash(
+          'danger',
+          'Você não tem permissão para executar esta ação. Se o problema persistir, contate o administrador.'
+        );
       } else {
-        setVariant('danger');
-        setMessage('Erro ao salvar. Verifique os dados e tente novamente.');
+        showFlash(
+          'danger',
+          'Erro ao salvar. Verifique os dados e tente novamente. Se o problema persistir, contate o administrador.'
+        );
       }
     } finally {
       setSubmitting(false);
@@ -380,13 +373,43 @@ function Cadastro() {
       setVariant('');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
-      setVariant('danger');
-      setMessage('Falha ao carregar usuário para edição.');
+      showFlash(
+        'danger',
+        'Falha ao carregar usuário para edição. Se o problema persistir, contate o administrador.'
+      );
+    }
+  };
+
+  // ——— Exclusão com modal (sem alterar visual geral) ———
+  const askDelete = async (id) => {
+    setConfirmTarget(id);
+    setConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!confirmTarget) return;
+    setDeleting(true);
+    try {
+      await AxiosInstance.delete(`users/${confirmTarget}/`);
+      if (selectedId === confirmTarget) resetForm();
+      await fetchUsers();
+      showFlash('success', 'Usuário excluído com sucesso.');
+    } catch (e) {
+      const detail = e?.response?.data?.detail;
+      showFlash(
+        'danger',
+        detail ||
+          'Falha ao excluir o usuário. Se o problema persistir, contate o administrador.'
+      );
+    } finally {
+      setDeleting(false);
+      setConfirmOpen(false);
+      setConfirmTarget(null);
     }
   };
 
   const handlePhoneChange = (e) => {
-    const digits = digitsOnly(e.target.value).slice(0, 11); // limite 11
+    const digits = digitsOnly(e.target.value).slice(0, 11);
     setFormData((prev) => ({ ...prev, phone_number: digits }));
     if (errors.phone_number) setErrors((prev) => ({ ...prev, phone_number: undefined }));
   };
@@ -403,28 +426,9 @@ function Cadastro() {
     if (errors.last_name) setErrors((prev) => ({ ...prev, last_name: undefined }));
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Tem certeza que deseja excluir este usuário?')) return;
-    try {
-      await AxiosInstance.delete(`users/${id}/`);
-      if (selectedId === id) resetForm();
-      await fetchUsers();
-      setVariant('success');
-      setMessage('Usuário excluído com sucesso.');
-      setTimeout(() => {
-        setMessage('');
-        setVariant('');
-      }, 3000);
-    } catch (e) {
-      const detail = e?.response?.data?.detail;
-      setVariant('danger');
-      setMessage(detail || 'Falha ao excluir o usuário.');
-    }
-  };
-
   const onFilter = async (e) => {
     e.preventDefault();
-    setPage(1); // sempre volta pra primeira página ao filtrar
+    setPage(1);
     await fetchUsers();
   };
 
@@ -451,9 +455,8 @@ function Cadastro() {
     setPage(p);
   };
 
-  // cria um range curto de páginas (para não poluir a UI)
   const pageItems = useMemo(() => {
-    const maxAround = 2; // páginas vizinhas ao redor da atual
+    const maxAround = 2;
     const start = Math.max(1, page - maxAround);
     const end = Math.min(totalPages, page + maxAround);
     const arr = [];
@@ -480,7 +483,6 @@ function Cadastro() {
           boxSizing: 'border-box',
         }}
       >
-        {/* título centralizado como nas outras páginas */}
         <div
           className="d-flex justify-content-center align-items-center gap-3 mb-3"
           style={{ width: '100%', maxWidth: 1100 }}
@@ -495,7 +497,6 @@ function Cadastro() {
           )}
         </div>
 
-        {/* === FORM NO GRADIENTE (SEM CARD) === */}
         <Container fluid className="container-gradient" style={{ maxWidth: 1100 }}>
           {message && <Alert variant={variant}>{message}</Alert>}
 
@@ -760,7 +761,6 @@ function Cadastro() {
           </Form>
         </Container>
 
-        {/* === LISTA + FILTRO EM CARD BRANCO NORMAL (FORA do gradiente) === */}
         <Container fluid style={{ maxWidth: 1100 }} className="mt-4">
           <Card className="shadow-sm">
             <Card.Header className="bg-white">
@@ -847,7 +847,7 @@ function Cadastro() {
                             <Button
                               size="sm"
                               variant="outline-danger"
-                              onClick={() => handleDelete(u.id)}
+                              onClick={() => askDelete(u.id)}
                             >
                               Excluir
                             </Button>
@@ -864,7 +864,6 @@ function Cadastro() {
                     </tbody>
                   </Table>
 
-                  {/* ====== Paginação ====== */}
                   <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div className="text-muted">
                       Total: <strong>{count || users.length}</strong> • Página{' '}
@@ -877,15 +876,12 @@ function Cadastro() {
                         disabled={!canPrev}
                         onClick={() => goTo(page - 1)}
                       />
-
-                      {/* elipse inicial */}
                       {pageItems[0] > 1 && (
                         <>
                           <Pagination.Item onClick={() => goTo(1)}>{1}</Pagination.Item>
                           <Pagination.Ellipsis disabled />
                         </>
                       )}
-
                       {pageItems.map((p) => (
                         <Pagination.Item
                           key={p}
@@ -895,8 +891,6 @@ function Cadastro() {
                           {p}
                         </Pagination.Item>
                       ))}
-
-                      {/* elipse final */}
                       {pageItems[pageItems.length - 1] < totalPages && (
                         <>
                           <Pagination.Ellipsis disabled />
@@ -905,7 +899,6 @@ function Cadastro() {
                           </Pagination.Item>
                         </>
                       )}
-
                       <Pagination.Next
                         disabled={!canNext}
                         onClick={() => goTo(page + 1)}
@@ -922,6 +915,32 @@ function Cadastro() {
           </Card>
         </Container>
       </div>
+
+      {/* Modal de confirmação de exclusão (visual discreto para não mudar o look&feel geral) */}
+      <Modal
+        show={confirmOpen}
+        onHide={() => !deleting && setConfirmOpen(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Confirmar exclusão</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Tem certeza de que deseja <strong>excluir</strong> este usuário?
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setConfirmOpen(false)}
+            disabled={deleting}
+          >
+            Cancelar
+          </Button>
+          <Button variant="danger" onClick={confirmDelete} disabled={deleting}>
+            {deleting ? 'Excluindo…' : 'Excluir'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }
