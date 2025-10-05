@@ -9,6 +9,7 @@ import {
   Card,
   Spinner,
   Image,
+  Modal, // <-- adicionado
 } from 'react-bootstrap';
 import AxiosInstance from '../components/Axios';
 import Sidebar from '../components/Sidebar';
@@ -34,12 +35,22 @@ function Perfil() {
     current_password: '',
     password: '',
     password2: '',
-    //avatar
+    // avatar
     avatar: null,
     avatar_url: '',
   });
 
-  // refs para lidar com preview e input file
+  // === helper de mensagens (3s) ===
+  const showFlash = (v, t) => {
+    setVariant(v);
+    setMessage(t);
+    setTimeout(() => {
+      setMessage('');
+      setVariant('');
+    }, 3000);
+  };
+
+  // refs para preview e input file
   const fileInputRef = useRef(null);
   const objectUrlRef = useRef(null);
 
@@ -74,8 +85,10 @@ function Perfil() {
         }));
       } catch (e) {
         if (!mounted) return;
-        setVariant('danger');
-        setMessage('Falha ao carregar seu perfil.');
+        showFlash(
+          'danger',
+          'Falha ao carregar seu perfil. Se o problema persistir, contate o administrador.'
+        );
       } finally {
         if (mounted) setLoading(false);
       }
@@ -119,7 +132,7 @@ function Perfil() {
       setErrors((prev) => ({ ...prev, avatar: undefined }));
       setForm((prev) => ({ ...prev, avatar: file, avatar_url: url }));
 
-      // permite re-selecionar o mesmo arquivo no futuro
+      // permite re-selecionar o mesmo arquivo
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
@@ -167,25 +180,25 @@ function Perfil() {
     return fd;
   };
 
+  // ====== Confirmação de remoção de foto (modal, padrão 3s) ======
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deletingAvatar, setDeletingAvatar] = useState(false);
+
+  const askRemoveAvatar = () => setConfirmOpen(true);
+
   const handleRemoveAvatar = async () => {
-    if (saving) return;
+    if (deletingAvatar) return;
+    setDeletingAvatar(true);
     setMessage('');
     setVariant('');
     setErrors({});
-    setSaving(true);
     try {
       const fd = buildFormData({ removeAvatar: true });
+      await AxiosInstance.patch('users/me/', fd);
 
-      const resp = await AxiosInstance.patch('users/me/', fd);
+      showFlash('success', 'Foto removida com sucesso.');
 
-      setVariant('success');
-      setMessage('Foto removida com sucesso.');
-      setTimeout(() => {
-        setMessage('');
-        setVariant('');
-      }, 3000);
-
-      // se a URL atual for um blob local, revoga
+      // Revoga o preview local, se houver
       revokeLocalPreview();
 
       setForm((prev) => ({ ...prev, avatar: null, avatar_url: '' }));
@@ -193,14 +206,16 @@ function Perfil() {
     } catch (err) {
       const st = err?.response?.status;
       if (st === 413) {
-        setVariant('danger');
-        setMessage(`Arquivo muito grande. Tamanho máximo: ${MAX_AVATAR_MB}MB.`);
+        showFlash('danger', `Arquivo muito grande. Tamanho máximo: ${MAX_AVATAR_MB}MB.`);
       } else {
-        setVariant('danger');
-        setMessage('Falha ao remover a foto. Tente novamente.');
+        showFlash(
+          'danger',
+          'Falha ao remover a foto. Tente novamente. Se o problema persistir, contate o administrador.'
+        );
       }
     } finally {
-      setSaving(false);
+      setDeletingAvatar(false);
+      setConfirmOpen(false);
     }
   };
 
@@ -215,8 +230,7 @@ function Perfil() {
     const clientErrs = validateClient();
     if (Object.keys(clientErrs).length) {
       setErrors(clientErrs);
-      setVariant('danger');
-      setMessage('Corrija os campos destacados.');
+      showFlash('danger', 'Corrija os campos destacados.');
       return;
     }
 
@@ -224,12 +238,7 @@ function Perfil() {
 
     // nada para enviar?
     if (![...fd.keys()].length) {
-      setVariant('warning');
-      setMessage('Nenhuma alteração para salvar.');
-      setTimeout(() => {
-        setMessage('');
-        setVariant('');
-      }, 2000);
+      showFlash('warning', 'Nenhuma alteração para salvar.');
       return;
     }
 
@@ -238,6 +247,7 @@ function Perfil() {
       const resp = await AxiosInstance.patch('users/me/', fd);
 
       if (resp?.data?.reauth_required) {
+        // mantém lógica original do redirecionamento rápido
         setVariant('success');
         setMessage('Senha alterada com sucesso. Você será redirecionado para o login.');
         setTimeout(() => {
@@ -247,12 +257,8 @@ function Perfil() {
         return;
       }
 
-      setVariant('success');
-      setMessage('Perfil atualizado com sucesso.');
-      setTimeout(() => {
-        setMessage('');
-        setVariant('');
-      }, 3000);
+      showFlash('success', 'Perfil atualizado com sucesso.');
+
       // limpa campos de senha
       setForm((prev) => ({
         ...prev,
@@ -263,10 +269,10 @@ function Perfil() {
         avatar_url: resp.data.avatar || prev.avatar_url,
       }));
 
-      // se o upload foi local (blob), podemos revogar (a URL exibida passa a ser a do servidor)
+      // se o upload foi local (blob), podemos revogar
       revokeLocalPreview();
 
-      // sincroniza AuthContext (Sidebar / topo da página)
+      // sincroniza AuthContext
       await refreshUser();
     } catch (err) {
       console.log('users/me/ error payload:', err?.response?.data);
@@ -279,8 +285,7 @@ function Perfil() {
           normalized[k] = Array.isArray(v) ? v.join(' ') : String(v);
         });
         setErrors(normalized);
-        setVariant('danger');
-        setMessage('Corrija os campos destacados.');
+        showFlash('danger', 'Corrija os campos destacados.');
       } else if (st === 401) {
         setVariant('danger');
         setMessage('Sessão expirada. Faça login novamente.');
@@ -289,11 +294,12 @@ function Perfil() {
           navigate('/login', { replace: true });
         }, 1500);
       } else if (st === 413) {
-        setVariant('danger');
-        setMessage(`Arquivo muito grande. Tamanho máximo: ${MAX_AVATAR_MB}MB.`);
+        showFlash('danger', `Arquivo muito grande. Tamanho máximo: ${MAX_AVATAR_MB}MB.`);
       } else {
-        setVariant('danger');
-        setMessage('Falha ao salvar. Tente novamente.');
+        showFlash(
+          'danger',
+          'Falha ao salvar. Tente novamente. Se o problema persistir, contate o administrador.'
+        );
       }
     } finally {
       setSaving(false);
@@ -446,7 +452,7 @@ function Perfil() {
                     className="btn-white-custom"
                     variant="outline-secondary"
                     type="button"
-                    onClick={handleRemoveAvatar}
+                    onClick={askRemoveAvatar} // <-- abre o modal de confirmação
                     disabled={saving || !form.avatar_url}
                   >
                     Remover foto
@@ -463,6 +469,32 @@ function Perfil() {
           )}
         </Container>
       </div>
+
+      {/* Modal de confirmação para remover a foto (padrão usado nas outras telas) */}
+      <Modal
+        show={confirmOpen}
+        onHide={() => !deletingAvatar && setConfirmOpen(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Remover foto de perfil</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Tem certeza de que deseja <strong>remover</strong> sua foto de perfil?
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setConfirmOpen(false)}
+            disabled={deletingAvatar}
+          >
+            Cancelar
+          </Button>
+          <Button variant="danger" onClick={handleRemoveAvatar} disabled={deletingAvatar}>
+            {deletingAvatar ? 'Removendo…' : 'Remover'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }
