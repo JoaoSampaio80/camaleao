@@ -64,16 +64,20 @@ function FormularioAtividades() {
   // Upload (via input oculto por linha)
   const fileInputsRef = useRef({});
 
-  // Mensagens
+  // Mensagens (padrão 3s)
   const [notice, setNotice] = useState(null); // {variant, text}
-
-  // TODO: integre com seu backend de auth / JWT
-  const isStaffOrDPO = true;
-
-  const showMsg = (variant, text, ms = 3500) => {
+  const showMsg = (variant, text, ms = 3000) => {
     setNotice({ variant, text });
     if (ms) setTimeout(() => setNotice(null), ms);
   };
+
+  // Confirmação de exclusão (modal moderno)
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTarget, setConfirmTarget] = useState(null); // row
+  const [deleting, setDeleting] = useState(false);
+
+  // TODO: integre com seu backend de auth / JWT
+  const isStaffOrDPO = true;
 
   const safeMergeChoices = (data) => ({
     dimensao: data?.dimensao?.length ? data.dimensao : FALLBACK_CHOICES.dimensao,
@@ -119,7 +123,10 @@ function FormularioAtividades() {
       }
     } catch (e) {
       console.error(e);
-      showMsg('danger', 'Falha ao carregar a listagem.');
+      showMsg(
+        'danger',
+        'Falha ao carregar a listagem. Se o problema persistir, contate o administrador.'
+      );
     } finally {
       setLoading(false);
     }
@@ -174,20 +181,21 @@ function FormularioAtividades() {
     if (e?.response) {
       const { status, data } = e.response;
       if (status === 403) return 'Sem permissão. (Apenas Admin/DPO podem salvar aqui.)';
-      if (typeof data === 'string') return data;
+      if (typeof data === 'string')
+        return `${data} Se o problema persistir, contate o administrador.`;
       if (data && typeof data === 'object') {
         try {
           const parts = Object.entries(data).map(([k, v]) => {
             const val = Array.isArray(v) ? v.join('; ') : String(v);
             return `${k}: ${val}`;
           });
-          return parts.join(' | ');
+          return `${parts.join(' | ')} Se o problema persistir, contate o administrador.`;
         } catch {
-          return 'Erro ao salvar (validação).';
+          return 'Erro ao salvar (validação). Se o problema persistir, contate o administrador.';
         }
       }
     }
-    return 'Erro ao salvar. Verifique a conexão.';
+    return 'Erro ao salvar. Verifique a conexão. Se o problema persistir, contate o administrador.';
   };
 
   const handleSave = async (ev) => {
@@ -207,21 +215,32 @@ function FormularioAtividades() {
       await loadRows(page, pageSize);
     } catch (e) {
       console.error(e);
-      showMsg('danger', parseErrorMsg(e), 6000);
+      showMsg('danger', parseErrorMsg(e));
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (row) => {
-    if (!window.confirm('Confirmar exclusão?')) return;
+  // —— Exclusão com modal moderno e mensagens 3s ——
+  const askDelete = (row) => {
+    setConfirmTarget(row);
+    setConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!confirmTarget) return;
+    setDeleting(true);
     try {
-      await Axios.delete(`/documentos/${row.id}/`);
+      await Axios.delete(`/documentos/${confirmTarget.id}/`);
       showMsg('success', 'Excluído com sucesso.');
-      loadRows(page, pageSize);
+      await loadRows(page, pageSize);
     } catch (e) {
       console.error(e);
-      showMsg('danger', parseErrorMsg(e), 6000);
+      showMsg('danger', parseErrorMsg(e));
+    } finally {
+      setDeleting(false);
+      setConfirmOpen(false);
+      setConfirmTarget(null);
     }
   };
 
@@ -308,7 +327,10 @@ function FormularioAtividades() {
       showMsg('success', 'Download iniciado.');
     } catch (e) {
       console.error(e);
-      showMsg('danger', 'Falha no download. Verifique suas permissões e o arquivo.');
+      showMsg(
+        'danger',
+        'Falha no download. Verifique suas permissões e o arquivo. Se o problema persistir, contate o administrador.'
+      );
     }
   };
 
@@ -330,7 +352,7 @@ function FormularioAtividades() {
       await loadRows(page, pageSize);
     } catch (e) {
       console.error(e);
-      showMsg('danger', parseErrorMsg(e), 6000);
+      showMsg('danger', parseErrorMsg(e));
     } finally {
       if (fileInputsRef.current[rowId]) fileInputsRef.current[rowId].value = '';
     }
@@ -596,7 +618,7 @@ function FormularioAtividades() {
                                 </Dropdown.Item>
                                 <Dropdown.Item
                                   className="text-danger"
-                                  onClick={() => handleDelete(r)}
+                                  onClick={() => askDelete(r)}
                                 >
                                   Excluir
                                 </Dropdown.Item>
@@ -745,6 +767,32 @@ function FormularioAtividades() {
           </Form>
         </Modal>
       </div>
+
+      {/* Modal de confirmação de exclusão (padrão, 3s feedback) */}
+      <Modal
+        show={confirmOpen}
+        onHide={() => !deleting && setConfirmOpen(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Confirmar exclusão</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Tem certeza de que deseja <strong>excluir</strong> este registro?
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setConfirmOpen(false)}
+            disabled={deleting}
+          >
+            Cancelar
+          </Button>
+          <Button variant="danger" onClick={confirmDelete} disabled={deleting}>
+            {deleting ? 'Excluindo…' : 'Excluir'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }
