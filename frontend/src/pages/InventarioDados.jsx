@@ -164,7 +164,7 @@ function InventarioDados() {
 
   function handleCancelStep() {
     reset();
-    const msg = 'Alterações descartadas.';
+    const msg = 'Operação cancelada.';
     try {
       toast.info(msg, TOAST);
     } catch {}
@@ -495,18 +495,39 @@ function InventarioDados() {
               />
             )}
 
-            <div className="d-flex justify-content-end mt-4">
-              <div className="me-3 align-self-center text-light" style={{ fontSize: 13 }}>
-                {!canGoNext ? 'Existem campos obrigatórios pendentes.' : ''}
+            {/* Navegação / Cancelar (modo criação também) */}
+            <div
+              className={`d-flex mt-4 ${
+                recordId ? 'justify-content-end' : 'justify-content-between'
+              }`}
+            >
+              {!recordId && (
+                <Button
+                  type="button"
+                  className="btn-white-custom"
+                  variant="outline-secondary"
+                  onClick={handleCancelStep}
+                >
+                  Cancelar
+                </Button>
+              )}
+
+              <div className="d-flex align-items-center">
+                <div
+                  className="me-3 align-self-center text-light"
+                  style={{ fontSize: 13 }}
+                >
+                  {!canGoNext ? 'Existem campos obrigatórios pendentes.' : ''}
+                </div>
+                <Button
+                  type="button"
+                  className="btn-white-custom"
+                  variant="primary"
+                  onClick={goNext}
+                >
+                  Próxima Página
+                </Button>
               </div>
-              <Button
-                type="button"
-                className="btn-white-custom"
-                variant="primary"
-                onClick={goNext}
-              >
-                Próxima Página
-              </Button>
             </div>
           </Form>
         </Container>

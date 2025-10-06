@@ -204,7 +204,7 @@ function InventarioDados2() {
 
   const handleCancelStep = React.useCallback(() => {
     reset();
-    const msg = 'Alterações descartadas.';
+    const msg = 'Operação cancelada.';
     try {
       toast.info(msg, TOAST);
     } catch {}
@@ -645,14 +645,28 @@ function InventarioDados2() {
             )}
 
             <div className="d-flex justify-content-between mt-4">
-              <Button
-                type="button"
-                className="btn-white-custom"
-                variant="primary"
-                onClick={goBack}
-              >
-                Voltar
-              </Button>
+              <div className="d-flex gap-2">
+                <Button
+                  type="button"
+                  className="btn-white-custom"
+                  variant="primary"
+                  onClick={goBack}
+                >
+                  Voltar
+                </Button>
+
+                {/* Cancelar também no modo criação */}
+                {!recordId && (
+                  <Button
+                    type="button"
+                    className="btn-white-custom"
+                    variant="outline-secondary"
+                    onClick={handleCancelStep}
+                  >
+                    Cancelar
+                  </Button>
+                )}
+              </div>
 
               <div className="d-flex align-items-center gap-3">
                 <div className="text-light" style={{ fontSize: 13 }}>

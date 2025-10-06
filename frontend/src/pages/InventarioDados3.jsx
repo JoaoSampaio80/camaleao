@@ -191,7 +191,7 @@ function InventarioDados3() {
     setServerErrors({});
     setClientErrors({});
     reset();
-    const msg = 'Alterações desta página descartadas.';
+    const msg = 'Operação cancelada.';
     setFlash({ variant: 'info', msg });
     try {
       toast.info(msg, TOAST);
