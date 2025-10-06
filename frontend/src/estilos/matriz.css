@@ -1,0 +1,211 @@
+/* ======= TABELA ======= */
+.custom-table,
+.custom-table th,
+.custom-table td {
+  border-color: #d9e1e8 !important;
+}
+
+.thead-gradient tr {
+  background: linear-gradient(135deg, #003366, #005b96) !important;
+}
+
+/* header gradiente */
+.thead-gradient th {
+  background: transparent !important; /* mostra o gradiente do <tr> */
+  color: #fff !important;
+  border-color: #00528a !important;
+  white-space: nowrap;
+}
+/* o TH de Ações precisa de fundo sólido pq é sticky (quando for o próprio TH de Ações) */
+.thead-gradient th.sticky-actions-th {
+  background: #0b3e6f !important;
+}
+
+.custom-table tbody tr.row-white td {
+  background: #ffffff !important;
+  color: #212529;
+}
+
+.custom-table tbody tr.row-blue td {
+  background: #005b96 !important;
+  color: #ffffff;
+}
+
+.custom-table.table-hover tbody tr:hover td {
+  background: #004b80 !important;
+  color: #fff;
+}
+
+.custom-table tbody tr.row-blue td .form-select,
+.custom-table tbody tr.row-blue td .form-control,
+.custom-table tbody tr.row-blue td .btn,
+.custom-table.table-hover tbody tr:hover td .form-select,
+.custom-table.table-hover tbody tr:hover td .form-control,
+.custom-table.table-hover tbody tr:hover td .btn {
+  background-color: #ffffff !important;
+  color: #212529 !important;
+  border-color: #ced4da !important;
+  box-shadow: none !important;
+}
+
+.custom-table tbody tr.row-blue td .form-select:focus {
+  border-color: #80bdff !important;
+}
+
+.custom-table .dropdown-menu {
+  z-index: 1060;
+}
+
+/* ======= CONTAINER LISTA ======= */
+.list-shell {
+  width: 100%;
+  background: #f7fbff;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 56px - 120px);
+}
+
+/* Wrapper da tabela com rolagem e GUTTER para a coluna sticky */
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  position: relative;
+
+  /* largura da coluna Ações (mantenha em sincronia com o JSX) */
+  --actions-w: 150px;
+
+  /* ESSENCIAL: cria o “respiro” p/ a coluna sticky */
+  padding-right: var(--actions-w);
+}
+
+/* >>> NOVO: garante que a largura da tabela respeite o gutter (sem buraco) */
+.table-wrap .custom-table {
+  margin-right: var(--actions-w);
+}
+
+.table-wrap table {
+  margin-bottom: 0;
+}
+
+.list-footer {
+  margin-top: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #eef5fb;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+/* ======= MODAL ======= */
+.lgpd-modal-dialog {
+  max-width: min(1200px, 95vw);
+  margin: 2rem auto;
+}
+
+.lgpd-modal-content {
+  border: 0;
+  border-radius: 1rem;
+  overflow: hidden;
+
+  /* scroll geral */
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.lgpd-modal-content .modal-header {
+  background: #063a6b;
+  color: #fff;
+}
+
+.lgpd-modal-content .modal-header .btn-close {
+  filter: invert(1);
+  opacity: 0.9;
+}
+
+.lgpd-modal-content .modal-title {
+  width: 100%;
+  text-align: center;
+  margin: 0;
+}
+
+.lgpd-modal-content .modal-body {
+  background: #063a6b;
+  overflow-y: auto !important; /* rola com mouse */
+}
+
+.lgpd-modal-content .modal-footer {
+  background: #063a6b;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.lgpd-modal-content .modal-body label {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.lgpd-modal-content .modal-body .form-control,
+.lgpd-modal-content .modal-body .form-select {
+  background: #ffffff !important;
+  color: #212529 !important;
+  border-color: #ced4da !important;
+  box-shadow: none !important;
+}
+
+/* ======= Sticky Ações (definitivo) ======= */
+
+/* Evita “buraco”: NÃO coloque padding-right na tabela */
+.sticky-actions-table {
+  padding-right: 0;
+}
+
+/* Estética geral */
+.custom-table th,
+.custom-table td {
+  white-space: nowrap;
+}
+
+/* >>> REMOVA qualquer regra com :last-child (elas grudam a coluna errada)
+   (foi removido aqui de propósito) */
+
+/* Coluna de Ações sticky via CLASSE (funciona mesmo se “Ações” não for a última) */
+.custom-table .sticky-actions-th {
+  position: sticky;
+  right: 0;
+  width: var(--actions-w);
+  min-width: var(--actions-w);
+  max-width: var(--actions-w);
+  z-index: 5;
+  background: #0b3e6f !important;
+  color: #fff;
+  box-shadow: -4px 0 8px rgba(0, 0, 0, 0.08);
+}
+
+.custom-table .sticky-actions-td {
+  position: sticky;
+  right: 0;
+  width: var(--actions-w);
+  min-width: var(--actions-w);
+  max-width: var(--actions-w);
+  z-index: 4;
+  background: #fff;
+  box-shadow: -4px 0 8px rgba(0, 0, 0, 0.06);
+}
+
+/* ajuda o campo de pontuação a ficar 100% travado */
+.no-caret {
+  caret-color: transparent !important;
+}
+.no-pointer {
+  pointer-events: none !important;
+}
+
+/* pequeno detalhe de pintura pra evitar “borrado” ao lado do sticky */
+.custom-table .sticky-actions-th,
+.custom-table .sticky-actions-td {
+  background-clip: padding-box;
+}

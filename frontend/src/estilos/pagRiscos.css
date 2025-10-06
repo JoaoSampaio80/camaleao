@@ -1,0 +1,63 @@
+.risk-tabs-wrap {
+  width: 100%;
+}
+
+.risk-tabs {
+  display: flex;
+  gap: 28px;
+  padding: 0 0 6px 0;
+  margin: 0;
+  list-style: none;
+}
+
+.risk-tabs__item {
+  margin: 0;
+  padding: 0;
+}
+
+.risk-tab {
+  text-decoration: none;
+  background: none;
+  border: 0;
+  padding: 8px 0 10px;
+  font-size: 16px;
+  line-height: 1;
+  color: #213547;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s ease;
+}
+
+.risk-tab:is(:hover, :focus-visible) {
+  color: #0a2a5a;
+  outline: none;
+}
+
+.risk-tab.is-active {
+  color: #071744;
+  font-weight: 600;
+}
+
+.risk-tab.is-active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 3px;
+  background: #071744;
+  border-radius: 2px;
+}
+
+.risk-tabs__divider {
+  width: 100%;
+  height: 1px;
+  background: #e6eef5;
+}
+
+.no-caret {
+  caret-color: transparent;
+}
+.no-pointer {
+  pointer-events: none;
+}
