@@ -7,6 +7,7 @@ import { ROUTES } from '../routes';
 import { useInventario } from '../context/InventarioContext';
 import SaveCancelBar from '../components/SaveCancelBar';
 import { toast } from 'react-toastify';
+import Axios from '../components/Axios';
 
 const requiredStep2 = [
   'pessoas_acesso',
@@ -25,6 +26,22 @@ const requiredStep2 = [
   'empresa_terceira',
 ];
 const fieldsThisStep = [...requiredStep2];
+
+const FIELDS_STEP1 = [
+  'unidade',
+  'setor',
+  'responsavel_email',
+  'processo_negocio',
+  'finalidade',
+  'dados_pessoais',
+  'tipo_dado',
+  'origem',
+  'formato',
+  'impresso',
+  'titulares',
+  'dados_menores',
+  'base_legal',
+];
 
 const FIELD_LABELS = {
   pessoas_acesso: 'Pessoas com acesso',
@@ -48,6 +65,34 @@ const CHOICES = {
   transferencia_terceiros: ['sim', 'nao'],
   transferencia_internacional: ['sim', 'nao'],
 };
+
+const API_BASE = 'inventarios';
+
+const eq = (a, b) => {
+  try {
+    return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  } catch {
+    return String(a ?? '') === String(b ?? '');
+  }
+};
+
+async function apiGetOne(id) {
+  const { data } = await Axios.get(`${API_BASE}/${id}/`);
+  return data;
+}
+
+async function saveDiffAll(id, fields, form) {
+  const server = await apiGetOne(id);
+  const diff = {};
+  fields.forEach((k) => {
+    const sv = server?.[k];
+    const cv = form?.[k];
+    if (!eq(sv, cv)) diff[k] = cv;
+  });
+  if (Object.keys(diff).length === 0) return 0;
+  await Axios.patch(`${API_BASE}/${id}/`, diff);
+  return Object.keys(diff).length;
+}
 
 function validateField(key, value, form) {
   const v = String(value ?? '').trim();
@@ -112,15 +157,14 @@ function normalizeServerErrors(data) {
 function InventarioDados2() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { form, setField, loadInventario, recordId, saveStep, reload, reset } =
-    useInventario();
+  const { form, setField, loadInventario, recordId, reload, reset } = useInventario();
 
   const [warn, setWarn] = React.useState(false);
   const [savingStep, setSavingStep] = React.useState(false);
   const [serverErrors, setServerErrors] = React.useState({});
   const [clientErrors, setClientErrors] = React.useState({});
 
-  // padrão de mensagens (toast 3s) + flash no topo
+  // toast padrão (3s) + flash
   const TOAST = { autoClose: 3000 };
   const [flash, setFlash] = React.useState({ variant: '', msg: '' });
   React.useEffect(() => {
@@ -129,9 +173,12 @@ function InventarioDados2() {
     return () => clearTimeout(t);
   }, [flash]);
 
+  // 🔒 Não recarrega do backend se já estamos com o mesmo id carregado no contexto
   React.useEffect(() => {
     const id = params.get('id');
-    if (id) loadInventario(id).catch(() => {});
+    if (id && String(recordId ?? '') !== String(id)) {
+      loadInventario(id).catch(() => {});
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -178,7 +225,7 @@ function InventarioDados2() {
     setServerErrors({});
     setClientErrors({});
 
-    // validação cliente
+    // validação cliente (mantida)
     const nextClientErrors = {};
     fieldsThisStep.forEach((k) => {
       const errs = validateField(k, form[k], form);
@@ -194,15 +241,25 @@ function InventarioDados2() {
     }
 
     try {
-      await saveStep(fieldsThisStep);
+      // Salva POR DIFERENÇA: página 1 + página 2
+      await saveDiffAll(recordId, [...FIELDS_STEP1, ...fieldsThisStep], form);
+
       await reload();
       const okMsg = 'Item atualizado com sucesso.';
-      setFlash({ variant: 'success', msg: 'Alterações desta página salvas!' });
+      setFlash({ variant: 'success', msg: 'Alterações salvas!' });
       try {
         toast.success(okMsg, TOAST);
       } catch {}
       navigate(ROUTES.INVENTARIO_LISTA, { state: { flash: okMsg } });
     } catch (e) {
+      if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
+        console.error(
+          '[InventarioDados2] erro ao salvar:',
+          e?.response?.status,
+          e?.response?.data || e
+        );
+      }
       const payload = e?.response?.data;
       const mapped = normalizeServerErrors(payload);
 

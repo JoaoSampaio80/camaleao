@@ -6,6 +6,7 @@ import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ROUTES } from '../routes';
 import { useInventario } from '../context/InventarioContext';
 import { toast } from 'react-toastify';
+import Axios from '../components/Axios';
 
 const FIELDS_STEP1 = [
   'unidade',
@@ -49,6 +50,34 @@ const FIELDS_STEP3 = [
 ];
 
 const ALL_FIELDS = [...FIELDS_STEP1, ...FIELDS_STEP2, ...FIELDS_STEP3];
+
+const API_BASE = 'inventarios';
+
+const eq = (a, b) => {
+  try {
+    return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  } catch {
+    return String(a ?? '') === String(b ?? '');
+  }
+};
+
+async function apiGetOne(id) {
+  const { data } = await Axios.get(`${API_BASE}/${id}/`);
+  return data;
+}
+
+async function saveDiffAll(id, fields, form) {
+  const server = await apiGetOne(id);
+  const diff = {};
+  fields.forEach((k) => {
+    const sv = server?.[k];
+    const cv = form?.[k];
+    if (!eq(sv, cv)) diff[k] = cv;
+  });
+  if (Object.keys(diff).length === 0) return 0;
+  await Axios.patch(`${API_BASE}/${id}/`, diff);
+  return Object.keys(diff).length;
+}
 
 const FIELD_LABELS = {
   // Etapa 1
@@ -96,12 +125,8 @@ const CHOICES = {
 
 function validateField(key, value) {
   const v = String(value ?? '').trim();
-
-  // observação é opcional
   if (key === 'observacao') return [];
-
   if (!v) return ['Obrigatório.'];
-
   switch (key) {
     case 'adequado_contratualmente':
       if (!CHOICES.adequado_contratualmente.includes(v)) return ['Seleção inválida.'];
@@ -136,7 +161,7 @@ function InventarioDados3() {
   const location = useLocation();
   const [params] = useSearchParams();
 
-  const { form, setField, loadInventario, saveInventario, saveStep, recordId, reset } =
+  const { form, setField, loadInventario, saveInventario, recordId, reset } =
     useInventario();
 
   const [saving, setSaving] = React.useState(false);
@@ -144,7 +169,6 @@ function InventarioDados3() {
   const [serverErrors, setServerErrors] = React.useState({});
   const [clientErrors, setClientErrors] = React.useState({});
 
-  // padrão de mensagens (toast 3s) + flash no topo
   const TOAST = { autoClose: 3000 };
   const [flash, setFlash] = React.useState({ variant: '', msg: '' });
   React.useEffect(() => {
@@ -153,38 +177,14 @@ function InventarioDados3() {
     return () => clearTimeout(t);
   }, [flash]);
 
+  // 🔒 Não recarrega do backend se já estamos com o mesmo id carregado no contexto
   React.useEffect(() => {
     const id = params.get('id');
-    if (id) {
+    if (id && String(recordId ?? '') !== String(id)) {
       loadInventario(id).catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const startNew = () => {
-    reset();
-    setWarn(false);
-    setServerErrors({});
-    setClientErrors({});
-    setFlash({ variant: 'info', msg: 'Novo inventário iniciado.' });
-    try {
-      toast.info('Novo inventário iniciado.', TOAST);
-    } catch {}
-    navigate(location.pathname, { replace: true });
-  };
-
-  const startEdit = () => {
-    const input = window.prompt('Informe o ID do inventário para editar:');
-    if (!input) return;
-    setWarn(false);
-    setServerErrors({});
-    setClientErrors({});
-    setFlash({ variant: 'info', msg: `Abrindo inventário #${input.trim()}...` });
-    try {
-      toast.info(`Abrindo inventário #${input.trim()}...`, TOAST);
-    } catch {}
-    navigate(`${location.pathname}?id=${encodeURIComponent(input.trim())}`);
-  };
 
   const handleCancel = () => {
     setWarn(false);
@@ -201,7 +201,6 @@ function InventarioDados3() {
     });
   };
 
-  // valida todos os campos da etapa 3
   function validateStep3() {
     const keys = [
       'adequado_contratualmente',
@@ -218,14 +217,13 @@ function InventarioDados3() {
     return next;
   }
 
-  // next: 'new' | 'list'
+  // salvar todos os steps no modo edição POR DIFERENÇA
   const handleSave = async (next) => {
-    if (!next) return;
     setSaving(true);
     setServerErrors({});
     setClientErrors({});
 
-    // 1) validação cliente da etapa 3
+    // validação cliente da etapa 3 (mantida)
     const nextClientErrors = validateStep3();
     if (Object.keys(nextClientErrors).length > 0) {
       setClientErrors(nextClientErrors);
@@ -242,17 +240,10 @@ function InventarioDados3() {
 
     try {
       if (recordId) {
-        // Edição → PATCH de todos os campos
-        await saveStep(ALL_FIELDS);
+        // UM PATCH com tudo que mudou (1+2+3)
+        await saveDiffAll(recordId, ALL_FIELDS, form);
       } else {
-        // Criação → POST
-        if (process.env.NODE_ENV === 'development') {
-          // eslint-disable-next-line no-console
-          console.debug(
-            '[InventarioDados3] Enviando POST com estes campos preenchidos:',
-            Object.fromEntries(ALL_FIELDS.map((k) => [k, form[k]]))
-          );
-        }
+        // criação permanece como estava
         await saveInventario();
       }
 
@@ -265,19 +256,32 @@ function InventarioDados3() {
         toast.success(okMsg, TOAST);
       } catch {}
 
+      if (recordId) {
+        reset();
+        navigate(ROUTES.INVENTARIO_LISTA, { state: { flash: okMsg } });
+        return;
+      }
+
       if (next === 'new') {
         reset();
         setFlash({ variant: 'success', msg: okMsg });
         navigate(ROUTES.INVENTARIO_DADOS);
         return;
       }
-
       if (next === 'list') {
         reset();
         navigate(ROUTES.INVENTARIO_LISTA, { state: { flash: okMsg } });
         return;
       }
     } catch (e) {
+      if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
+        console.error(
+          '[InventarioDados3] erro ao salvar:',
+          e?.response?.status,
+          e?.response?.data || e
+        );
+      }
       const st = e?.response?.status;
       const mapped = normalizeServerErrors(e?.response?.data);
 
@@ -286,24 +290,7 @@ function InventarioDados3() {
           mapped?.non_field_errors &&
           !Object.keys(mapped).some((k) => !['_general', 'non_field_errors'].includes(k));
 
-        if (process.env.NODE_ENV === 'development') {
-          // eslint-disable-next-line no-console
-          console.warn('[InventarioDados3] 400 payload:', e?.response?.data);
-        }
-
         if (onlyNonField) {
-          if (process.env.NODE_ENV === 'development') {
-            const sent = Object.fromEntries(ALL_FIELDS.map((k) => [k, form[k]]));
-            const emptyCount = Object.values(sent).filter(
-              (v) => v === undefined || v === null || String(v).trim() === ''
-            ).length;
-            // eslint-disable-next-line no-console
-            console.warn(
-              '[InventarioDados3] Diagnóstico: campos preenchidos no cliente vs. payload esperado',
-              { preenchidosNoCliente: sent, vaziosNoCliente: emptyCount }
-            );
-          }
-
           setServerErrors({ _general: mapped.non_field_errors });
           setWarn(true);
           const msg =
@@ -342,7 +329,6 @@ function InventarioDados3() {
         return;
       }
 
-      // Outros status (403, 5xx)
       const msg =
         st === 403
           ? 'Você não tem permissão para salvar item do inventário.'
@@ -364,19 +350,6 @@ function InventarioDados3() {
     (!String(form[key] || '').trim() && warn && key !== 'observacao');
 
   const getFirstError = (key) => clientErrors[key]?.[0] || serverErrors[key]?.[0] || null;
-
-  const consolidatedErrors = React.useMemo(() => {
-    const list = [];
-    Object.entries(clientErrors).forEach(([k, arr]) =>
-      (arr || []).forEach((m) => list.push(`${FIELD_LABELS[k] || k}: ${m}`))
-    );
-    Object.entries(serverErrors).forEach(([k, arr]) => {
-      if (k === '_general' || k === 'non_field_errors') return; // não listar non_field_errors
-      (arr || []).forEach((m) => list.push(`${FIELD_LABELS[k] || k}: ${m}`));
-    });
-    (serverErrors._general || []).forEach((m) => list.push(String(m)));
-    return list;
-  }, [clientErrors, serverErrors]);
 
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
@@ -407,12 +380,20 @@ function InventarioDados3() {
           {/* flash curto no topo (3s) */}
           {flash.msg && <Alert variant={flash.variant}>{flash.msg}</Alert>}
 
-          {consolidatedErrors.length > 0 && (
+          {/* Lista de erros consolidada */}
+          {Object.keys(serverErrors).length > 0 && (
             <Alert variant="danger">
               <strong>Não foi possível salvar. Corrija os itens abaixo:</strong>
               <ul className="mb-0">
-                {consolidatedErrors.map((m, i) => (
-                  <li key={i}>{m}</li>
+                {Object.entries(serverErrors)
+                  .filter(([k]) => k !== '_general')
+                  .flatMap(([k, arr]) =>
+                    (arr || []).map((m, i) => (
+                      <li key={`${k}-${i}`}>{`${FIELD_LABELS[k] || k}: ${m}`}</li>
+                    ))
+                  )}
+                {(serverErrors._general || []).map((m, i) => (
+                  <li key={`g-${i}`}>{m}</li>
                 ))}
               </ul>
             </Alert>
@@ -528,35 +509,60 @@ function InventarioDados3() {
                 Voltar
               </Button>
 
-              <div className="d-flex gap-2">
-                <Button
-                  type="button"
-                  className="btn-white-custom"
-                  variant="outline-secondary"
-                  onClick={handleCancel}
-                  disabled={saving}
-                >
-                  Cancelar
-                </Button>
+              {/* Botões ajustados conforme modo criação/edição */}
+              {recordId ? (
+                // MODO EDIÇÃO
+                <div className="d-flex gap-2">
+                  <Button
+                    type="button"
+                    className="btn-white-custom"
+                    variant="outline-secondary"
+                    onClick={handleCancel}
+                    disabled={saving}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    className="btn-white-custom"
+                    variant="primary"
+                    onClick={() => handleSave('list')}
+                    disabled={saving}
+                  >
+                    {saving ? 'Salvando...' : 'Salvar alterações'}
+                  </Button>
+                </div>
+              ) : (
+                // MODO CRIAÇÃO (comportamento original)
+                <div className="d-flex gap-2">
+                  <Button
+                    type="button"
+                    className="btn-white-custom"
+                    variant="outline-secondary"
+                    onClick={handleCancel}
+                    disabled={saving}
+                  >
+                    Cancelar
+                  </Button>
 
-                <Button
-                  className="btn-white-custom"
-                  variant="outline-primary"
-                  onClick={() => handleSave('new')}
-                  disabled={saving}
-                >
-                  {saving ? 'Salvando...' : 'Salvar e novo'}
-                </Button>
+                  <Button
+                    className="btn-white-custom"
+                    variant="outline-primary"
+                    onClick={() => handleSave('new')}
+                    disabled={saving}
+                  >
+                    {saving ? 'Salvando...' : 'Salvar e novo'}
+                  </Button>
 
-                <Button
-                  className="btn-white-custom"
-                  variant="primary"
-                  onClick={() => handleSave('list')}
-                  disabled={saving}
-                >
-                  {saving ? 'Salvando...' : 'Salvar e ir para a lista'}
-                </Button>
-              </div>
+                  <Button
+                    className="btn-white-custom"
+                    variant="primary"
+                    onClick={() => handleSave('list')}
+                    disabled={saving}
+                  >
+                    {saving ? 'Salvando...' : 'Salvar e ir para a lista'}
+                  </Button>
+                </div>
+              )}
             </div>
           </Form>
         </Container>
