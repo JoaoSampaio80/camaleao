@@ -20,6 +20,7 @@ import {
   PlaceholderScreen,
   CadastroUsuarioScreen,
   DocumentosScreen,
+  ChecklistScreen,
 } from "@/screens";
 
 // ✅ habilita LayoutAnimation no Android (arquitetura antiga)
@@ -53,7 +54,7 @@ function AppDrawer() {
       />
       <Drawer.Screen
         name="CHECKLIST"
-        component={PlaceholderScreen}
+        component={ChecklistScreen}
         options={{ title: "Checklist" }}
       />
       <Drawer.Screen
