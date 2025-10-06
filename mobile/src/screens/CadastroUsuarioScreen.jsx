@@ -52,7 +52,7 @@ const formatPhoneBR = (value) => {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 };
 
-/* === AJUSTE 1: máscara dd/mm/aaaa + conversões === */
+/* === máscara dd/mm/aaaa + conversões === */
 const maskDateBR = (v) => {
   const d = digitsOnly(v).slice(0, 8);
   if (d.length <= 2) return d;
@@ -93,7 +93,6 @@ const INITIAL = {
   last_name: "",
   phone_number: "",
   role: "gerente", // admin | dpo | gerente
-  // AJUSTE 1: campo de entrada da data em BR
   appointment_date_br: "", // dd/mm/aaaa
   password: "",
   password2: "",
@@ -101,7 +100,6 @@ const INITIAL = {
 
 const ROLE_LABEL = { admin: "Administrador", dpo: "DPO", gerente: "Gerente" };
 
-/* === Componente “pill” de seleção de Role (substitui <select>) === */
 function RoleSelector({ value, onChange, disabled }) {
   return (
     <View style={s.rowWrap}>
@@ -135,7 +133,6 @@ function RoleSelector({ value, onChange, disabled }) {
   );
 }
 
-/* === Badge “modo edição” === */
 function EditBadge() {
   return (
     <View style={s.badgeWarn}>
@@ -144,7 +141,6 @@ function EditBadge() {
   );
 }
 
-/* === Linha de usuário (lista) === */
 function UserRow({ u, onEdit, onDelete }) {
   const fullName = [u.first_name, u.last_name].filter(Boolean).join(" ");
   return (
@@ -185,11 +181,9 @@ export default function CadastroUsuarioScreen() {
   const [flashKind, setFlashKind] = useState(""); // success | danger | info
   const [submitting, setSubmitting] = useState(false);
 
-  // lista
   const [users, setUsers] = useState([]);
   const [listLoading, setListLoading] = useState(true);
   const [query, setQuery] = useState("");
-  // paginação
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [count, setCount] = useState(0);
@@ -252,7 +246,6 @@ export default function CadastroUsuarioScreen() {
     fetchUsers();
   }, [fetchUsers]);
 
-  /* === AJUSTE 2: descobrir se já existe DPO para exibir aviso/validar === */
   const [dpoExists, setDpoExists] = useState(false);
   const [checkingDPO, setCheckingDPO] = useState(true);
   useEffect(() => {
@@ -263,7 +256,6 @@ export default function CadastroUsuarioScreen() {
         await http.get("users/dpo/"); // 200 => existe DPO
         if (mounted) setDpoExists(true);
       } catch (e) {
-        // 404 => não existe DPO
         if (mounted) setDpoExists(!(e?.response?.status === 404));
       } finally {
         if (mounted) setCheckingDPO(false);
@@ -333,14 +325,12 @@ export default function CadastroUsuarioScreen() {
       else if (!(len === 10 || len === 11))
         e.phone_number = "Telefone deve ter 10 ou 11 dígitos.";
 
-      // AJUSTE 1: validar formato dd/mm/aaaa
       if (
         !/^(\d{2})\/(\d{2})\/(\d{4})$/.test(formData.appointment_date_br || "")
       ) {
         e.appointment_date = "Informe a data no formato dd/mm/aaaa.";
       }
 
-      // AJUSTE 2: bloquear cadastro de novo DPO
       if (dpoExists) {
         e.role = "Já existe um DPO nomeado. Edite o DPO atual para alterar.";
       }
@@ -361,7 +351,6 @@ export default function CadastroUsuarioScreen() {
       data.phone_number = digitsOnly(formData.phone_number);
 
     if (formData.role === "dpo") {
-      // AJUSTE 1 e 3: converter BR -> ISO e calcular validade
       const iso = brToISO(formData.appointment_date_br);
       data.appointment_date = iso || null;
       data.appointment_validity = iso ? addYearsToISODate(iso, 2) : null;
@@ -434,7 +423,6 @@ export default function CadastroUsuarioScreen() {
           normalized[k] = Array.isArray(v) ? v.join(" ") : String(v);
         });
         setErrors(normalized);
-        // se backend devolver msg específica do DPO, mantém sem alterar visual
         if (normalized.role && /DPO/i.test(normalized.role)) {
           setFlashKind("danger");
           setFlashMsg(normalized.role);
@@ -464,7 +452,6 @@ export default function CadastroUsuarioScreen() {
         last_name: u.last_name || "",
         phone_number: digitsOnly(u.phone_number) || "",
         role: u.role || "gerente",
-        // AJUSTE 1: converter ISO -> BR no preenchimento do form
         appointment_date_br: u.appointment_date
           ? formatISOToBR(u.appointment_date)
           : "",
@@ -514,7 +501,6 @@ export default function CadastroUsuarioScreen() {
     );
   };
 
-  /* AJUSTE 3: validade calculada para exibição (sem mudar visual) */
   const validityBR =
     formData.role === "dpo" && formData.appointment_date_br
       ? (() => {
@@ -528,13 +514,11 @@ export default function CadastroUsuarioScreen() {
       style={{ flex: 1, backgroundColor: Colors.bgPage }}
       contentContainerStyle={{ paddingBottom: bottom + 16 }}
     >
-      {/* título igual web, com recuo do topo */}
       <Text style={[s.pageTitle, { paddingTop: top + 8 }]}>
         {mode === "create" ? "Cadastro de Usuário" : "Editar Usuário"}
       </Text>
       {mode === "edit" && <EditBadge />}
 
-      {/* bloco em gradiente = container-gradient */}
       <LinearGradient
         colors={[Colors.gradA, Colors.gradB]}
         start={{ x: 0, y: 0 }}
@@ -560,7 +544,7 @@ export default function CadastroUsuarioScreen() {
           </View>
         )}
 
-        {/* Mostra aviso se tentar criar DPO quando já existe (sem alterar layout) */}
+        {/* AVISOS DPO */}
         {formData.role === "dpo" && dpoExists && !checkingDPO && (
           <View style={[s.alert, { backgroundColor: "rgba(255,193,7,0.25)" }]}>
             <Text style={s.alertTxt}>
@@ -569,8 +553,17 @@ export default function CadastroUsuarioScreen() {
           </View>
         )}
 
-        {/* Email */}
-        <Text style={s.label}>E-mail</Text>
+        {/* === (MOVIDO PARA O TOPO) Tipo Usuário === */}
+        <Text style={[s.label, { marginTop: Space.sm }]}>Tipo Usuário</Text>
+        <RoleSelector
+          value={formData.role}
+          onChange={(r) => onChange("role", r)}
+          disabled={submitting}
+        />
+        {!!errors.role && <Text style={s.errTxt}>{errors.role}</Text>}
+
+        {/* E-mail */}
+        <Text style={[s.label, { marginTop: Space.md }]}>E-mail</Text>
         <TextInput
           style={[s.input, errors.email && s.inputErr]}
           placeholder="Digite o e-mail"
@@ -614,15 +607,6 @@ export default function CadastroUsuarioScreen() {
           </View>
         </View>
 
-        {/* Role */}
-        <Text style={[s.label, { marginTop: Space.md }]}>Tipo Usuário</Text>
-        <RoleSelector
-          value={formData.role}
-          onChange={(r) => onChange("role", r)}
-          disabled={submitting}
-        />
-        {!!errors.role && <Text style={s.errTxt}>{errors.role}</Text>}
-
         {/* Campos específicos DPO */}
         {formData.role === "dpo" && (
           <>
@@ -650,7 +634,7 @@ export default function CadastroUsuarioScreen() {
                     (errors.appointment_date || errors.appointment_date_br) &&
                       s.inputErr,
                   ]}
-                  placeholder="dd/mm/aaaa" /* AJUSTE 1: máscara BR */
+                  placeholder="dd/mm/aaaa"
                   placeholderTextColor="#6b7280"
                   autoCapitalize="none"
                   value={formData.appointment_date_br}
@@ -672,7 +656,6 @@ export default function CadastroUsuarioScreen() {
                 <TextInput
                   style={[s.input, { opacity: 0.9 }]}
                   editable={false}
-                  /* AJUSTE 3: validade automática */
                   value={validityBR}
                 />
               </View>
@@ -733,9 +716,8 @@ export default function CadastroUsuarioScreen() {
           </View>
         )}
 
-        {/* Ações do formulário */}
+        {/* Ações */}
         <View style={[s.actions, { marginTop: Space.lg }]}>
-          {/* AJUSTE 4: sempre exibir “Cancelar” para limpar quando em create */}
           <Pressable
             onPress={() => resetForm()}
             style={[s.btnGhost, { borderColor: Colors.white }]}
@@ -762,11 +744,10 @@ export default function CadastroUsuarioScreen() {
         </View>
       </LinearGradient>
 
-      {/* Lista + filtro (card branco) */}
+      {/* Lista + filtro */}
       <View style={s.listCard}>
         <Text style={s.listTitle}>Usuários</Text>
 
-        {/* Filtro e controles */}
         <View style={[s.row, { marginBottom: Space.md }]}>
           <View style={[s.col, { flex: 1, marginRight: Space.sm }]}>
             <Text style={s.labelPlain}>Buscar usuários</Text>
@@ -801,30 +782,6 @@ export default function CadastroUsuarioScreen() {
           </View>
         </View>
 
-        <View style={[s.row, { marginBottom: Space.sm, alignItems: "center" }]}>
-          <Text style={{ color: "#6b7280" }}>Tamanho da página:</Text>
-          <View style={s.rowWrap}>
-            {[5, 10, 20, 50].map((n) => {
-              const active = pageSize === n;
-              return (
-                <Pressable
-                  key={n}
-                  onPress={() => {
-                    setPageSize(n);
-                    setPage(1);
-                  }}
-                  style={[s.chip, active && s.chipActive]}
-                >
-                  <Text style={[s.chipTxt, active && s.chipTxtActive]}>
-                    {n}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Lista */}
         {listLoading ? (
           <View style={{ paddingVertical: 30, alignItems: "center" }}>
             <ActivityIndicator size="large" color={Colors.gradB} />
@@ -839,7 +796,6 @@ export default function CadastroUsuarioScreen() {
           </View>
         )}
 
-        {/* Paginação */}
         <View style={s.pagination}>
           <Text style={{ color: "#6b7280" }}>
             Total:{" "}
@@ -890,7 +846,7 @@ export default function CadastroUsuarioScreen() {
   );
 }
 
-/* === styles (inalterados, só referenciados pelos novos campos) === */
+/* === styles (inalterados) === */
 const s = StyleSheet.create({
   pageTitle: {
     color: Colors.ink,
@@ -899,7 +855,6 @@ const s = StyleSheet.create({
     textAlign: "center",
     paddingHorizontal: Space.lg,
   },
-
   gradientCard: {
     marginHorizontal: Space.lg,
     marginTop: Space.md,
@@ -911,11 +866,7 @@ const s = StyleSheet.create({
     shadowRadius: 24,
     elevation: 6,
   },
-  alert: {
-    borderRadius: Radius.md,
-    padding: 10,
-    marginBottom: Space.md,
-  },
+  alert: { borderRadius: Radius.md, padding: 10, marginBottom: Space.md },
   alertTxt: { color: Colors.white },
 
   label: { color: "rgba(255,255,255,0.9)", marginBottom: 6, fontWeight: "600" },
@@ -924,8 +875,8 @@ const s = StyleSheet.create({
     borderColor: Colors.border,
     borderRadius: Radius.md,
     padding: 12,
-    color: Colors.text, // texto escuro
-    backgroundColor: Colors.white, // fundo claro
+    color: Colors.text,
+    backgroundColor: Colors.white,
   },
   inputErr: { borderColor: "#ffd1d6", backgroundColor: "rgba(255,0,0,0.06)" },
   errTxt: { color: "#ffd1d6", marginTop: 6, marginBottom: 2 },
