@@ -261,69 +261,82 @@ function Checklist() {
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
       <style>{`
-      /* Bordas discretas */
-      .custom-table, .custom-table th, .custom-table td {
-        border-color: #d9e1e8 !important;
-      }
+      /* Impedir rolagem lateral */
+  html, body {
+    overflow-x: hidden !important;
+  }
 
-      /* Cabeçalho: gradiente numa faixa única */
-      .thead-gradient {
-        background: linear-gradient(135deg, #003366, #005b96) !important;
-      }
-      .thead-gradient th {
-        background: transparent !important;
-        color: #fff !important;
-        border-color: #00528a !important;
-        white-space: nowrap;
-      }
+  /* Container principal sem scroll horizontal */
+  .d-flex {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
 
-      /* Corpo: linhas alternadas (branco ↔ azul) por LINHA inteira) */
-      .custom-table tbody tr:nth-child(odd) td  { background: #ffffff !important; color: #212529; }
-      .custom-table tbody tr:nth-child(even) td { background: #005b96 !important; color: #ffffff; }
+  /* Bordas discretas */
+  .custom-table, .custom-table th, .custom-table td {
+    border-color: #d9e1e8 !important;
+    white-space: normal !important; /* quebra texto longo */
+    word-break: break-word !important; /* força quebra dentro de palavras grandes */
+  }
 
-      /* Hover na linha toda (mantém inputs brancos) */
-      .custom-table.table-hover tbody tr:hover td {
-        background: #004b80 !important; color: #fff;
-      }
+  /* Cabeçalho: gradiente numa faixa única */
+  .thead-gradient {
+    background: linear-gradient(135deg, #003366, #005b96) !important;
+  }
+  .thead-gradient th {
+    background: transparent !important;
+    color: #fff !important;
+    border-color: #00528a !important;
+    white-space: nowrap;
+  }
 
-      /* Manter selects/inputs/brancos dentro das linhas azuis e no hover */
-      .custom-table tbody tr:nth-child(even) td .form-select,
-      .custom-table tbody tr:nth-child(even) td .form-control,
-      .custom-table tbody tr:nth-child(even) td .btn,
-      .custom-table.table-hover tbody tr:hover td .form-select,
-      .custom-table.table-hover tbody tr:hover td .form-control,
-      .custom-table.table-hover tbody tr:hover td .btn {
-        background-color: #ffffff !important;
-        color: #212529 !important;
-        border-color: #ced4da !important;
-        box-shadow: none !important;
-      }
-      .custom-table tbody tr:nth-child(even) td .form-select:focus {
-        border-color: #80bdff !important;
-      }
+  /* Corpo: linhas alternadas (branco ↔ azul) */
+  .custom-table tbody tr:nth-child(odd) td  { background: #ffffff !important; color: #212529; }
+  .custom-table tbody tr:nth-child(even) td { background: #005b96 !important; color: #ffffff; }
 
-      /* ===== MODAL estilo "card" azul (igual documentos) ===== */
-      .lgpd-modal-dialog { max-width: min(900px, 95vw); margin: 2rem auto; }
-      .lgpd-modal-content { border: 0; border-radius: 1rem; overflow: hidden; }
-      .lgpd-modal-content .modal-header { background: #063a6b; color: #fff; }
-      .lgpd-modal-content .modal-header .btn-close { filter: invert(1); opacity: .9; }
-      .lgpd-modal-content .modal-title { width: 100%; text-align: center; margin: 0; }
-      .lgpd-modal-content .modal-body   { background: #063a6b; }
-      .lgpd-modal-content .modal-footer { background: #063a6b; border-top: 1px solid rgba(255,255,255,0.15); }
-      .lgpd-modal-content .modal-body label { color: #ffffff; font-weight: 600; }
-      .lgpd-modal-content .modal-body .form-control,
-      .lgpd-modal-content .modal-body .form-select {
-        background: #ffffff !important;
-        color: #212529 !important;
-        border-color: #ced4da !important;
-        box-shadow: none !important;
-      }
+  /* Hover na linha toda */
+  .custom-table.table-hover tbody tr:hover td {
+    background: #004b80 !important; color: #fff;
+  }
 
-      /* ===== MODAL CONFIRMAÇÃO ===== */
-      .confirm-modal-content .modal-header { background: #0b2e59; color: #fff; }
-      .confirm-modal-content .modal-footer { background: #0b2e59; border-top: 1px solid rgba(255,255,255,0.15); }
-      .confirm-modal-content .btn-cancel { background: #ffffff; color: #0b2e59; border: none; }
-      .confirm-modal-content .btn-delete { background: #c82333; border-color: #c82333; }
+  /* Inputs brancos mesmo em linhas azuis */
+  .custom-table tbody tr:nth-child(even) td .form-select,
+  .custom-table tbody tr:nth-child(even) td .form-control,
+  .custom-table tbody tr:nth-child(even) td .btn,
+  .custom-table.table-hover tbody tr:hover td .form-select,
+  .custom-table.table-hover tbody tr:hover td .form-control,
+  .custom-table.table-hover tbody tr:hover td .btn {
+    background-color: #ffffff !important;
+    color: #212529 !important;
+    border-color: #ced4da !important;
+    box-shadow: none !important;
+  }
+  .custom-table tbody tr:nth-child(even) td .form-select:focus {
+    border-color: #80bdff !important;
+  }
+
+  /* ===== MODAL estilo "card" azul ===== */
+  .lgpd-modal-dialog { max-width: min(900px, 95vw); margin: 2rem auto; }
+  .lgpd-modal-content { border: 0; border-radius: 1rem; overflow: hidden; }
+  .lgpd-modal-content .modal-header { background: #063a6b; color: #fff; }
+  .lgpd-modal-content .modal-header .btn-close { filter: invert(1); opacity: .9; }
+  .lgpd-modal-content .modal-title { width: 100%; text-align: center; margin: 0; }
+  .lgpd-modal-content .modal-body   { background: #063a6b; }
+  .lgpd-modal-content .modal-footer { background: #063a6b; border-top: 1px solid rgba(255,255,255,0.15); }
+  .lgpd-modal-content .modal-body label { color: #ffffff; font-weight: 600; }
+  .lgpd-modal-content .modal-body .form-control,
+  .lgpd-modal-content .modal-body .form-select {
+    background: #ffffff !important;
+    color: #212529 !important;
+    border-color: #ced4da !important;
+    box-shadow: none !important;
+  }
+
+  /* ===== MODAL CONFIRMAÇÃO ===== */
+  .confirm-modal-content .modal-header { background: #0b2e59; color: #fff; }
+  .confirm-modal-content .modal-footer { background: #0b2e59; border-top: 1px solid rgba(255,255,255,0.15); }
+  .confirm-modal-content .btn-cancel { background: #ffffff; color: #0b2e59; border: none; }
+  .confirm-modal-content .btn-delete { background: #c82333; border-color: #c82333; }
     `}</style>
 
       <Sidebar />

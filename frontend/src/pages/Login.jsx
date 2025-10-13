@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import AxiosInstance, { auth as apiAuth } from '../components/Axios';
+import AxiosPublic, { auth as apiAuth } from '../components/Axios';
 import { Card, Form, Button, Alert, Collapse, InputGroup } from 'react-bootstrap';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -73,7 +73,7 @@ const Login = () => {
 
     setResetSubmitting(true);
     try {
-      await AxiosInstance.post('auth/password-reset/', { email: eMail });
+      await AxiosPublic.post('auth/password-reset/', { email: eMail });
       setResetMsg('Se o e-mail existir, enviaremos instruções de redefinição.');
       setResetVariant('success');
     } catch (err) {

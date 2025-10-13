@@ -15,7 +15,13 @@ const pickEnvBase = () => {
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL);
 
   const fallback = 'http://localhost:8000/api/v1/';
-  const chosen = fromVite || fallback;
+  let chosen = fromVite || fallback;
+
+  // ✅ Garante que o prefixo /api/v1/ exista mesmo em produção
+  if (!/\/api\/v1\/?$/i.test(chosen)) {
+    chosen = chosen.replace(/\/+$/, '') + '/api/v1/';
+  }
+
   return ensureTrailingSlash(chosen);
 };
 
@@ -176,6 +182,13 @@ const raw = axios.create({
 });
 
 const AxiosInstance = axios.create({
+  baseURL: baseUrl,
+  timeout: 10000,
+  withCredentials: COOKIE_MODE,
+  headers: { accept: 'application/json' },
+});
+
+export const AxiosPublic = axios.create({
   baseURL: baseUrl,
   timeout: 10000,
   withCredentials: COOKIE_MODE,

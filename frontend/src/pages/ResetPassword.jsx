@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Card, Form, Button, Alert, InputGroup, ProgressBar } from 'react-bootstrap';
 import { useNavigate, useLocation } from 'react-router-dom';
-import AxiosInstance from '../components/Axios';
+import { AxiosPublic } from '../components/Axios';
 import { ROUTES } from '../routes';
 
 export default function ResetPassword() {
@@ -49,7 +49,7 @@ export default function ResetPassword() {
 
     setSubmitting(true);
     try {
-      const resp = await AxiosInstance.post('auth/password-reset/confirm/', {
+      const resp = await AxiosPublic.post('auth/password-reset/confirm/', {
         uid,
         token,
         new_password: p1,

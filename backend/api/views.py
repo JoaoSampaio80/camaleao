@@ -16,6 +16,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
 from zoneinfo import ZoneInfo
 from io import BytesIO
 from openpyxl import Workbook
@@ -95,32 +97,56 @@ class MyTokenObtainPairView(TokenObtainPairView):
 REFRESH_COOKIE_NAME = "refresh_token"
 
 
-def _refresh_cookie_kwargs():
+def _refresh_cookie_kwargs(request=None):
     """
-    Define as flags do cookie do refresh.
-    - path: restrito à sub-API de auth (ajuste se sua API base mudar)
-    - secure: True em produção
-    - samesite: 'Lax' (bom p/ SPA)
+    Define flags do cookie de refresh com detecção automática de ambiente.
+
+    - Em localhost: permite HTTP e SameSite=Lax.
+    - Em ambiente HTTPS (túnel/produção): força Secure + SameSite=None + domínio do túnel.
     """
     lifetime = settings.SIMPLE_JWT.get("REFRESH_TOKEN_LIFETIME", timedelta(minutes=15))
-    return dict(
+
+    # Detecta host da requisição se disponível
+    host = None
+    if request is not None:
+        host = request.get_host().split(":")[0]
+    elif hasattr(settings, "TUNNEL_URL"):
+        from urllib.parse import urlparse
+
+        parsed = urlparse(settings.TUNNEL_URL)
+        host = parsed.hostname
+
+    is_local = host in ("127.0.0.1", "localhost")
+
+    opts = dict(
         max_age=int(lifetime.total_seconds()),
         httponly=True,
-        secure=not settings.DEBUG,
-        samesite="Lax",
-        path="/api/v1/auth/",  # <- ajuste se sua API base não for /api/v1/
+        path="/api/v1/auth/",
     )
 
+    if is_local:
+        opts.update(secure=False, samesite="Lax", domain="localhost")
+    else:
+        cookie_domain = getattr(settings, "COOKIE_DOMAIN", None)
+        opts.update(secure=True, samesite="None")
+        if cookie_domain:
+            opts["domain"] = cookie_domain
 
-def _set_refresh_cookie(resp, refresh_str: str):
-    resp.set_cookie(REFRESH_COOKIE_NAME, refresh_str, **_refresh_cookie_kwargs())
+    return opts
+
+
+def _set_refresh_cookie(resp, refresh_str: str, request=None):
+    resp.set_cookie(REFRESH_COOKIE_NAME, refresh_str, **_refresh_cookie_kwargs(request))
     return resp
 
 
-def _clear_refresh_cookie(resp):
-    # max_age=0 apaga; manter mesmas flags e path
+def _clear_refresh_cookie(resp, request=None):
+    opts = _refresh_cookie_kwargs(request)
     resp.delete_cookie(
-        REFRESH_COOKIE_NAME, path=_refresh_cookie_kwargs()["path"], samesite="Lax"
+        REFRESH_COOKIE_NAME,
+        path=opts.get("path", "/api/v1/auth/"),
+        domain=opts.get("domain") or None,
+        samesite=opts.get("samesite", "Lax"),
     )
     return resp
 
@@ -133,11 +159,12 @@ class CookieTokenObtainPairView(TokenObtainPairView):
     permission_classes = [AllowAny]
     serializer_class = MyTokenObtainPairSerializer  # seu serializer custom
 
+    @method_decorator(never_cache)
     def post(self, request, *args, **kwargs):
         res = super().post(request, *args, **kwargs)
         refresh = res.data.get("refresh")
         if refresh:
-            _set_refresh_cookie(res, refresh)
+            _set_refresh_cookie(res, refresh, request)
         # Se quiser não enviar o refresh no body em prod:
         # if not settings.DEBUG:
         #     res.data.pop("refresh", None)
@@ -151,6 +178,7 @@ class CookieTokenObtainPairView(TokenObtainPairView):
 class CookieTokenRefreshView(APIView):
     permission_classes = [AllowAny]
 
+    @method_decorator(never_cache)
     def post(self, request):
         raw = request.COOKIES.get(REFRESH_COOKIE_NAME)
         if not raw:
@@ -200,7 +228,7 @@ class CookieTokenRefreshView(APIView):
 
         resp = Response({"access": access_str})
         if rotate:
-            _set_refresh_cookie(resp, new_refresh_str)
+            _set_refresh_cookie(resp, new_refresh_str, request)
         return resp
 
 
@@ -210,6 +238,7 @@ class CookieTokenRefreshView(APIView):
 class CookieTokenLogoutView(APIView):
     permission_classes = [AllowAny]
 
+    @method_decorator(never_cache)
     def post(self, request):
         raw = request.COOKIES.get(REFRESH_COOKIE_NAME)
         resp = Response({"detail": "OK"})
@@ -218,7 +247,7 @@ class CookieTokenLogoutView(APIView):
                 RefreshToken(raw).blacklist()
             except TokenError:
                 pass
-        _clear_refresh_cookie(resp)
+        _clear_refresh_cookie(resp, request)
         return resp
 
 

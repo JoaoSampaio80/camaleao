@@ -13,7 +13,6 @@ import {
   Pagination,
   Modal,
 } from 'react-bootstrap';
-import { useNavigate } from 'react-router-dom';
 import AxiosInstance from '../components/Axios';
 import Sidebar from '../components/Sidebar';
 
@@ -77,10 +76,9 @@ const INITIAL = {
 };
 
 function Cadastro() {
-  const navigate = useNavigate();
-
   const APP_ENV = String(import.meta.env.VITE_APP_ENV || '').toLowerCase();
   const isProdLike = APP_ENV === 'production';
+  console.log('>>> FRONT ENV:', APP_ENV, 'isProdLike:', isProdLike);
 
   const [formData, setFormData] = useState(INITIAL);
   const [mode, setMode] = useState('create'); // 'create' | 'edit'
@@ -465,7 +463,27 @@ function Cadastro() {
   }, [page, totalPages]);
 
   const editClass = mode === 'edit' ? 'edit-highlight' : '';
-  const cardEditClass = mode === 'edit' ? 'edit-mode-card' : '';
+
+  const [dpoExists, setDpoExists] = useState(false);
+  const [checkingDPO, setCheckingDPO] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setCheckingDPO(true);
+        await AxiosInstance.get('users/dpo/'); // 200 => existe DPO
+        if (mounted) setDpoExists(true);
+      } catch (e) {
+        if (mounted) setDpoExists(!(e?.response?.status === 404));
+      } finally {
+        if (mounted) setCheckingDPO(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
@@ -500,7 +518,37 @@ function Cadastro() {
         <Container fluid className="container-gradient" style={{ maxWidth: 1100 }}>
           {message && <Alert variant={variant}>{message}</Alert>}
 
+          {/* aviso DPO já nomeado */}
+          {formData.role === 'dpo' && dpoExists && !checkingDPO && (
+            <Alert variant="warning" className="mb-3">
+              Já existe um DPO nomeado. Edite o DPO atual para alterar.
+            </Alert>
+          )}
+
           <Form onSubmit={handleSubmit} noValidate>
+            {/* Tipo de usuário movido para o topo */}
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Label>Tipo Usuário</Form.Label>
+                <Form.Select
+                  className={editClass}
+                  name="role"
+                  required
+                  value={formData.role}
+                  onChange={handleChange}
+                  isInvalid={!!errors.role}
+                >
+                  <option value="">Selecione...</option>
+                  <option value="admin">Administrador</option>
+                  <option value="dpo">DPO</option>
+                  <option value="gerente">Gerente</option>
+                </Form.Select>
+                <Form.Control.Feedback type="invalid">
+                  {errors.role}
+                </Form.Control.Feedback>
+              </Col>
+            </Row>
+
             <Row className="mb-3">
               <Col md={6}>
                 <Form.Label>E-mail</Form.Label>
@@ -529,23 +577,7 @@ function Cadastro() {
                   placeholder="Digite o nome"
                   value={formData.first_name}
                   onChange={handleFirstNameChange}
-                  onKeyDown={(e) => {
-                    const allowedKeys = [
-                      'Backspace',
-                      'Delete',
-                      'Tab',
-                      'Enter',
-                      'ArrowLeft',
-                      'ArrowRight',
-                      'Home',
-                      'End',
-                      ' ',
-                    ];
-                    if (allowedKeys.includes(e.key)) return;
-                    if (/^\d$/.test(e.key)) e.preventDefault();
-                  }}
                   maxLength={NameMax}
-                  autoComplete="given-name"
                   isInvalid={!!errors.first_name}
                 />
                 <Form.Control.Feedback type="invalid">
@@ -562,49 +594,11 @@ function Cadastro() {
                   placeholder="Digite o sobrenome"
                   value={formData.last_name}
                   onChange={handleLastNameChange}
-                  onKeyDown={(e) => {
-                    const allowedKeys = [
-                      'Backspace',
-                      'Delete',
-                      'Tab',
-                      'Enter',
-                      'ArrowLeft',
-                      'ArrowRight',
-                      'Home',
-                      'End',
-                      ' ',
-                    ];
-                    if (allowedKeys.includes(e.key)) return;
-                    if (/^\d$/.test(e.key)) e.preventDefault();
-                  }}
                   maxLength={NameMax}
-                  autoComplete="family-name"
                   isInvalid={!!errors.last_name}
                 />
                 <Form.Control.Feedback type="invalid">
                   {errors.last_name}
-                </Form.Control.Feedback>
-              </Col>
-            </Row>
-
-            <Row className="mb-3">
-              <Col md={6}>
-                <Form.Label>Tipo Usuário</Form.Label>
-                <Form.Select
-                  className={editClass}
-                  name="role"
-                  required
-                  value={formData.role}
-                  onChange={handleChange}
-                  isInvalid={!!errors.role}
-                >
-                  <option value="">Selecione...</option>
-                  <option value="admin">Administrador</option>
-                  <option value="dpo">DPO</option>
-                  <option value="gerente">Gerente</option>
-                </Form.Select>
-                <Form.Control.Feedback type="invalid">
-                  {errors.role}
                 </Form.Control.Feedback>
               </Col>
             </Row>
@@ -620,20 +614,6 @@ function Cadastro() {
                     placeholder="(xx) xxxx-xxxx ou (xx) xxxxx-xxxx"
                     value={formatPhoneBR(formData.phone_number)}
                     onChange={handlePhoneChange}
-                    onKeyDown={(e) => {
-                      const allowed = [
-                        'Backspace',
-                        'Delete',
-                        'Tab',
-                        'ArrowLeft',
-                        'ArrowRight',
-                        'Home',
-                        'End',
-                      ];
-                      if (allowed.includes(e.key)) return;
-                      if (!/^\d$/.test(e.key)) e.preventDefault();
-                    }}
-                    inputMode="numeric"
                     isInvalid={!!errors.phone_number}
                     autoComplete="tel"
                   />
@@ -720,30 +700,22 @@ function Cadastro() {
               </Row>
             )}
 
+            {/* Ações */}
             <div className="d-flex justify-content-between mt-3">
-              {mode === 'edit' ? (
-                <Button
-                  variant="outline-secondary"
-                  type="button"
-                  onClick={() => resetForm()}
-                  disabled={submitting}
-                >
-                  Cancelar edição
-                </Button>
-              ) : (
-                <span />
-              )}
+              {/* vazio à esquerda para manter o layout */}
+              <span />
 
               <div className="d-flex gap-2">
                 <Button
                   className="btn-white-custom"
                   variant="secondary"
                   type="button"
-                  onClick={() => navigate('/')}
+                  onClick={() => resetForm()}
                   disabled={submitting}
                 >
-                  Voltar
+                  Cancelar
                 </Button>
+
                 <Button
                   className="btn-white-custom"
                   variant="primary"
@@ -916,7 +888,7 @@ function Cadastro() {
         </Container>
       </div>
 
-      {/* Modal de confirmação de exclusão (visual discreto para não mudar o look&feel geral) */}
+      {/* Modal de confirmação de exclusão */}
       <Modal
         show={confirmOpen}
         onHide={() => !deleting && setConfirmOpen(false)}

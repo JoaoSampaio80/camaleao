@@ -4,10 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "set BROWSER='msedge --profile-directory=\"Profile 1\"' && vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview --port 5173"
+    "preview": "set BROWSER='msedge --profile-directory=\"Profile 1\"' && vite preview --port 5173",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@fortawesome/free-solid-svg-icons": "^6.7.2",

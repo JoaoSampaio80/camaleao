@@ -10,7 +10,7 @@ import {
   InputGroup,
   Spinner,
 } from 'react-bootstrap';
-import AxiosInstance from '../components/Axios';
+import { AxiosPublic } from '../components/Axios';
 
 const REQ = {
   min8: (s) => s.length >= 8,
@@ -98,7 +98,7 @@ export default function DefinirSenha() {
     setSubmitting(true);
     setMsg('');
     try {
-      const resp = await AxiosInstance.post('auth/password-reset/confirm/', {
+      const resp = await AxiosPublic.post('auth/password-reset/confirm/', {
         uid,
         token,
         new_password: pw,

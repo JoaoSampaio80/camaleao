@@ -12,9 +12,9 @@
   --bg-page: #f5f5f5;
 
   /* Home */
-  --card-size: 150px; /* largura = altura (quadrado) */
-  --gap: 16px; /* espaço entre cards */
-  --topbar-h: 80px; /* altura visual da barra superior */
+  --card-size: 150px;
+  --gap: 16px;
+  --topbar-h: 80px;
 }
 
 * {
@@ -31,9 +31,10 @@ body {
   min-width: 320px;
   background: var(--bg-page);
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
   color: var(--text);
+
+  /* padrão moderno (sem prefixos antigos) */
+  text-size-adjust: 100%;
 }
 
 a {
@@ -45,7 +46,6 @@ a {
    Home (escopado)
    ========================= */
 
-/* compensa a navbar fixa e ocupa a viewport */
 .home-content {
   padding-top: var(--topbar-h);
   min-height: calc(100vh - var(--topbar-h));
@@ -53,16 +53,14 @@ a {
   display: flex;
 }
 
-/* centraliza o grid no meio da área visível */
 .home-center {
   margin: 0 auto;
   width: 100%;
   display: flex;
-  align-items: center; /* centro vertical */
-  justify-content: center; /* centro horizontal */
+  align-items: center;
+  justify-content: center;
 }
 
-/* grid 3x3 com tamanhos fixos e bem alinhado */
 .home-grid {
   display: grid;
   grid-template-columns: repeat(3, var(--card-size));
@@ -72,7 +70,6 @@ a {
   align-content: center;
 }
 
-/* card quadrado com gradiente */
 .home-card {
   background: var(--grad);
   width: var(--card-size);
@@ -114,7 +111,6 @@ a {
   word-break: normal;
 }
 
-/* responsivo: 2 colunas no tablet, 1 no celular */
 @media (max-width: 992px) {
   .home-grid {
     grid-template-columns: repeat(2, var(--card-size));
@@ -134,25 +130,21 @@ a {
    Utilitários aprovados (globais)
    ========================= */
 
-/* seção/bloco com gradiente */
 .container-gradient {
   background: var(--grad);
   padding: 2rem;
   border-radius: 10px;
 }
 
-/* labels brancas somente dentro do gradiente */
 .container-gradient label,
 .container-gradient .form-label {
   color: #fff;
 }
 
-/* contraste para asteriscos/erros dentro do gradiente */
 .container-gradient .text-danger {
   color: #ffb3b3 !important;
 }
 
-/* Alinhar label + asterisco na mesma linha (sem “pular”) */
 .form-label,
 label {
   display: inline-flex;
@@ -160,18 +152,15 @@ label {
   gap: 0.25rem;
 }
 
-/* botão branco para usar sobre gradiente escuro */
 .btn-white-custom {
   background-color: #ffffff !important;
   color: var(--ink) !important;
 }
 
-/* título fora de cards, cor aprovada */
 .page-title-ink {
   color: var(--ink);
 }
 
-/* realces leves para “modo edição” (mantidos) */
 .edit-highlight {
   border-color: #11d72b !important;
   box-shadow: 0 0 0 0.15rem rgba(241, 196, 15, 0.35) !important;
@@ -181,8 +170,22 @@ label {
   box-shadow: 0 0 0 0.2rem rgba(241, 196, 15, 0.15) !important;
 }
 
-/* Utilitário: reset de labels quando o card é branco dentro do gradiente */
 .container-gradient .labels-reset label,
 .container-gradient .labels-reset .form-label {
   color: inherit;
+}
+
+/* =========================
+   Correções de compatibilidade herdadas do Bootstrap
+   ========================= */
+
+/* 🔹 Remove avisos de -webkit-text-size-adjust herdado do Bootstrap */
+body {
+  -webkit-text-size-adjust: initial !important;
+  text-size-adjust: 100% !important;
+}
+
+/* 🔹 Remove aviso de text-align: -webkit-match-parent em th */
+th {
+  text-align: match-parent !important;
 }

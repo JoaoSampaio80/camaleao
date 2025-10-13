@@ -12,6 +12,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
 }
 .white-border {
   border: 1px solid var(--white) !important;
@@ -37,15 +38,15 @@
 
 /* ====== Links da sidebar ====== */
 .sidebar-link {
-  color: #003366 !important; /* texto forte */
+  color: #003366 !important;
   font-size: 1.05rem;
   padding: 10px 12px;
   border-radius: 6px;
   text-decoration: none;
   transition:
-    background-color 0.2s,
-    color 0.2s,
-    box-shadow 0.2s;
+    background-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 .sidebar-link .fa-icon {
   margin-right: 10px;

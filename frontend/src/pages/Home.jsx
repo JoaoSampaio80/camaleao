@@ -13,7 +13,7 @@ import {
   faBell,
   faUserSecret,
 } from '@fortawesome/free-solid-svg-icons';
-import Sidebar from '../components/Sidebar'; // ajuste o caminho se sua estrutura for diferente
+import Sidebar from '../components/Sidebar';
 import { ROUTES } from '../routes';
 
 function Home() {
@@ -39,18 +39,28 @@ function Home() {
     <div className="d-flex" style={{ minHeight: '100vh' }}>
       <Sidebar />
 
-      {/* área central ocupando a tela e mantendo o grid no meio */}
-      <main className="home-content">
+      <main className="home-content" role="main" aria-label="Página inicial">
         <div className="home-center">
-          <div className="home-grid">
+          <div className="home-grid" role="navigation" aria-label="Menu principal">
             {cardData.map((card, idx) => (
               <Card
                 key={idx}
-                className="home-card text-white text-center shadow-sm "
+                className="home-card text-white text-center shadow-sm"
                 onClick={() => navigate(card.path)}
+                role="button"
+                tabIndex={0}
+                aria-label={`Acessar seção ${card.title}`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') navigate(card.path);
+                }}
               >
                 <Card.Body className="home-card-body">
-                  <FontAwesomeIcon icon={card.icon} size="lg" className="mb-2" />
+                  <FontAwesomeIcon
+                    icon={card.icon}
+                    size="lg"
+                    className="mb-2"
+                    aria-hidden="true"
+                  />
                   <Card.Title className="home-card-title">{card.title}</Card.Title>
                 </Card.Body>
               </Card>

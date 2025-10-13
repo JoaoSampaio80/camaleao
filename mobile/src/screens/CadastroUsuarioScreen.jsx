@@ -1,5 +1,11 @@
 // src/screens/CadastroUsuarioScreen.jsx
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+  useRef,
+} from "react";
 import {
   View,
   Text,
@@ -13,6 +19,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { http } from "@/api/http";
+import { APP_ENV } from "@env";
 
 /* === Paleta e tokens fiéis ao web === */
 const Colors = {
@@ -190,12 +197,23 @@ export default function CadastroUsuarioScreen() {
   const [next, setNext] = useState(null);
   const [previous, setPrevious] = useState(null);
 
+  const scrollRef = useRef(null);
+  const formYRef = useRef(0);
+  const scrollToForm = useCallback(() => {
+    const y = Math.max(0, formYRef.current - 12);
+    if (scrollRef.current?.scrollTo) {
+      scrollRef.current.scrollTo({ y, animated: true });
+    }
+  }, []);
+
   const totalPages = useMemo(() => {
     const base = count || users.length || 0;
     return Math.max(1, Math.ceil(base / pageSize));
   }, [count, users.length, pageSize]);
 
-  const isProdLike = false;
+  // const isProdLike = false;
+
+  const isProdLike = APP_ENV === "prod";
 
   const canPrev = Boolean(previous) || page > 1;
   const canNext = Boolean(next) || page < totalPages;
@@ -464,6 +482,7 @@ export default function CadastroUsuarioScreen() {
       setErrors({});
       setFlashKind("");
       setFlashMsg("");
+      requestAnimationFrame(scrollToForm);
     } catch {
       setFlashKind("danger");
       setFlashMsg("Falha ao carregar usuário para edição.");
@@ -511,6 +530,7 @@ export default function CadastroUsuarioScreen() {
 
   return (
     <ScrollView
+      ref={scrollRef}
       style={{ flex: 1, backgroundColor: Colors.bgPage }}
       contentContainerStyle={{ paddingBottom: bottom + 16 }}
     >
@@ -524,6 +544,9 @@ export default function CadastroUsuarioScreen() {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={s.gradientCard}
+        onLayout={(e) => {
+          formYRef.current = e.nativeEvent.layout.y;
+        }}
       >
         {!!flashMsg && (
           <View
@@ -716,21 +739,11 @@ export default function CadastroUsuarioScreen() {
           </View>
         )}
 
-        {/* Ações */}
+        {/* Ações do formulário (stack vertical) */}
         <View style={[s.actions, { marginTop: Space.lg }]}>
           <Pressable
-            onPress={() => resetForm()}
-            style={[s.btnGhost, { borderColor: Colors.white }]}
-            disabled={submitting}
-          >
-            <Text style={s.btnGhostTxt}>
-              {mode === "edit" ? "Cancelar edição" : "Cancelar"}
-            </Text>
-          </Pressable>
-
-          <Pressable
             onPress={onSubmit}
-            style={s.btnPrimary}
+            style={[s.btnPrimary, s.btnBlock]}
             disabled={submitting}
           >
             <Text style={s.btnPrimaryTxt}>
@@ -739,6 +752,16 @@ export default function CadastroUsuarioScreen() {
                 : mode === "create"
                 ? "Cadastrar"
                 : "Salvar alterações"}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => resetForm()}
+            style={[s.btnGhost, s.btnBlock, { borderColor: Colors.white }]}
+            disabled={submitting}
+          >
+            <Text style={s.btnGhostTxt}>
+              {mode === "edit" ? "Cancelar edição" : "Cancelar"}
             </Text>
           </Pressable>
         </View>
@@ -909,11 +932,12 @@ const s = StyleSheet.create({
   infoTxt: { color: Colors.white },
 
   actions: {
-    flexDirection: "row",
+    flexDirection: "column",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
+  btnBlock: { width: "100%", alignItems: "center" },
   btnGhost: {
     borderWidth: 1,
     paddingVertical: 10,

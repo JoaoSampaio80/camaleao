@@ -14,6 +14,7 @@ import InventarioDados from './pages/InventarioDados';
 import InventarioDados2 from './pages/InventarioDados2';
 import InventarioDados3 from './pages/InventarioDados3';
 import MatrizRisco from './pages/MatrizRisco';
+import MatrizRiscoLista from './pages/MatrizRiscoLista';
 import Notificacoes from './pages/Notificacao';
 import Cadastro from './pages/Cadastro';
 import Perfil from './pages/Perfil';
@@ -39,6 +40,7 @@ export const ROUTES = {
   INVENTARIO_DADOS2: '/dados2',
   INVENTARIO_DADOS3: '/dados3',
   MATRIZ_RISCO: '/matrizrisco',
+  MATRIZ_RISCO_LISTA: '/matrizriscolista',
   NOTIFICACOES: '/notificacao',
   PERFIL: '/perfil',
   INVENTARIO_LISTA: '/dados/lista',
@@ -70,6 +72,7 @@ function AppRouter() {
         <Route path={ROUTES.MONITORAMENTO} element={<Monitoramento />} />
         <Route path={ROUTES.DOCUMENTOS} element={<Documentos />} />
         <Route path={ROUTES.MATRIZ_RISCO} element={<MatrizRisco />} />
+        <Route path={ROUTES.MATRIZ_RISCO_LISTA} element={<MatrizRiscoLista />} />
         <Route path={ROUTES.NOTIFICACOES} element={<Notificacoes />} />
         {/* Rotas de Inventário encapsuladas com o provider */}
         <Route

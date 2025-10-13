@@ -1,19 +1,23 @@
-# backend/camaleao/settings/base.py
+# ============================================================
+#  CAMALÉAO – BASE SETTINGS (com suporte a env dinâmico)
+# ============================================================
+# Este arquivo define as configurações comuns a todos os ambientes
+# (dev, prod, mobile, etc.). Ajustes específicos devem ir em:
+#   - camaleao/settings/dev.py
+#   - camaleao/settings/prod.py
+# ============================================================
+
 from pathlib import Path
 import os
 from dotenv import load_dotenv
 from datetime import timedelta
 
-# === Descoberta do arquivo .env por ambiente ==============================
-# Prioridade:
-# 1) ENV_FILE (caminho explícito)
-# 2) DJANGO_SETTINGS_MODULE contém ".prod"  -> .env.prod
-#    DJANGO_SETTINGS_MODULE contém ".dev"   -> .env.development
-# 3) fallback para .env (se existir)
-# OBS: variáveis já existentes no ambiente NÃO são sobrescritas.
+# ============================================================
+# 1️⃣ Carregamento dinâmico de variáveis de ambiente
+# ============================================================
 BASE_DIR = Path(__file__).resolve().parents[2]
 
-ENV_FILE = os.environ.get("ENV_FILE")  # opcional
+ENV_FILE = os.environ.get("ENV_FILE")
 if not ENV_FILE:
     dsm = os.environ.get("DJANGO_SETTINGS_MODULE", "")
     if ".prod" in dsm:
@@ -21,51 +25,51 @@ if not ENV_FILE:
     elif ".dev" in dsm:
         ENV_FILE = ".env.development"
     else:
-        ENV_FILE = ".env"  # fallback
+        ENV_FILE = ".env"
 
 env_path = BASE_DIR / ENV_FILE
 if env_path.exists():
     load_dotenv(dotenv_path=env_path, override=False)
 else:
-    # Se o escolhido não existir mas houver um .env genérico, carrega-o.
     generic_env = BASE_DIR / ".env"
     if generic_env.exists():
         load_dotenv(dotenv_path=generic_env, override=False)
     else:
-        # Último recurso: tenta variáveis já exportadas no sistema
         load_dotenv(override=False)
 
-# ==========================================================================
+# ============================================================
+# 2️⃣ Configurações básicas e de segurança
+# ============================================================
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("A SECRET_KEY não está definida no ambiente (.env).")
 
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+DEFAULT_CHARSET = "utf-8"
+
+# ============================================================
+# 3️⃣ E-mail (mantido conforme comportamento original)
+# ============================================================
+# - Em dev → usa console backend (simula envio no terminal)
+# - Em prod → sobreposto por SMTP2GO ou outro backend real
+# - Timeout do link de redefinição = 3 dias (padrão)
+# ============================================================
 EMAIL_BACKEND = os.getenv(
     "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
 )
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@localhost")
 EMAIL_ENABLED = os.getenv("EMAIL_ENABLED", "True").lower() == "true"
 
-# URL do frontend usada em e-mails/links
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173/")
-
 PASSWORD_RESET_TIMEOUT = int(os.getenv("PASSWORD_RESET_TIMEOUT", 60 * 60 * 24 * 3))
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
-
-SECRET_KEY = os.getenv("SECRET_KEY")
-if not SECRET_KEY:
-    raise ValueError(
-        "A SECRET_KEY não está definida nas variáveis de ambiente. Defina-a para prosseguir."
-    )
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG", "False").lower() == "true"
-
-ALLOWED_HOSTS = os.getenv(
-    "ALLOWED_HOSTS",
-    "localhost,127.0.0.1",
-).split(",")
-
-# Application definition
+# ============================================================
+# 4️⃣ Aplicações principais
+# ============================================================
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -81,6 +85,9 @@ INSTALLED_APPS = [
     "django_filters",
 ]
 
+# ============================================================
+# 5️⃣ Middleware
+# ============================================================
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -93,20 +100,9 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-
-CORS_ALLOW_CREDENTIALS = True
-
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://192.168.29.65",
-    "http://172.18.23.100",
-]
-
+# ============================================================
+# 6️⃣ URLs / Templates
+# ============================================================
 ROOT_URLCONF = "camaleao.urls"
 
 TEMPLATES = [
@@ -126,8 +122,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "camaleao.wsgi.application"
 
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+# ============================================================
+# 7️⃣ Banco de dados (SQLite local por padrão)
+# ============================================================
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -135,30 +132,54 @@ DATABASES = {
     }
 }
 
-# Password validation
-# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
-AUTH_PASSWORD_VALIDATORS = []
-
-# Internationalization
-# https://docs.djangoproject.com/en/5.2/topics/i18n/
+# ============================================================
+# 8️⃣ Internacionalização
+# ============================================================
 LANGUAGE_CODE = "pt-br"
 TIME_ZONE = "America/Sao_Paulo"
 USE_I18N = True
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
-STATIC_URL = "static/"
+# ============================================================
+# 9️⃣ Arquivos estáticos e de mídia
+# ============================================================
+STATIC_URL = "/static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
-AUTH_USER_MODEL = "api.User"
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
 
-AUTHENTICATION_BACKENDS = [
-    "django.contrib.auth.backends.ModelBackend",
+# ============================================================
+# 🔟 CORS / CSRF (ajustado dinamicamente em prod.py)
+# ============================================================
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = True
+
+# Valores locais (serão sobrescritos por domínio do túnel no prod.py)
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
 ]
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+]
+
+# ============================================================
+# 11️⃣ Autenticação e usuários
+# ============================================================
+AUTH_USER_MODEL = "api.User"
+AUTHENTICATION_BACKENDS = ["django.contrib.auth.backends.ModelBackend"]
+
+# ============================================================
+# 12️⃣ REST Framework e JWT (idêntico ao original)
+# ============================================================
+SIGNING_KEY_JWT = os.environ.get("DJANGO_JWT_SIGNING_KEY")
+if not SIGNING_KEY_JWT:
+    raise ValueError(
+        "A chave JWT (DJANGO_JWT_SIGNING_KEY) não está definida no ambiente."
+    )
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
@@ -172,40 +193,32 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PAGINATION_CLASS": "api.pagination.DefaultPagination",
     "PAGE_SIZE": 10,
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+    ],
 }
-
-# Configurações do Simple JWT
-SIGNING_KEY_JWT = os.environ.get("DJANGO_JWT_SIGNING_KEY")
-if not SIGNING_KEY_JWT:
-    raise ValueError(
-        "A chave de assinatura JWT (DJANGO_JWT_SIGNING_KEY) não está definida nas variáveis de ambiente. Defina-a para prosseguir."
-    )
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
     "REFRESH_TOKEN_LIFETIME": timedelta(minutes=15),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
-    "UPDATE_LAST_LOGIN": False,
     "ALGORITHM": "HS256",
     "SIGNING_KEY": SIGNING_KEY_JWT,
-    "VERIFYING_KEY": None,
-    "AUDIENCE": None,
-    "ISSUER": None,
-    "JWK_URL": None,
-    "LEEWAY": 0,
     "AUTH_HEADER_TYPES": ("Bearer",),
-    "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
-    "USER_AUTHENTICATION_RULE": "rest_framework_simplejwt.authentication.default_user_authentication_rule",
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
-    "TOKEN_TYPE_CLAIM": "token_type",
-    "TOKEN_USER_CLASS": "rest_framework_simplejwt.models.TokenUser",
-    "JTI_CLAIM": "jti",
-    # 'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
-    # 'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
 
-MEDIA_URL = "/media/"
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+# ============================================================
+# 13️⃣ Segurança adicional (mantido do original)
+# ============================================================
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
+SECURE_CROSS_ORIGIN_EMBEDDER_POLICY = "require-corp"
+
+print(
+    f"[Camaleão] Ambiente ativo: {os.getenv('DJANGO_SETTINGS_MODULE')} | PASSWORD_RESET_TIMEOUT = {os.getenv('PASSWORD_RESET_TIMEOUT')} segundos"
+)

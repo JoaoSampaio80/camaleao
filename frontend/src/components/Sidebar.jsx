@@ -43,7 +43,12 @@ function AvatarImg({ src, className, iconColor = 'white' }) {
     return <FontAwesomeIcon icon={faUser} size="lg" style={{ color: iconColor }} />;
   }
   return (
-    <img src={src} alt="Avatar" className={className} onError={() => setBroken(true)} />
+    <img
+      src={src}
+      alt="Avatar do usuário"
+      className={className}
+      onError={() => setBroken(true)}
+    />
   );
 }
 
@@ -75,6 +80,11 @@ function Sidebar() {
     { to: ROUTES.INVENTARIO_LISTA, icon: faList, label: 'Lista Inventários' },
     { to: ROUTES.MATRIZ_RISCO, icon: faExclamationTriangle, label: 'Matriz de Risco' },
     {
+      to: ROUTES.MATRIZ_RISCO_LISTA,
+      icon: faExclamationTriangle,
+      label: 'Lista da Matriz de Risco',
+    },
+    {
       to: ROUTES.CADASTRO,
       icon: faUserPlus,
       label: 'Cadastro de Usuário',
@@ -95,7 +105,7 @@ function Sidebar() {
 
   return (
     <>
-      {/* Estilos mínimos só para tamanhos do avatar (o resto vem do seu CSS global) */}
+      {/* Estilos mínimos só para tamanhos do avatar */}
       <style>{`
         .avatar-btn{ display:inline-flex; align-items:center; justify-content:center; border:0; background:transparent; padding:0; }
         .avatar-img{ border-radius:50%; object-fit:cover; width:36px; height:36px; display:block; }
@@ -106,7 +116,11 @@ function Sidebar() {
       <Navbar className="navbar-gradient" variant="dark" fixed="top">
         <Container fluid className="justify-content-between">
           <div className="d-flex align-items-center gap-2">
-            <Button onClick={handleShow} className="ghost-btn white-border">
+            <Button
+              onClick={handleShow}
+              className="ghost-btn white-border"
+              aria-label="Abrir menu lateral"
+            >
               <FontAwesomeIcon icon={faBars} />
             </Button>
 
@@ -114,6 +128,7 @@ function Sidebar() {
               as={Link}
               to={ROUTES.HOME}
               className="ghost-btn white-border d-flex align-items-center"
+              aria-label="Ir para a página inicial"
             >
               <FontAwesomeIcon icon={faHouse} size="lg" />
             </Button>
@@ -124,7 +139,14 @@ function Sidebar() {
           </Navbar.Brand>
 
           <Dropdown align="end">
-            <Dropdown.Toggle as="button" type="button" className="avatar-btn">
+            <Dropdown.Toggle
+              as="button"
+              type="button"
+              className="avatar-btn"
+              aria-label="Abrir menu do usuário"
+              aria-haspopup="menu"
+              aria-expanded="false"
+            >
               <AvatarImg src={user?.avatar} className="avatar-img" />
             </Dropdown.Toggle>
 
@@ -171,6 +193,7 @@ function Sidebar() {
         placement="start"
         style={{ width: '220px' }}
         className="sidebar-offcanvas"
+        aria-label="Menu lateral de navegação"
       >
         <Offcanvas.Header closeButton className="offcanvas-header-gradient">
           <div className="w-100 text-center fw-bold">Gestão de Documentos</div>
@@ -185,8 +208,9 @@ function Sidebar() {
                 to={to}
                 onClick={handleClose}
                 className={`sidebar-link d-flex align-items-center ${isActive(to) ? 'active' : ''}`}
+                aria-label={`Ir para ${label}`}
               >
-                <FontAwesomeIcon icon={icon} className="fa-icon" />
+                <FontAwesomeIcon icon={icon} className="fa-icon" aria-hidden="true" />
                 {label}
               </Nav.Link>
             ))}
