@@ -34,7 +34,9 @@
           "cameraPermission": "Precisamos acessar a câmera para tirar uma foto do avatar."
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-asset",
+      "expo-router"
     ]
   }
 }

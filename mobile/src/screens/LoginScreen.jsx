@@ -73,7 +73,8 @@ export default function LoginScreen({ navigation, route }) {
         );
       } else if (st >= 500) {
         setError(
-          "Servidor indisponível no momento. Tente novamente em instantes."
+          "Servidor indisponível no momento. Tente novamente em instantes.",
+          console.log("🌐 Usando API_URL:", ENV.API_URL)
         );
       } else {
         setError(detail || "Tente novamente.");

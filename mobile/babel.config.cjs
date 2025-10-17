@@ -1,21 +1,32 @@
 // mobile/babel.config.cjs
 module.exports = function (api) {
   api.cache(true);
+
+  // Detecta ambiente (valor vindo do script PowerShell ou padrão = dev)
+  const APP_ENV = process.env.APP_ENV || "dev";
+  const envFile = `.env.${APP_ENV}`;
+
+  console.log(`📦 [Babel] Carregando arquivo de ambiente: ${envFile}`);
+
   return {
     presets: ["babel-preset-expo"],
     plugins: [
       [
         "module:react-native-dotenv",
         {
-          moduleName: "@env", // <- importa como "@env"
-          path: ".env", // <- arquivo que será lido (o seu script troca esse arquivo)
+          moduleName: "@env",
+          path: (() => {
+            const envFile =
+              process.env.APP_ENV === "prod" ? ".env.prod" : ".env.dev";
+            console.log(`[Babel] Carregando arquivo de ambiente: ${envFile}`);
+            return envFile;
+          })(),
           safe: false,
           allowUndefined: true,
         },
       ],
       ["module-resolver", { root: ["./"], alias: { "@": "./src" } }],
-      // ⚠️ NADA de '@babel/plugin-transform-react-jsx-self/source' aqui
-      "react-native-worklets/plugin", // novo nome do plugin do Reanimated — DEVE ser o último
+      "react-native-worklets/plugin", // deve continuar sendo o último
     ],
   };
 };

@@ -1,17 +1,18 @@
 // App.js
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import React, { useRef } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useFonts } from "expo-font";
-import { FontAwesome5 } from "@expo/vector-icons"; // use a família que você realmente usa
+import { FontAwesome5 } from "@expo/vector-icons";
 
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import useAuthReauthRedirectMobile from "@/hooks/useAuthReauthRedirectMobile";
 import DrawerContent from "@/components/SidebarDrawer";
 import AppHeader from "@/components/AppHeader";
 
-// ✅ importa telas
 import {
   HomeScreen,
   LoginScreen,
@@ -23,13 +24,15 @@ import {
   ChecklistScreen,
 } from "@/screens";
 
-// ✅ habilita LayoutAnimation no Android (arquitetura antiga)
 import { enableLayoutAnimationAndroid } from "@/utils/enableLayoutAnimationAndroid";
 enableLayoutAnimationAndroid();
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
 
+/* ===============================================
+   Navegação principal (Drawer)
+   =============================================== */
 function AppDrawer() {
   return (
     <Drawer.Navigator
@@ -106,36 +109,47 @@ function AppDrawer() {
   );
 }
 
+/* ===============================================
+   Stack para login e autenticação
+   =============================================== */
 function AuthStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="LoginScreen" component={LoginScreen} />
     </Stack.Navigator>
   );
 }
 
+/* ===============================================
+   RootSwitch — controla se mostra login ou app
+   =============================================== */
 function RootSwitch() {
   const { user, loading } = useAuth();
-  if (loading) return null; // poderia exibir Splash aqui
+
+  // ✅ hook agora é chamado aqui, dentro do Provider e com ref global
+  useAuthReauthRedirectMobile(15);
+
+  if (loading) return null; // poderia exibir Splash futuramente
   return user ? <AppDrawer /> : <AuthStack />;
 }
 
+/* ===============================================
+   App principal
+   =============================================== */
 export default function App() {
-  // (opcional) pré-carrega a fonte de ícones pra evitar flicker
-  const [fontsLoaded] = useFonts({
-    ...FontAwesome5.font, // troque/adicione Ionicons.font, MaterialIcons.font, etc. se usar
-  });
+  const navigationRef = useRef(null);
+  const [fontsLoaded] = useFonts({ ...FontAwesome5.font });
   if (!fontsLoaded) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <AuthProvider>
-        <SafeAreaProvider>
+      <SafeAreaProvider>
+        <AuthProvider>
           <NavigationContainer>
             <RootSwitch />
           </NavigationContainer>
-        </SafeAreaProvider>
-      </AuthProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

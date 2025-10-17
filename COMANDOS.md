@@ -22,30 +22,19 @@ Atualizar requirements.txt após instalar/atualizar pacotes:
 
 pip freeze > backend/requirements.txt
 
-🖥️ Backend
-Rodar em desenvolvimento
+🖥️ Scripts
+Rodar em modo desenvolvimento com túnel cloudflare (web)
 
-$env:DJANGO_SETTINGS_MODULE="camaleao.settings.dev"
-python backend\manage.py runserver
+.\scripts\start-dev.ps1 -Env dev -StartFrontend:$true -StartMobile:$false
 
-Rodar em produção simulada local
+Rodar em modo produção simulada com túnel cloudflare (web)
 
-$env:DJANGO_SETTINGS_MODULE="camaleao.settings.prod"
-$env:ALLOWED_HOSTS="localhost,127.0.0.1"
-$env:SECURE_SSL_REDIRECT="False"
-python backend\manage.py collectstatic --noinput
-python backend\manage.py runserver 127.0.0.1:8000
+.\scripts\start-prod.ps1 -StartFrontend:$true -StartMobile:$false
 
-Observação: em ambiente real de produção, defina as variáveis de e-mail, CORS/CSRF e banco no servidor.
+Rodar em modo desenvolvimento com túnel cloudflare (mobile)
 
-🖥️ Frontend
-Rodar em desenvolvimento
+.\scripts\start-mobile-dev.ps1
 
-cd frontend
-npm run dev
+Rodar em modo produção com túnel cloudflare (mobile)
 
-Gerar build de produção e servir localmente
-
-cd frontend
-npm run build
-python -m http.server 5500 -d dist
+.\scripts\start-mobile-prod.ps1
