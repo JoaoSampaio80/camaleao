@@ -68,7 +68,7 @@ Write-Host "Iniciando ambiente MOBILE ($Env)..."
 # =====================================
 # 1) Criar túnel Cloudflare
 # =====================================
-Write-Host "Criando túnel Cloudflare..."
+Write-Host "Criando tunel Cloudflare..."
 $CloudflaredPath = $null
 $CloudflaredUser = Join-Path $env:USERPROFILE ".cloudflared\cloudflared.exe"
 
@@ -80,7 +80,7 @@ else {
     $CloudflaredPath = (Get-Command cloudflared -ErrorAction Stop).Source
   }
   catch {
-    Write-Host "ERRO: cloudflared.exe não encontrado. Instale o Cloudflared e tente novamente."
+    Write-Host "ERRO: cloudflared.exe nao encontrado. Instale o Cloudflared e tente novamente."
     exit 1
   }
 }
@@ -92,7 +92,7 @@ $cfArgs = @("tunnel", "--url", "http://0.0.0.0:8000", "--no-autoupdate")
 $CloudflaredProc = Start-Process -FilePath $CloudflaredPath -ArgumentList $cfArgs `
   -RedirectStandardOutput $CloudflaredOut -RedirectStandardError $CloudflaredErr -PassThru
 
-Write-Host "Aguardando URL do túnel..."
+Write-Host "Aguardando URL do tunel..."
 $Url = $null
 $deadline = (Get-Date).AddSeconds(30)
 $pattern = 'https?://[a-z0-9\-]+\.trycloudflare\.com'
@@ -111,17 +111,17 @@ while ((Get-Date) -lt $deadline -and -not $Url) {
 }
 
 if (-not $Url) {
-  Write-Host "Falha ao capturar a URL do túnel Cloudflare."
+  Write-Host "Falha ao capturar a URL do tunel Cloudflare."
   exit 1
 }
 
-Write-Host "Túnel ativo: $Url"
+Write-Host "Tunel ativo: $Url"
 $HostOnly = $Url -replace '^https://', ''
 
 # =====================================
 # 2) Atualizar arquivos .env
 # =====================================
-Write-Host "Atualizando variáveis de ambiente..."
+Write-Host "Atualizando variaveis de ambiente..."
 Set-EnvVarInFile $BackendEnv "ALLOWED_HOSTS" "0.0.0.0,localhost,$HostOnly"
 Set-EnvVarInFile $BackendEnv "BACKEND_URL" $Url
 Set-EnvVarInFile $MobileEnv "API_URL" "$Url/api/v1/"
@@ -152,7 +152,7 @@ Get-Process node -ErrorAction SilentlyContinue | Where-Object {
 } | Stop-Process -Force -ErrorAction SilentlyContinue
 
 # Configurar ambiente do Expo
-Write-Host "Definindo variáveis de ambiente Expo..."
+Write-Host "Definindo variaveis de ambiente Expo..."
 $env:APP_ENV = $Env
 $env:NODE_ENV = "development"
 $env:EXPO_NO_TUNNEL = "true"
@@ -162,7 +162,7 @@ $env:EXPO_DEBUG = "true"
 Write-Host "Verificando status do emulador..."
 $adbPath = "C:\Android\Sdk\platform-tools\adb.exe"
 if (-not (Test-Path $adbPath)) {
-  Write-Host "ERRO: adb.exe não encontrado."
+  Write-Host "ERRO: adb.exe nao encontrado."
   exit 1
 }
 
@@ -185,7 +185,7 @@ while ($elapsed -lt $maxWait) {
   }
   Start-Sleep -Seconds 3
   $elapsed += 3
-  Write-Host "Aguardando inicialização do emulador... ($elapsed s)"
+  Write-Host "Aguardando inicializacao do emulador... ($elapsed s)"
 }
 
 if (-not $emulatorReady) {
@@ -196,7 +196,7 @@ if (-not $emulatorReady) {
 Write-Host "Aguardando ADB conectar ao emulador..."
 & $adbPath wait-for-device
 & $adbPath reverse tcp:8081 tcp:8081
-Write-Host "Conexão ADB configurada (porta 8081 redirecionada)."
+Write-Host "Conexao ADB configurada (porta 8081 redirecionada)."
 
 # Iniciar Expo
 Set-Location $Mobile
@@ -231,11 +231,11 @@ catch {
 Write-Host "Iniciando Metro Bundler..."
 
 # 3) Realiza o build automático e instala o app no emulador (sem precisar 'a' ou 'r')
-Write-Host "Iniciando build e instalação automática no emulador..."
+Write-Host "Iniciando build e instalacao automatica no emulador..."
 $expoRunArgs = @("expo", "run", "android")
 Start-Process -FilePath "npx.cmd" -ArgumentList $expoRunArgs -WorkingDirectory $Mobile -NoNewWindow -Wait
 
-Write-Host "Build concluído e app iniciado no emulador."
+Write-Host "Build concluido e app iniciado no emulador."
 
 # =====================================
 # 5) Status final
@@ -246,7 +246,7 @@ Write-Host "Ambiente MOBILE pronto!"
 Write-Host "Túnel ativo: $Url"
 Write-Host "Backend: http://0.0.0.0:8000"
 Write-Host "==============================="
-Write-Host "Pressione CTRL + C para encerrar o túnel."
+Write-Host "Pressione CTRL + C para encerrar o tunel."
 Write-Host ""
 
 Wait-Process -Id $CloudflaredProc.Id

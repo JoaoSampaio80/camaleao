@@ -80,11 +80,6 @@ function Sidebar() {
     { to: ROUTES.INVENTARIO_LISTA, icon: faList, label: 'Lista Inventários' },
     { to: ROUTES.MATRIZ_RISCO, icon: faExclamationTriangle, label: 'Matriz de Risco' },
     {
-      to: ROUTES.MATRIZ_RISCO_LISTA,
-      icon: faExclamationTriangle,
-      label: 'Lista da Matriz de Risco',
-    },
-    {
       to: ROUTES.CADASTRO,
       icon: faUserPlus,
       label: 'Cadastro de Usuário',

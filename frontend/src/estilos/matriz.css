@@ -1,211 +1,256 @@
-/* ======= TABELA ======= */
-.custom-table,
-.custom-table th,
-.custom-table td {
-  border-color: #d9e1e8 !important;
-}
-
-.thead-gradient tr {
-  background: linear-gradient(135deg, #003366, #005b96) !important;
-}
-
-/* header gradiente */
-.thead-gradient th {
-  background: transparent !important; /* mostra o gradiente do <tr> */
-  color: #fff !important;
-  border-color: #00528a !important;
-  white-space: nowrap;
-}
-/* o TH de Ações precisa de fundo sólido pq é sticky (quando for o próprio TH de Ações) */
-.thead-gradient th.sticky-actions-th {
-  background: #0b3e6f !important;
-}
-
-.custom-table tbody tr.row-white td {
-  background: #ffffff !important;
-  color: #212529;
-}
-
-.custom-table tbody tr.row-blue td {
-  background: #005b96 !important;
-  color: #ffffff;
-}
-
-.custom-table.table-hover tbody tr:hover td {
-  background: #004b80 !important;
-  color: #fff;
-}
-
-.custom-table tbody tr.row-blue td .form-select,
-.custom-table tbody tr.row-blue td .form-control,
-.custom-table tbody tr.row-blue td .btn,
-.custom-table.table-hover tbody tr:hover td .form-select,
-.custom-table.table-hover tbody tr:hover td .form-control,
-.custom-table.table-hover tbody tr:hover td .btn {
-  background-color: #ffffff !important;
-  color: #212529 !important;
-  border-color: #ced4da !important;
-  box-shadow: none !important;
-}
-
-.custom-table tbody tr.row-blue td .form-select:focus {
-  border-color: #80bdff !important;
-}
-
-.custom-table .dropdown-menu {
-  z-index: 1060;
-}
-
-/* ======= CONTAINER LISTA ======= */
-.list-shell {
+.main-content {
+  background: #f5f5f5;
+  min-height: 100vh;
   width: 100%;
-  background: #f7fbff;
-  border-radius: 0.75rem;
-  padding: 1rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 56px - 120px);
+  padding: 2rem;
+  margin-top: 56px;
+  box-sizing: border-box;
 }
 
-/* Wrapper da tabela com rolagem e GUTTER para a coluna sticky */
+.page-title {
+  color: #071744;
+  font-weight: 700;
+  font-size: 1.6rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+/* ===== TABELA ===== */
 .table-wrap {
   width: 100%;
-  overflow-x: auto;
-  position: relative;
-
-  /* largura da coluna Ações (mantenha em sincronia com o JSX) */
-  --actions-w: 150px;
-
-  /* ESSENCIAL: cria o “respiro” p/ a coluna sticky */
-  padding-right: var(--actions-w);
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  margin-bottom: 1rem;
 }
 
-/* >>> NOVO: garante que a largura da tabela respeite o gutter (sem buraco) */
-.table-wrap .custom-table {
-  margin-right: var(--actions-w);
+.custom-table {
+  border-color: #d9e1e8 !important;
+  border-collapse: collapse !important;
+  min-width: 2200px;
+  table-layout: auto;
 }
 
-.table-wrap table {
-  margin-bottom: 0;
+/* Cabeçalho azul escuro e texto branco */
+.custom-table thead.thead-gradient tr {
+  background: linear-gradient(135deg, #002d5c, #004b80) !important;
 }
 
-.list-footer {
-  margin-top: 0.75rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #eef5fb;
-  border-radius: 0.5rem;
-  padding: 0.5rem 0.75rem;
-}
-
-/* ======= MODAL ======= */
-.lgpd-modal-dialog {
-  max-width: min(1200px, 95vw);
-  margin: 2rem auto;
-}
-
-.lgpd-modal-content {
-  border: 0;
-  border-radius: 1rem;
-  overflow: hidden;
-
-  /* scroll geral */
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.lgpd-modal-content .modal-header {
-  background: #063a6b;
-  color: #fff;
-}
-
-.lgpd-modal-content .modal-header .btn-close {
-  filter: invert(1);
-  opacity: 0.9;
-}
-
-.lgpd-modal-content .modal-title {
-  width: 100%;
-  text-align: center;
-  margin: 0;
-}
-
-.lgpd-modal-content .modal-body {
-  background: #063a6b;
-  overflow-y: auto !important; /* rola com mouse */
-}
-
-.lgpd-modal-content .modal-footer {
-  background: #063a6b;
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
-}
-
-.lgpd-modal-content .modal-body label {
-  color: #ffffff;
+.custom-table thead.thead-gradient th {
+  background: linear-gradient(135deg, #002d5c, #004b80) !important;
+  color: #ffffff !important;
   font-weight: 600;
+  text-align: left;
+  padding: 0.75rem;
+  border-color: #003a6b !important;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 3;
 }
 
-.lgpd-modal-content .modal-body .form-control,
-.lgpd-modal-content .modal-body .form-select {
+/* Linhas alternadas */
+.row-blue td {
+  background: #004b80 !important;
+  color: #ffffff !important;
+}
+
+.row-white td {
   background: #ffffff !important;
   color: #212529 !important;
-  border-color: #ced4da !important;
-  box-shadow: none !important;
 }
 
-/* ======= Sticky Ações (definitivo) ======= */
-
-/* Evita “buraco”: NÃO coloque padding-right na tabela */
-.sticky-actions-table {
-  padding-right: 0;
+/* Hover igual a Documentos */
+.custom-table tbody tr:hover td {
+  background-color: #003a6b !important;
+  color: #ffffff !important;
+  transition: background-color 0.25s ease;
 }
 
-/* Estética geral */
-.custom-table th,
-.custom-table td {
+/* ===== CELULAS ===== */
+.custom-table td,
+.custom-table th {
+  border-color: #d0d7de !important;
+  vertical-align: top;
   white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  min-width: 180px;
+  padding: 0.75rem 0.9rem;
+  line-height: 1.4;
 }
 
-/* >>> REMOVA qualquer regra com :last-child (elas grudam a coluna errada)
-   (foi removido aqui de propósito) */
+/* ===== CONTEÚDO DAS CÉLULAS (controle de altura) ===== */
+.cell-clip {
+  display: block;
+  line-height: 1.4em;
+  max-height: calc(2 * 1.4em); /* Limita visualmente a 2 linhas reais */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+}
 
-/* Coluna de Ações sticky via CLASSE (funciona mesmo se “Ações” não for a última) */
-.custom-table .sticky-actions-th {
+/* As colunas mais textuais (risco, controle, plano) têm largura mínima maior */
+.custom-table .col-wide {
+  min-width: 320px;
+}
+
+/* ==========================================================================
+   CORREÇÃO DE EMPILHAMENTO PARA DROPDOWN NA COLUNA "AÇÕES"
+   --------------------------------------------------------------------------
+   Contexto:
+   - As tabelas (Matriz de Risco, Documentos etc.) usam a última coluna com
+     `position: sticky; right: 0;` para fixar os botões "Ações".
+   - Cada <td> sticky cria um novo stacking context (z-index local).
+   - Ao abrir a dropdown, as células sticky das linhas seguintes ficavam
+     acima do menu, já que estão depois no DOM e com o mesmo z-index.
+
+   Solução adotada:
+   - Elevar dinamicamente o z-index da célula (<td>) ativa usando
+     `:focus-within` (botão focado) e `:hover` (fallback).
+   - Atribuir z-index progressivamente maior à célula, ao .dropdown e ao
+     .dropdown-menu, garantindo que o menu fique visível sobre qualquer
+     linha sticky e até sobre o cabeçalho, sem alterar layout ou cores.
+
+   Escopo:
+   - Aplica-se globalmente a `.custom-table`.
+   - Resolve o problema em todas as páginas com o mesmo padrão visual.
+   - Mantém a consistência visual e responsiva do sistema Camaleão.
+
+   Autor: Ajuste técnico — João Sampaio / Projeto Camaleão (Out/2025)
+   ==========================================================================
+*/
+
+/* ===== COLUNA AÇÕES FIXA ===== */
+.custom-table th:last-child,
+.custom-table td:last-child {
   position: sticky;
   right: 0;
-  width: var(--actions-w);
-  min-width: var(--actions-w);
-  max-width: var(--actions-w);
-  z-index: 5;
-  background: #0b3e6f !important;
-  color: #fff;
-  box-shadow: -4px 0 8px rgba(0, 0, 0, 0.08);
+  z-index: 3;
+  box-shadow: -3px 0 5px rgba(0, 0, 0, 0.08);
+  white-space: nowrap;
+  min-width: 160px;
 }
 
-.custom-table .sticky-actions-td {
-  position: sticky;
-  right: 0;
-  width: var(--actions-w);
-  min-width: var(--actions-w);
-  max-width: var(--actions-w);
-  z-index: 4;
-  background: #fff;
-  box-shadow: -4px 0 8px rgba(0, 0, 0, 0.06);
+.custom-table td:last-child:focus-within,
+.custom-table td:last-child:hover {
+  z-index: 3000; /* fica acima de outras células sticky */
 }
 
-/* ajuda o campo de pontuação a ficar 100% travado */
-.no-caret {
-  caret-color: transparent !important;
-}
-.no-pointer {
-  pointer-events: none !important;
+.custom-table td:last-child .dropdown {
+  position: relative;
+  z-index: 3100;
 }
 
-/* pequeno detalhe de pintura pra evitar “borrado” ao lado do sticky */
-.custom-table .sticky-actions-th,
-.custom-table .sticky-actions-td {
-  background-clip: padding-box;
+/* Coluna “Ações” respeita a cor alternada da linha */
+.row-blue td:last-child {
+  background: #004b80 !important;
+  color: #fff !important;
+}
+
+.row-white td:last-child {
+  background: #ffffff !important;
+  color: #212529 !important;
+}
+
+/* Hover também aplica na coluna fixa */
+.custom-table tbody tr:hover td:last-child {
+  background-color: #003a6b !important;
+  color: #ffffff !important;
+}
+
+/* Dropdown acima da tabela */
+.custom-table td:last-child .dropdown-menu {
+  position: absolute !important; /* mantém cálculo do Popper */
+  z-index: 3200 !important; /* acima de tudo na tabela */
+  transform: translate3d(0, 0, 0); /* evita glitches de pintura */
+}
+
+/* ===== MODAL ESTILO ANTIGO ===== */
+.modal-style {
+  border: 2px solid #007bff !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 91, 150, 0.45) !important;
+}
+
+/* Cabeçalho com gradiente */
+.modal-style .modal-header {
+  background: linear-gradient(135deg, #003366, #005b96);
+  color: #fff !important;
+  border-bottom: none !important;
+  padding: 1rem 1.5rem;
+}
+
+.modal-style .modal-title {
+  color: #fff !important;
+  font-weight: 700;
+}
+
+/* Corpo azul escuro com campos brancos */
+.modal-style .modal-body {
+  background-color: #003366 !important;
+  color: #fff !important;
+  padding: 1.8rem;
+}
+
+.modal-style label {
+  color: #fff !important;
+  font-weight: 500;
+}
+
+.modal-style .form-control,
+.modal-style .form-select {
+  background-color: #fff !important;
+  color: #000 !important;
+  border-radius: 6px;
+  border: 1px solid #d0d7de;
+}
+
+.modal-style .form-control:focus,
+.modal-style .form-select:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Placeholders */
+.modal-style ::placeholder {
+  color: #6c757d !important;
+  opacity: 1;
+}
+
+/* Botões do rodapé */
+.modal-style .modal-footer {
+  background-color: #003366 !important;
+  border-top: none !important;
+  padding: 1rem 1.5rem;
+}
+
+.modal-style .btn-primary {
+  background-color: #005b96 !important;
+  border-color: #005b96 !important;
+  font-weight: 500;
+}
+
+.modal-style .btn-primary:hover {
+  background-color: #004b80 !important;
+  border-color: #004b80 !important;
+}
+
+.modal-style .btn-outline-secondary {
+  background-color: #fff !important;
+  color: #003366 !important;
+  border-color: #003366 !important;
+}
+
+.modal-style .btn-outline-secondary:hover {
+  background-color: #e6e6e6 !important;
+}
+
+/* Ajuste geral */
+.modal-content {
+  border-radius: 12px !important;
+  overflow: hidden;
 }

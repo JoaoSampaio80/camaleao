@@ -1,91 +1,182 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Container,
-  Row,
-  Col,
+  Table,
   Form,
   Button,
   Alert,
   Spinner,
+  Pagination,
+  Dropdown,
+  Modal,
+  Row,
+  Col,
   Badge,
+  Container,
 } from 'react-bootstrap';
 import Sidebar from '../components/Sidebar';
 import AxiosInstance from '../components/Axios';
+import '../estilos/matriz.css';
+import PaginacaoRiscos from '../components/PaginacaoRiscos';
 
 function MatrizRisco() {
-  const [loadingCfg, setLoadingCfg] = useState(true);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(1);
+  const [count, setCount] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(count / pageSize));
+
+  const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [okMsg, setOkMsg] = useState('');
-
-  // opções vindas do backend
-  const [likelihoods, setLikelihoods] = useState([]); // [{id, value, label_pt}]
-  const [impacts, setImpacts] = useState([]); // idem
-  const [effs, setEffs] = useState([]); // [{id, value, label_pt}]
-  const [bands, setBands] = useState([]); // [{name, min_score, max_score, color}]
-
-  // erros por campo
   const [fieldErrors, setFieldErrors] = useState({});
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedToDelete, setSelectedToDelete] = useState(null);
+  const [deleteMsg, setDeleteMsg] = useState('');
 
-  // estado do form
+  const [likelihoods, setLikelihoods] = useState([]);
+  const [impacts, setImpacts] = useState([]);
+  const [effs, setEffs] = useState([]);
+
   const [form, setForm] = useState({
-    matriz_filial: '', // agora será select
+    matriz_filial: '',
     setor: '',
     processo: '',
     risco_fator: '',
-    probabilidade: '', // id
-    impacto: '', // id
+    probabilidade: '',
+    impacto: '',
     medidas_controle: '',
-    tipo_controle: '', // 'C'|'D'
-    eficacia: '', // id (opcional)
-    risco_residual: '', // 'baixo'|'medio'|'alto'
+    tipo_controle: '',
+    eficacia: '',
+    risco_residual: '',
     resposta_risco: '',
   });
 
-  useEffect(() => {
-    const load = async () => {
-      setError('');
-      try {
-        const { data } = await AxiosInstance.get('risk-config/');
+  // ---------- helpers (reset + erros) ----------
+  const resetForm = () => {
+    setForm({
+      matriz_filial: '',
+      setor: '',
+      processo: '',
+      risco_fator: '',
+      probabilidade: '',
+      impacto: '',
+      medidas_controle: '',
+      tipo_controle: '',
+      eficacia: '',
+      risco_residual: '',
+      resposta_risco: '',
+    });
+    setFieldErrors({});
+    setError('');
+    setOkMsg('');
+  };
 
-        const like = Array.isArray(data.likelihood) ? [...data.likelihood] : [];
-        const imp = Array.isArray(data.impact) ? [...data.impact] : [];
-        const eff = Array.isArray(data.effectiveness) ? [...data.effectiveness] : [];
-        const b = Array.isArray(data.bands) ? [...data.bands] : [];
+  const mapBackendErrors = (data) => {
+    const out = {};
+    const toText = (v) =>
+      Array.isArray(v) ? v.join(' ') : typeof v === 'string' ? v : String(v);
 
-        like.sort((a, b) => a.value - b.value);
-        imp.sort((a, b) => a.value - b.value);
-        eff.sort((a, b) => a.value - b.value);
+    Object.entries(data || {}).forEach(([key, val]) => {
+      let k = key;
+      if (k === 'plano_acao' || k === 'plano_de_acao') k = 'resposta_risco';
+      if (k === 'eficacia_controle' || k === 'eficacia_do_controle') k = 'eficacia';
+      if (k === 'tipo_de_controle') k = 'tipo_controle';
+      out[k] = toText(val);
+    });
+    return out;
+  };
 
-        setLikelihoods(like);
-        setImpacts(imp);
-        setEffs(eff);
-        setBands(b);
+  const focusFirstError = (errs) => {
+    const firstKey = Object.keys(errs || {})[0];
+    if (!firstKey) return;
+    const el = document.querySelector(`[name="${firstKey}"]`);
+    if (el) {
+      el.focus();
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
 
-        if (!like.length || !imp.length) {
-          setError(
-            'Recebi o risk-config, mas as listas de Probabilidade/Impacto vieram vazias.'
-          );
-        }
-      } catch (e) {
-        const msg =
-          e?.response?.data?.detail || e.message || 'Falha ao carregar parametrizações.';
-        setError(msg);
-      } finally {
-        setLoadingCfg(false);
+  // ---------- Listagem (com paginação server-side) ----------
+  const loadRows = async (targetPage = page, targetPageSize = pageSize) => {
+    setLoading(true);
+    try {
+      const { data } = await AxiosInstance.get('riscos/', {
+        params: { page: targetPage, page_size: targetPageSize },
+      });
+
+      const results = Array.isArray(data) ? data : data.results || [];
+      const total = Array.isArray(data) ? results.length : (data.count ?? results.length);
+
+      // Se pedir uma página além do fim e vier vazio, recua 1 página
+      if (!Array.isArray(data) && results.length === 0 && targetPage > 1) {
+        const prev = targetPage - 1;
+        const retry = await AxiosInstance.get('riscos/', {
+          params: { page: prev, page_size: targetPageSize },
+        });
+        const r2 = Array.isArray(retry.data) ? retry.data : retry.data.results || [];
+        setRows(r2);
+        setCount(Array.isArray(retry.data) ? r2.length : (retry.data.count ?? r2.length));
+        setPage(prev);
+        setPageSize(targetPageSize);
+      } else {
+        setRows(results);
+        setCount(total);
+        setPage(targetPage);
+        setPageSize(targetPageSize);
       }
-    };
-    load();
+    } catch {
+      setError('Falha ao carregar riscos.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // monta: carrega primeira página
+  useEffect(() => {
+    loadRows(1, pageSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // pontuação = prob.value * impact.value
+  // quando trocar pageSize, volta para página 1
+  useEffect(() => {
+    loadRows(1, pageSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageSize]);
+
+  // quando trocar de página, recarrega mantendo pageSize
+  useEffect(() => {
+    loadRows(page, pageSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
+
+  // ---------- Configurações (risk-config) ----------
+  const loadConfig = async () => {
+    try {
+      const { data } = await AxiosInstance.get('risk-config/');
+      const like = [...(data.likelihood || [])].sort((a, b) => a.value - b.value);
+      const imp = [...(data.impact || [])].sort((a, b) => a.value - b.value);
+      const eff = [...(data.effectiveness || [])].sort((a, b) => a.value - b.value);
+      setLikelihoods(like);
+      setImpacts(imp);
+      setEffs(eff);
+    } catch {
+      setError('Falha ao carregar parametrizações.');
+    }
+  };
+
+  useEffect(() => {
+    if (showModal) loadConfig();
+  }, [showModal]);
+
+  // ---------- Cálculo de pontuação e banda ----------
   const computedPontuacao = useMemo(() => {
     const p = likelihoods.find((x) => String(x.id) === String(form.probabilidade));
     const i = impacts.find((x) => String(x.id) === String(form.impacto));
     return (p?.value || 0) * (i?.value || 0);
   }, [form.probabilidade, form.impacto, likelihoods, impacts]);
 
-  // FAIXAS (exibição): <=6 verde, <=12 amarelo, <=16 laranja, >16 vermelho
   const uiBand = useMemo(() => {
     const s = computedPontuacao || 0;
     if (s === 0) return null;
@@ -95,438 +186,659 @@ function MatrizRisco() {
     return { name: 'Crítico', color: '#C00000' };
   }, [computedPontuacao]);
 
-  // fundo suave conforme a banda
-  const bandBgStyle = uiBand
-    ? { backgroundColor: 'rgba(' + hexToRgb(uiBand.color) + ',0.18)' }
-    : {};
-  function hexToRgb(hex) {
+  const hexToRgb = (hex) => {
     const m = hex.replace('#', '');
     const bigint = parseInt(m, 16);
     const r = (bigint >> 16) & 255;
     const g = (bigint >> 8) & 255;
     const b = bigint & 255;
     return `${r},${g},${b}`;
-  }
+  };
 
+  const bandBgStyle = uiBand
+    ? { backgroundColor: 'rgba(' + hexToRgb(uiBand.color) + ',0.18)' }
+    : {};
+
+  // ---------- Form handlers ----------
   const onChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-    setOkMsg('');
+    setForm((f) => ({ ...f, [name]: value }));
+    setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
     setError('');
-    if (fieldErrors[name]) {
-      setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
+    setOkMsg('');
+  };
+
+  // --- Regras de consistência frontend ---
+  // Sempre que medidas_controle mudar, ajusta tipo/eficacia
+  useEffect(() => {
+    const temControle = (form.medidas_controle || '').trim().length > 0;
+
+    if (!temControle) {
+      // limpa tipo e eficácia se não existir controle
+      setForm((f) => ({
+        ...f,
+        tipo_controle: '',
+        eficacia: '',
+      }));
     }
-  };
-
-  const resetForm = () => {
-    setForm((prev) => ({
-      matriz_filial: '',
-      setor: '',
-      processo: '',
-      risco_fator: '',
-      probabilidade: prev.probabilidade, // mantém os selects
-      impacto: prev.impacto,
-      medidas_controle: '',
-      tipo_controle: '',
-      eficacia: prev.eficacia,
-      risco_residual: '',
-      resposta_risco: '',
-    }));
-    setFieldErrors({});
-  };
-
-  const required = (v) => String(v ?? '').trim().length > 0;
+  }, [form.medidas_controle]);
 
   const validateForm = () => {
     const errs = {};
-    if (!required(form.matriz_filial)) errs.matriz_filial = 'Selecione Matriz/Filial.';
-    if (!required(form.setor)) errs.setor = 'Informe o Setor.';
-    if (!required(form.processo)) errs.processo = 'Informe o Processo.';
-    if (!required(form.risco_fator)) errs.risco_fator = 'Descreva o risco/fator.';
-    if (!required(form.probabilidade)) errs.probabilidade = 'Selecione a Probabilidade.';
-    if (!required(form.impacto)) errs.impacto = 'Selecione o Impacto.';
-    if (!required(form.risco_residual))
+    if (!form.matriz_filial) errs.matriz_filial = 'Selecione Matriz/Filial.';
+    if (!form.setor) errs.setor = 'Informe o Setor.';
+    if (!form.processo) errs.processo = 'Informe o Processo.';
+    if (!form.risco_fator) errs.risco_fator = 'Descreva o risco/fator.';
+    if (!form.probabilidade) errs.probabilidade = 'Selecione a Probabilidade.';
+    if (!form.impacto) errs.impacto = 'Selecione o Impacto.';
+    if (!form.risco_residual)
       errs.risco_residual = 'Selecione a classificação do risco residual.';
     if ((computedPontuacao ?? 0) <= 0)
       errs.pontuacao = 'Defina probabilidade e impacto válidos.';
+
+    // --- Regras de controle ---
+    const medidas = (form.medidas_controle || '').trim();
+    const tipo = form.tipo_controle;
+    const eficacia = form.eficacia;
+
+    const existe = medidas.length > 0;
+
+    if (existe) {
+      if (!['C', 'D'].includes(tipo)) {
+        errs.tipo_controle = 'Use "C" (Preventivo) ou "D" (Detectivo).';
+      }
+      // eficácia é opcional → não exige
+    } else {
+      if (tipo) errs.tipo_controle = 'Deixe vazio quando não existe controle.';
+      if (eficacia) errs.eficacia = 'Não defina eficácia quando não existe controle.';
+    }
     return errs;
   };
 
-  const onSubmit = async (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    setSaving(true);
-    setOkMsg('');
-    setError('');
-    setFieldErrors({});
 
-    // validação client-side
     const errs = validateForm();
     if (Object.keys(errs).length) {
-      setSaving(false);
       setFieldErrors(errs);
-      const first = Object.keys(errs)[0];
-      const el = document.querySelector(`[name="${first}"]`);
-      if (el?.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setError('Verifique os campos destacados.');
+      focusFirstError(errs);
       return;
     }
 
-    // normaliza payload
-    const payload = {
-      ...form,
-      matriz_filial: form.matriz_filial, // já é um dos três valores do select
-      setor: form.setor.trim(),
-      processo: form.processo.trim(),
-      risco_fator: form.risco_fator.trim(),
-      medidas_controle: form.medidas_controle?.trim() || '',
-      tipo_controle: form.tipo_controle || '',
-      resposta_risco: form.resposta_risco?.trim() || '',
-      pontuacao: computedPontuacao,
-      probabilidade: form.probabilidade ? Number(form.probabilidade) : null,
-      impacto: form.impacto ? Number(form.impacto) : null,
-      eficacia: form.eficacia ? Number(form.eficacia) : null,
-    };
+    setSaving(true);
+    setError('');
+    setOkMsg('');
 
     try {
-      await AxiosInstance.post('riscos/', payload);
-      setOkMsg('Risco criado com sucesso.');
-      resetForm();
-    } catch (e) {
-      const data = e?.response?.data;
-      // mapeia erros do DRF por campo
-      if (data && typeof data === 'object' && !Array.isArray(data)) {
-        const mapped = {};
-        Object.entries(data).forEach(([k, v]) => {
-          if (Array.isArray(v)) mapped[k] = v.join(' ');
-          else if (typeof v === 'string') mapped[k] = v;
-        });
+      const payload = {
+        ...form,
+        pontuacao: computedPontuacao,
+        probabilidade: Number(form.probabilidade),
+        impacto: Number(form.impacto),
+        eficacia: form.eficacia ? Number(form.eficacia) : null,
+      };
+
+      if (editingId) {
+        await AxiosInstance.put(`riscos/${editingId}/`, payload);
+        setOkMsg('Risco atualizado com sucesso.');
+      } else {
+        await AxiosInstance.post('riscos/', payload);
+        setOkMsg('Risco criado com sucesso.');
+      }
+
+      setTimeout(() => {
+        setShowModal(false);
+        resetForm();
+        loadRows(page, pageSize); // mantém a página atual
+      }, 3000);
+    } catch (err) {
+      const data = err?.response?.data;
+
+      if (data && typeof data === 'object') {
+        const mapped = mapBackendErrors(data);
         if (Object.keys(mapped).length) {
           setFieldErrors(mapped);
-          const first = Object.keys(mapped)[0];
-          const el = document.querySelector(`[name="${first}"]`);
-          if (el?.scrollIntoView)
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setError('Verifique os campos destacados.');
+          focusFirstError(mapped);
           setSaving(false);
           return;
         }
       }
-      const msg =
+
+      setError(
         (typeof data === 'string' && data) ||
-        data?.detail ||
-        e.message ||
-        'Falha ao criar risco.';
-      setError(msg);
+          err?.response?.data?.detail ||
+          'Erro ao salvar risco.'
+      );
     } finally {
       setSaving(false);
     }
   };
 
-  const noOpts = !likelihoods?.length || !impacts?.length;
+  const [editingId, setEditingId] = useState(null);
+
+  const handleEdit = (item) => {
+    setEditingId(item.id);
+
+    setForm({
+      matriz_filial: item.matriz_filial || '',
+      setor: item.setor || '',
+      processo: item.processo || '',
+      risco_fator: item.risco_fator || '',
+      probabilidade: String(item.probabilidade) || '',
+      impacto: String(item.impacto) || '',
+      medidas_controle: item.medidas_controle || '',
+      tipo_controle: item.tipo_controle || '',
+      eficacia: String(item.eficacia || ''),
+      risco_residual: item.risco_residual || '',
+      resposta_risco: item.resposta_risco || '',
+    });
+
+    setShowModal(true);
+    setError('');
+    setOkMsg('');
+    setFieldErrors({});
+  };
+
+  const handleDeleteClick = (item) => {
+    setSelectedToDelete(item);
+    setDeleteMsg('');
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!selectedToDelete) return;
+    try {
+      await AxiosInstance.delete(`riscos/${selectedToDelete.id}/`);
+      setDeleteMsg('Risco excluído com sucesso.');
+      // atualiza a lista
+      setTimeout(() => {
+        setShowDeleteModal(false);
+        setSelectedToDelete(null);
+        loadRows(page, pageSize);
+        setDeleteMsg('');
+      }, 2000);
+    } catch (err) {
+      const msg =
+        err?.response?.data?.detail ||
+        'Não foi possível excluir o risco. Tente novamente.';
+      setDeleteMsg(msg);
+    }
+  };
+
+  // ---------- paginação (footer) ----------
+  const gotoPage = (p) => setPage(Math.min(Math.max(1, p), totalPages));
+
+  const renderPagination = () => {
+    const items = [];
+    const windowSize = 5;
+    const start = Math.max(1, page - Math.floor(windowSize / 2));
+    const end = Math.min(totalPages, start + windowSize - 1);
+    const realStart = Math.max(1, end - windowSize + 1);
+
+    items.push(
+      <Pagination.First key="first" disabled={page === 1} onClick={() => gotoPage(1)} />,
+      <Pagination.Prev
+        key="prev"
+        disabled={page === 1}
+        onClick={() => gotoPage(page - 1)}
+      />
+    );
+    if (realStart > 1) items.push(<Pagination.Ellipsis key="start-ellipsis" disabled />);
+    for (let p = realStart; p <= end; p++) {
+      items.push(
+        <Pagination.Item key={p} active={p === page} onClick={() => gotoPage(p)}>
+          {p}
+        </Pagination.Item>
+      );
+    }
+    if (end < totalPages) items.push(<Pagination.Ellipsis key="end-ellipsis" disabled />);
+    items.push(
+      <Pagination.Next
+        key="next"
+        disabled={page === totalPages}
+        onClick={() => gotoPage(page + 1)}
+      />,
+      <Pagination.Last
+        key="last"
+        disabled={page === totalPages}
+        onClick={() => gotoPage(totalPages)}
+      />
+    );
+    return <Pagination className="mb-0">{items}</Pagination>;
+  };
 
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
       <Sidebar />
+      <div className="main-content">
+        <h2 className="page-title">Avaliação de Risco</h2>
 
-      <div
-        style={{
-          background: '#f5f5f5',
-          minHeight: '100vh',
-          width: '100vw',
-          marginTop: '56px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          padding: '2rem',
-          boxSizing: 'border-box',
-        }}
-      >
-        {/* título centralizado, padrão aprovado */}
-        <h2 className="mb-4 page-title-ink text-center">Matriz de Risco</h2>
+        <div className="mb-4">
+          <PaginacaoRiscos />
+        </div>
 
-        {/* bloco com gradiente aceito */}
-        <Container
-          fluid
-          className="container-gradient px-4"
-          style={{ width: '100%', margin: '0 auto' }}
-        >
-          {error && (
-            <Alert variant="danger" className="mb-3">
-              {error}
-            </Alert>
-          )}
-          {okMsg && (
-            <Alert variant="success" className="mb-3">
-              {okMsg}
-            </Alert>
-          )}
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <Form.Group className="d-flex align-items-center mb-0">
+            <Form.Label className="me-2 mb-0">Itens por página</Form.Label>
+            <Form.Select
+              size="sm"
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              style={{ width: '80px' }}
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+            </Form.Select>
+          </Form.Group>
 
-          {loadingCfg ? (
-            <div className="d-flex align-items-center">
-              <Spinner animation="border" size="sm" className="me-2" />
-              Carregando parametrizações...
-            </div>
-          ) : (
-            <>
-              {noOpts && (
-                <Alert variant="warning" className="mb-3">
-                  Não encontrei opções de Probabilidade/Impacto. Verifique o endpoint{' '}
-                  <code>risk-config/</code> e sua
-                  <code> VITE_API_URL</code>.
-                </Alert>
+          <Button
+            variant="primary"
+            onClick={() => {
+              resetForm();
+              setEditingId(null);
+              setShowModal(true);
+            }}
+          >
+            + Novo
+          </Button>
+        </div>
+
+        <div className="table-wrap">
+          <Table bordered hover className="custom-table">
+            <thead className="thead-gradient">
+              <tr>
+                <th>Item</th>
+                <th>Matriz/Filial</th>
+                <th>Setor</th>
+                <th>Processo</th>
+                <th>Risco/Fator</th>
+                <th>Probabilidade</th>
+                <th>Impacto</th>
+                <th>Pontuação</th>
+                <th>Medidas de Controle</th>
+                <th>Tipo</th>
+                <th>Eficácia</th>
+                <th>Risco Residual</th>
+                <th>Plano de Ação</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={14} className="text-center">
+                    <Spinner size="sm" className="me-2" /> Carregando...
+                  </td>
+                </tr>
+              ) : (
+                rows.map((r, idx) => (
+                  <tr key={r.id} className={idx % 2 ? 'row-blue' : 'row-white'}>
+                    <td>
+                      <div className="cell-clip">{idx + 1}</div>
+                    </td>
+                    <td>
+                      <div className="cell-clip">{r.matriz_filial || '-'}</div>
+                    </td>
+                    <td>
+                      <div className="cell-clip">{r.setor || '-'}</div>
+                    </td>
+                    <td>
+                      <div className="cell-clip">{r.processo || '-'}</div>
+                    </td>
+                    <td className="col-wide">
+                      <div className="cell-clip">{r.risco_fator || '-'}</div>
+                    </td>
+                    <td>
+                      <div className="cell-clip">{r.probabilidade_label || '-'}</div>
+                    </td>
+                    <td>
+                      <div className="cell-clip">{r.impacto_label || '-'}</div>
+                    </td>
+                    <td>
+                      <div className="cell-clip">{r.pontuacao ?? '-'}</div>
+                    </td>
+                    <td className="col-wide">
+                      <div className="cell-clip">{r.medidas_controle || '-'}</div>
+                    </td>
+                    <td>
+                      <div className="cell-clip">{r.tipo_controle || '-'}</div>
+                    </td>
+                    <td>
+                      <div className="cell-clip">{r.eficacia_label || '-'}</div>
+                    </td>
+                    <td>
+                      <div className="cell-clip">{r.risco_residual || '-'}</div>
+                    </td>
+                    <td className="col-wide">
+                      <div className="cell-clip">{r.resposta_risco || '-'}</div>
+                    </td>
+                    <td>
+                      <Dropdown align="end">
+                        <Dropdown.Toggle size="sm" variant="outline-secondary">
+                          Ações
+                        </Dropdown.Toggle>
+                        <Dropdown.Menu>
+                          <Dropdown.Item onClick={() => handleEdit(r)}>
+                            Editar
+                          </Dropdown.Item>
+                          <Dropdown.Item
+                            className="text-danger"
+                            onClick={() => handleDeleteClick(r)}
+                          >
+                            Excluir
+                          </Dropdown.Item>
+                        </Dropdown.Menu>
+                      </Dropdown>
+                    </td>
+                  </tr>
+                ))
               )}
+            </tbody>
+          </Table>
+        </div>
 
-              <Form onSubmit={onSubmit}>
-                {/* 1ª linha: Matriz/Filial, Setor, Processo */}
-                <Row className="mb-3">
-                  <Col lg={4} md={6}>
-                    <Form.Label>Matriz/Filial</Form.Label>
-                    <Form.Select
-                      name="matriz_filial"
-                      value={form.matriz_filial}
-                      onChange={onChange}
-                      isInvalid={!!fieldErrors.matriz_filial}
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="matriz">Matriz</option>
-                      <option value="filial">Filial</option>
-                      <option value="matriz/filial">Matriz / Filial</option>
-                    </Form.Select>
-                    <Form.Control.Feedback type="invalid">
-                      {fieldErrors.matriz_filial}
-                    </Form.Control.Feedback>
-                  </Col>
-
-                  <Col lg={4} md={6}>
-                    <Form.Label>Setor</Form.Label>
-                    <Form.Control
-                      name="setor"
-                      value={form.setor}
-                      onChange={onChange}
-                      isInvalid={!!fieldErrors.setor}
-                      placeholder="Ex.: TI"
-                    />
-                    <Form.Control.Feedback type="invalid">
-                      {fieldErrors.setor}
-                    </Form.Control.Feedback>
-                  </Col>
-
-                  <Col lg={4} md={12}>
-                    <Form.Label>Processo de Negócio Envolvido</Form.Label>
-                    <Form.Control
-                      name="processo"
-                      value={form.processo}
-                      onChange={onChange}
-                      isInvalid={!!fieldErrors.processo}
-                      placeholder="Ex.: Gestão de Acessos"
-                    />
-                    <Form.Control.Feedback type="invalid">
-                      {fieldErrors.processo}
-                    </Form.Control.Feedback>
-                  </Col>
-                </Row>
-
-                {/* 2ª linha: Risco/Fator */}
-                <Row className="mb-3">
-                  <Col>
-                    <Form.Label>Risco e Fator de Risco</Form.Label>
-                    <Form.Control
-                      as="textarea"
-                      rows={3}
-                      name="risco_fator"
-                      value={form.risco_fator}
-                      onChange={onChange}
-                      isInvalid={!!fieldErrors.risco_fator}
-                      placeholder="Descreva o risco e seus fatores"
-                    />
-                    <Form.Control.Feedback type="invalid">
-                      {fieldErrors.risco_fator}
-                    </Form.Control.Feedback>
-                  </Col>
-                </Row>
-
-                {/* 3ª linha: Prob, Impacto, Pontuação */}
-                <Row className="mb-3">
-                  <Col lg={4} md={6}>
-                    <Form.Label>Probabilidade (1–5)</Form.Label>
-                    <Form.Select
-                      name="probabilidade"
-                      value={form.probabilidade}
-                      onChange={onChange}
-                      isInvalid={!!fieldErrors.probabilidade}
-                    >
-                      <option value="">Selecione...</option>
-                      {likelihoods.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.label_pt} ({l.value})
-                        </option>
-                      ))}
-                    </Form.Select>
-                    <Form.Control.Feedback type="invalid">
-                      {fieldErrors.probabilidade}
-                    </Form.Control.Feedback>
-                  </Col>
-
-                  <Col lg={4} md={6}>
-                    <Form.Label>Impacto (1–5)</Form.Label>
-                    <Form.Select
-                      name="impacto"
-                      value={form.impacto}
-                      onChange={onChange}
-                      isInvalid={!!fieldErrors.impacto}
-                    >
-                      <option value="">Selecione...</option>
-                      {impacts.map((i) => (
-                        <option key={i.id} value={i.id}>
-                          {i.label_pt} ({i.value})
-                        </option>
-                      ))}
-                    </Form.Select>
-                    <Form.Control.Feedback type="invalid">
-                      {fieldErrors.impacto}
-                    </Form.Control.Feedback>
-                  </Col>
-
-                  <Col lg={4} md={12}>
-                    <Form.Label>
-                      Pontuação do Risco{' '}
-                      {uiBand ? (
-                        <Badge
-                          bg="light"
-                          text="dark"
-                          style={{ marginLeft: 8, border: `1px solid ${uiBand.color}` }}
-                        >
-                          {uiBand.name}
-                        </Badge>
-                      ) : null}
-                    </Form.Label>
-                    <Form.Control
-                      value={computedPontuacao || ''}
-                      readOnly
-                      isInvalid={!!fieldErrors.pontuacao}
-                      style={{
-                        ...bandBgStyle,
-                        borderLeft: uiBand ? `6px solid ${uiBand.color}` : undefined,
-                        fontWeight: 700,
-                      }}
-                      title={uiBand ? `${uiBand.name}` : ''}
-                    />
-                    {fieldErrors.pontuacao ? (
-                      <div className="invalid-feedback d-block">
-                        {fieldErrors.pontuacao}
-                      </div>
-                    ) : null}
-                  </Col>
-                </Row>
-
-                {/* 4ª linha: Medidas de controle */}
-                <Row className="mb-3">
-                  <Col>
-                    <Form.Label>Medidas de Controle (existentes)</Form.Label>
-                    <Form.Control
-                      as="textarea"
-                      rows={3}
-                      name="medidas_controle"
-                      value={form.medidas_controle}
-                      onChange={onChange}
-                      placeholder="Ex.: MFA habilitada, política de senhas, segregação de funções..."
-                    />
-                  </Col>
-                </Row>
-
-                {/* 5ª linha: Tipo controle, Eficácia, Residual */}
-                <Row className="mb-3">
-                  <Col lg={4} md={6}>
-                    <Form.Label>Tipo de Controle</Form.Label>
-                    <Form.Select
-                      name="tipo_controle"
-                      value={form.tipo_controle}
-                      onChange={onChange}
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="C">Preventivo</option>
-                      <option value="D">Detectivo</option>
-                    </Form.Select>
-                  </Col>
-
-                  <Col lg={4} md={6}>
-                    <Form.Label>Avaliação de Eficácia do Controle</Form.Label>
-                    <Form.Select
-                      name="eficacia"
-                      value={form.eficacia}
-                      onChange={onChange}
-                    >
-                      <option value="">(Opcional) Selecione...</option>
-                      {effs.map((e) => (
-                        <option key={e.id} value={e.id}>
-                          {e.label_pt} ({e.value})
-                        </option>
-                      ))}
-                    </Form.Select>
-                  </Col>
-
-                  <Col lg={4} md={12}>
-                    <Form.Label>Risco Residual</Form.Label>
-                    <Form.Select
-                      name="risco_residual"
-                      value={form.risco_residual}
-                      onChange={onChange}
-                      isInvalid={!!fieldErrors.risco_residual}
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="baixo">Baixo</option>
-                      <option value="medio">Médio</option>
-                      <option value="alto">Alto</option>
-                    </Form.Select>
-                    <Form.Control.Feedback type="invalid">
-                      {fieldErrors.risco_residual}
-                    </Form.Control.Feedback>
-                  </Col>
-                </Row>
-
-                {/* 6ª linha: Resposta ao risco */}
-                <Row className="mb-3">
-                  <Col>
-                    <Form.Label>Resposta ao Risco (Plano de Ação)</Form.Label>
-                    <Form.Control
-                      name="resposta_risco"
-                      value={form.resposta_risco}
-                      onChange={onChange}
-                      placeholder="Descreva as medidas de resposta / plano de ação"
-                    />
-                  </Col>
-                </Row>
-
-                <div className="d-flex gap-2">
-                  <Button
-                    type="submit"
-                    className="btn-white-custom"
-                    variant="primary"
-                    disabled={saving}
-                  >
-                    {saving ? (
-                      <>
-                        <Spinner size="sm" className="me-2" /> Salvando...
-                      </>
-                    ) : (
-                      'Salvar Risco'
-                    )}
-                  </Button>
-                  <Button
-                    className="btn-white-custom"
-                    variant="outline-secondary"
-                    onClick={() => {
-                      resetForm();
-                      setError('');
-                      setOkMsg('');
-                    }}
-                  >
-                    Limpar
-                  </Button>
-                </div>
-              </Form>
-            </>
-          )}
-        </Container>
+        {/* rodapé */}
+        <div className="list-footer">
+          <div className="text-muted">
+            <strong>Total:</strong> {count} • Página {page} de {totalPages}
+          </div>
+          {renderPagination()}
+        </div>
       </div>
+
+      {/* === Modal === */}
+      <Modal
+        show={showModal}
+        onHide={() => {
+          resetForm();
+          setShowModal(false);
+        }}
+        size="xl"
+        centered
+        scrollable
+        contentClassName="modal-style"
+      >
+        <Form onSubmit={handleSave}>
+          <Modal.Header closeButton>
+            <Modal.Title>{editingId ? 'Editar Risco' : 'Cadastro de Risco'}</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <Container fluid>
+              {error && <Alert variant="danger">{error}</Alert>}
+              {okMsg && <Alert variant="success">{okMsg}</Alert>}
+
+              <Row className="mb-3">
+                <Col md={4}>
+                  <Form.Label>Matriz/Filial</Form.Label>
+                  <Form.Select
+                    name="matriz_filial"
+                    value={form.matriz_filial}
+                    onChange={onChange}
+                    isInvalid={!!fieldErrors.matriz_filial}
+                  >
+                    <option value="">Selecione...</option>
+                    <option value="matriz">Matriz</option>
+                    <option value="filial">Filial</option>
+                    <option value="matriz/filial">Matriz / Filial</option>
+                  </Form.Select>
+                  <Form.Control.Feedback type="invalid">
+                    {fieldErrors.matriz_filial}
+                  </Form.Control.Feedback>
+                </Col>
+                <Col md={4}>
+                  <Form.Label>Setor</Form.Label>
+                  <Form.Control
+                    name="setor"
+                    value={form.setor}
+                    onChange={onChange}
+                    isInvalid={!!fieldErrors.setor}
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {fieldErrors.setor}
+                  </Form.Control.Feedback>
+                </Col>
+                <Col md={4}>
+                  <Form.Label>Processo</Form.Label>
+                  <Form.Control
+                    name="processo"
+                    value={form.processo}
+                    onChange={onChange}
+                    isInvalid={!!fieldErrors.processo}
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {fieldErrors.processo}
+                  </Form.Control.Feedback>
+                </Col>
+              </Row>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Risco/Fator</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={2}
+                  name="risco_fator"
+                  value={form.risco_fator}
+                  onChange={onChange}
+                  isInvalid={!!fieldErrors.risco_fator}
+                />
+                <Form.Control.Feedback type="invalid">
+                  {fieldErrors.risco_fator}
+                </Form.Control.Feedback>
+              </Form.Group>
+
+              <Row className="mb-3">
+                <Col md={4}>
+                  <Form.Label>Probabilidade</Form.Label>
+                  <Form.Select
+                    name="probabilidade"
+                    value={form.probabilidade}
+                    onChange={onChange}
+                    isInvalid={!!fieldErrors.probabilidade}
+                  >
+                    <option value="">Selecione...</option>
+                    {likelihoods.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.label_pt} ({l.value})
+                      </option>
+                    ))}
+                  </Form.Select>
+                  <Form.Control.Feedback type="invalid">
+                    {fieldErrors.probabilidade}
+                  </Form.Control.Feedback>
+                </Col>
+                <Col md={4}>
+                  <Form.Label>Impacto</Form.Label>
+                  <Form.Select
+                    name="impacto"
+                    value={form.impacto}
+                    onChange={onChange}
+                    isInvalid={!!fieldErrors.impacto}
+                  >
+                    <option value="">Selecione...</option>
+                    {impacts.map((i) => (
+                      <option key={i.id} value={i.id}>
+                        {i.label_pt} ({i.value})
+                      </option>
+                    ))}
+                  </Form.Select>
+                  <Form.Control.Feedback type="invalid">
+                    {fieldErrors.impacto}
+                  </Form.Control.Feedback>
+                </Col>
+                <Col md={4}>
+                  <Form.Label>
+                    Pontuação do Risco{' '}
+                    {uiBand && (
+                      <Badge
+                        bg="light"
+                        text="dark"
+                        style={{ border: `1px solid ${uiBand.color}`, marginLeft: 8 }}
+                      >
+                        {uiBand.name}
+                      </Badge>
+                    )}
+                  </Form.Label>
+                  <Form.Control
+                    readOnly
+                    value={computedPontuacao || ''}
+                    isInvalid={!!fieldErrors.pontuacao}
+                    style={{
+                      ...bandBgStyle,
+                      borderLeft: uiBand ? `6px solid ${uiBand.color}` : undefined,
+                      fontWeight: 700,
+                    }}
+                  />
+                  {fieldErrors.pontuacao ? (
+                    <div className="invalid-feedback d-block">
+                      {fieldErrors.pontuacao}
+                    </div>
+                  ) : null}
+                </Col>
+              </Row>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Medidas de Controle</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={2}
+                  name="medidas_controle"
+                  value={form.medidas_controle}
+                  onChange={onChange}
+                  isInvalid={!!fieldErrors.medidas_controle}
+                />
+                <Form.Control.Feedback type="invalid">
+                  {fieldErrors.medidas_controle}
+                </Form.Control.Feedback>
+              </Form.Group>
+
+              <Row className="mb-3">
+                <Col md={4}>
+                  <Form.Label>Tipo de Controle</Form.Label>
+                  <Form.Select
+                    name="tipo_controle"
+                    value={form.tipo_controle}
+                    onChange={onChange}
+                    isInvalid={!!fieldErrors.tipo_controle}
+                    disabled={!form.medidas_controle.trim()}
+                  >
+                    <option value="">Selecione...</option>
+                    <option value="C">Preventivo</option>
+                    <option value="D">Detectivo</option>
+                  </Form.Select>
+                  <Form.Control.Feedback type="invalid">
+                    {fieldErrors.tipo_controle}
+                  </Form.Control.Feedback>
+                </Col>
+                <Col md={4}>
+                  <Form.Label>Eficácia</Form.Label>
+                  <Form.Select
+                    name="eficacia"
+                    value={form.eficacia}
+                    onChange={onChange}
+                    isInvalid={!!fieldErrors.eficacia}
+                    disabled={!form.medidas_controle.trim()}
+                  >
+                    <option value="">(Opcional)</option>
+                    {effs.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.label_pt} ({e.value})
+                      </option>
+                    ))}
+                  </Form.Select>
+                  <Form.Control.Feedback type="invalid">
+                    {fieldErrors.eficacia}
+                  </Form.Control.Feedback>
+                </Col>
+                <Col md={4}>
+                  <Form.Label>Risco Residual</Form.Label>
+                  <Form.Select
+                    name="risco_residual"
+                    value={form.risco_residual}
+                    onChange={onChange}
+                    isInvalid={!!fieldErrors.risco_residual}
+                  >
+                    <option value="">Selecione...</option>
+                    <option value="baixo">Baixo</option>
+                    <option value="medio">Médio</option>
+                    <option value="alto">Alto</option>
+                  </Form.Select>
+                  <Form.Control.Feedback type="invalid">
+                    {fieldErrors.risco_residual}
+                  </Form.Control.Feedback>
+                </Col>
+              </Row>
+
+              <Form.Group>
+                <Form.Label>Resposta ao Risco (Plano de Ação)</Form.Label>
+                <Form.Control
+                  name="resposta_risco"
+                  value={form.resposta_risco}
+                  onChange={onChange}
+                  isInvalid={!!fieldErrors.resposta_risco}
+                />
+                <Form.Control.Feedback type="invalid">
+                  {fieldErrors.resposta_risco}
+                </Form.Control.Feedback>
+              </Form.Group>
+            </Container>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button
+              variant="outline-secondary"
+              onClick={() => {
+                resetForm();
+                setShowModal(false);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button variant="primary" type="submit" disabled={saving}>
+              {saving ? 'Salvando...' : 'Salvar Risco'}
+            </Button>
+          </Modal.Footer>
+        </Form>
+      </Modal>
+      {/* === Modal de Exclusão === */}
+      <Modal
+        show={showDeleteModal}
+        onHide={() => setShowDeleteModal(false)}
+        centered
+        backdrop="static"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Confirmar Exclusão</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {deleteMsg ? (
+            <Alert
+              variant={deleteMsg.includes('sucesso') ? 'success' : 'danger'}
+              className="mb-0"
+            >
+              {deleteMsg}
+            </Alert>
+          ) : (
+            <p>
+              Tem certeza que deseja excluir o risco{' '}
+              <strong>{selectedToDelete?.risco_fator}</strong>?
+              <br />
+              Esta ação não poderá ser desfeita.
+            </p>
+          )}
+        </Modal.Body>
+        {!deleteMsg && (
+          <Modal.Footer>
+            <Button variant="outline-secondary" onClick={() => setShowDeleteModal(false)}>
+              Cancelar
+            </Button>
+            <Button variant="danger" onClick={confirmDelete}>
+              Confirmar Exclusão
+            </Button>
+          </Modal.Footer>
+        )}
+      </Modal>
     </div>
   );
 }

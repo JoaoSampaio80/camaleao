@@ -69,13 +69,13 @@ function Start-NewWindow {
   Start-Process powershell -ArgumentList "-NoExit", "-Command", "Write-Host '[$Title]'; $Cmd" -WindowStyle Normal
 }
 
-Write-Host "Iniciando ambiente de PRODUÇÃO simulada..."
+Write-Host "Iniciando ambiente de PRODUCAO simulada..."
 Write-Host ""
 
 # =========================
 # 1) Detecta cloudflared
 # =========================
-Write-Host "Verificando Cloudflare Tunnel..."
+Write-Host "Verificando tunel Cloudflare..."
 $CloudflaredPath = $null
 $CloudflaredUser = Join-Path $env:USERPROFILE ".cloudflared\cloudflared.exe"
 if (Test-Path $CloudflaredUser) {
@@ -84,7 +84,7 @@ if (Test-Path $CloudflaredUser) {
 else {
   try { $CloudflaredPath = (Get-Command cloudflared -ErrorAction Stop).Source }
   catch {
-    Write-Host "ERRO: cloudflared.exe não encontrado. Instale Cloudflare Tunnel e tente novamente."
+    Write-Host "ERRO: cloudflared.exe nao encontrado. Instale o tunel Cloudflare e tente novamente."
     exit 1
   }
 }
@@ -93,7 +93,7 @@ else {
 # 2) Cria túnel primeiro (para backend)
 # =========================
 Write-Host ""
-Write-Host "Criando túnel Cloudflare apontando para o backend (porta 8000)..."
+Write-Host "Criando tunel Cloudflare apontando para o backend (porta 8000)..."
 if (Test-Path $CloudflaredOut) { Remove-Item $CloudflaredOut -ErrorAction SilentlyContinue }
 if (Test-Path $CloudflaredErr) { Remove-Item $CloudflaredErr -ErrorAction SilentlyContinue }
 
@@ -102,7 +102,7 @@ $CloudflaredProc = Start-Process -FilePath $CloudflaredPath -ArgumentList $cfArg
   -RedirectStandardOutput $CloudflaredOut -RedirectStandardError $CloudflaredErr `
   -PassThru
 
-Write-Host "Aguardando URL do túnel..."
+Write-Host "Aguardando URL do tunel..."
 $Url = $null
 $deadline = (Get-Date).AddSeconds(60)
 while ((Get-Date) -lt $deadline -and -not $Url) {
@@ -118,26 +118,26 @@ while ((Get-Date) -lt $deadline -and -not $Url) {
 }
 
 if (-not $Url) {
-  Write-Host "❌ Falha ao capturar a URL do túnel Cloudflare."
+  Write-Host "Falha ao capturar a URL do tunel Cloudflare."
   Stop-Process -Id $CloudflaredProc.Id -Force
   exit 1
 }
 
-Write-Host "🌐 Túnel ativo: $Url"
+Write-Host "Tunel ativo: $Url"
 $HostOnly = $Url -replace '^https://', ''
 
 # =========================
 # 3) Atualiza .env antes de subir o backend
 # =========================
 Write-Host ""
-Write-Host "Atualizando variáveis de ambiente..."
+Write-Host "Atualizando variaveis de ambiente..."
 
 Set-EnvVarInFile $BackendEnv  "ALLOWED_HOSTS" "127.0.0.1,localhost,$HostOnly"
 Set-EnvVarInFile $BackendEnv  "TUNNEL_URL"    $Url
 Set-EnvVarInFile $FrontendEnv "VITE_API_URL"  "$Url/api/v1/"
 Set-EnvVarInFile $MobileEnv   "API_URL"       "$Url/api/v1/"
 
-Write-Host "✅ Env files atualizados:"
+Write-Host "Env files atualizados:"
 Write-Host " - $BackendEnv"
 Write-Host " - $FrontendEnv"
 Write-Host " - $MobileEnv"
@@ -156,7 +156,7 @@ else {
 }
 Start-NewWindow "Django (prod)" $djangoCmd
 
-Write-Host "⏳ Aguardando backend iniciar..."
+Write-Host "Aguardando backend iniciar..."
 Start-Sleep -Seconds 10
 
 # =========================
@@ -164,7 +164,7 @@ Start-Sleep -Seconds 10
 # =========================
 if ($StartFrontend) {
   Write-Host ""
-  Write-Host "Compilando frontend para produção..."
+  Write-Host "Compilando frontend para producao..."
   Push-Location $Frontend
   npm install
   npm run build
@@ -186,14 +186,14 @@ if ($StartMobile) {
 # =========================
 Write-Host ""
 Write-Host "==============================="
-Write-Host "🚀 Ambiente Camaleão pronto!"
-Write-Host "Túnel ativo: $Url"
+Write-Host "Ambiente Camaleao pronto!"
+Write-Host "Tunel ativo: $Url"
 Write-Host "Backend: http://127.0.0.1:8000"
 Write-Host "Frontend: http://127.0.0.1:4173"
 Write-Host "==============================="
 Write-Host ""
-Write-Host "Acesse a aplicação em: $Url"
-Write-Host "Pressione CTRL + C aqui para encerrar o túnel Cloudflare."
+Write-Host "Acesse a aplicacao em: $Url"
+Write-Host "Pressione CTRL + C aqui para encerrar o tunel Cloudflare."
 Write-Host ""
 
 # Mantém o túnel ativo até interrupção manual

@@ -96,7 +96,7 @@ $CloudflaredProc = Start-Process -FilePath $CloudflaredPath -ArgumentList $cfArg
   -RedirectStandardOutput $CloudflaredOut -RedirectStandardError $CloudflaredErr `
   -PassThru
 
-Write-Host "Waiting tunnel URL..."
+Write-Host "Aguardando URL do tunel..."
 $Url = $null
 $deadline = (Get-Date).AddSeconds(60)
 while ((Get-Date) -lt $deadline -and -not $Url) {
@@ -112,12 +112,12 @@ while ((Get-Date) -lt $deadline -and -not $Url) {
 }
 
 if (-not $Url) {
-  Write-Host "ERROR: could not capture Cloudflare tunnel URL."
+  Write-Host "ERRO: Não foi possível capturar a URL do tunel Cloudflare."
   Stop-Process -Id $CloudflaredProc.Id -Force
   exit 1
 }
 
-Write-Host "Tunnel is up: $Url"
+Write-Host "Tunel ativo: $Url"
 $HostOnly = $Url -replace '^https://', ''
 
 # =========================
@@ -165,7 +165,7 @@ Write-Host ""
 Write-Host "All set!"
 Write-Host "Public URL: $Url"
 Write-Host "DJANGO_SETTINGS_MODULE=camaleao.settings.$Env"
-Write-Host "Press CTRL + C to stop the tunnel."
+Write-Host "Press CTRL + C para parar o tunel."
 
 # Keep Cloudflare alive
 Wait-Process -Id $CloudflaredProc.Id
