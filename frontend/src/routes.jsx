@@ -14,11 +14,17 @@ import InventarioDados from './pages/InventarioDados';
 import InventarioDados2 from './pages/InventarioDados2';
 import InventarioDados3 from './pages/InventarioDados3';
 import MatrizRisco from './pages/MatrizRisco';
-import MatrizRiscoLista from './pages/MatrizRiscoLista';
 import Notificacoes from './pages/Notificacao';
 import Cadastro from './pages/Cadastro';
 import Perfil from './pages/Perfil';
 import InventarioLista from './pages/InventarioLista';
+import RankingRisco from './pages/RackingRisco';
+import ControlPlanoAcao from './pages/ControlPlanoAcao';
+import AcaoMonitoramento from './pages/AcaoMonitoramento';
+import ControleIncidentes from './pages/ControleIncidentes';
+import Heatmap from './pages/Heatmap';
+import Calendario from './pages/Calendario';
+
 import { useAuth, AuthProvider } from './context/AuthContext';
 import { InventarioProvider } from './context/InventarioContext';
 import ReauthListener from './components/ReauthListener'; // <-- novo
@@ -40,10 +46,15 @@ export const ROUTES = {
   INVENTARIO_DADOS2: '/dados2',
   INVENTARIO_DADOS3: '/dados3',
   MATRIZ_RISCO: '/matrizrisco',
-  MATRIZ_RISCO_LISTA: '/matrizriscolista',
   NOTIFICACOES: '/notificacao',
   PERFIL: '/perfil',
   INVENTARIO_LISTA: '/dados/lista',
+  RANCKING_RISCO: '/ranckingrisco',
+  CONTROL_PLANO_ACAO: '/controlplanoacao',
+  ACAO_MONITORAMENTO: '/acaomonitoramento',
+  CONTROLE_INCIDENTES: '/controleincidentes',
+  HEATMAP: '/heatmap',
+  CALENDARIO: '/calendario',
   NOT_FOUND: '*',
 };
 
@@ -72,8 +83,13 @@ function AppRouter() {
         <Route path={ROUTES.MONITORAMENTO} element={<Monitoramento />} />
         <Route path={ROUTES.DOCUMENTOS} element={<Documentos />} />
         <Route path={ROUTES.MATRIZ_RISCO} element={<MatrizRisco />} />
-        <Route path={ROUTES.MATRIZ_RISCO_LISTA} element={<MatrizRiscoLista />} />
         <Route path={ROUTES.NOTIFICACOES} element={<Notificacoes />} />
+        <Route path={ROUTES.RANCKING_RISCO} element={<RankingRisco />} />
+        <Route path={ROUTES.CONTROL_PLANO_ACAO} element={<ControlPlanoAcao />} />
+        <Route path={ROUTES.ACAO_MONITORAMENTO} element={<AcaoMonitoramento />} />
+        <Route path={ROUTES.CONTROLE_INCIDENTES} element={<ControleIncidentes />} />
+        <Route path={ROUTES.HEATMAP} element={<Heatmap />} />
+        <Route path={ROUTES.CALENDARIO} element={<Calendario />} />
         {/* Rotas de Inventário encapsuladas com o provider */}
         <Route
           element={

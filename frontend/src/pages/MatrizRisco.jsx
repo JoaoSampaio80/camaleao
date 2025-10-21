@@ -477,7 +477,7 @@ function MatrizRisco() {
                 rows.map((r, idx) => (
                   <tr key={r.id} className={idx % 2 ? 'row-blue' : 'row-white'}>
                     <td>
-                      <div className="cell-clip">{idx + 1}</div>
+                      <div className="cell-clip">{(page - 1) * pageSize + idx + 1}</div>
                     </td>
                     <td>
                       <div className="cell-clip">{r.matriz_filial || '-'}</div>

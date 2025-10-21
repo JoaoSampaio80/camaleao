@@ -254,3 +254,96 @@
   border-radius: 12px !important;
   overflow: hidden;
 }
+
+/* ===== AJUSTE FINAL DE EXIBIÇÃO — RANKING DE RISCO ===== */
+.custom-table-ranking {
+  table-layout: auto !important; /* permite o navegador ajustar colunas dinamicamente */
+  min-width: 1400px !important; /* base proporcional ao número de colunas */
+}
+
+.custom-table-ranking th,
+.custom-table-ranking td {
+  vertical-align: middle !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+}
+
+/* Limita visualmente o texto a 2 linhas reais */
+.custom-table-ranking .cell-clip {
+  display: block;
+  line-height: 1.4em;
+  max-height: calc(2 * 1.4em); /* 2 linhas */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* ========================================================================== */
+/* ABA DE NAVEGAÇÃO (RISK-TABS) — PADRONIZADA ENTRE MATRIZ, RANKING E HEATMAP */
+/* ========================================================================== */
+
+.risk-tabs-wrap {
+  width: 100%;
+}
+
+.risk-tabs {
+  display: flex;
+  gap: 28px;
+  padding: 0 0 6px 0;
+  margin: 0;
+  list-style: none;
+}
+
+.risk-tabs__item {
+  margin: 0;
+  padding: 0;
+}
+
+.risk-tab {
+  text-decoration: none;
+  background: none;
+  border: 0;
+  padding: 8px 0 10px;
+  font-size: 16px;
+  line-height: 1;
+  color: #213547;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s ease;
+}
+
+.risk-tab:is(:hover, :focus-visible) {
+  color: #0a2a5a;
+  outline: none;
+}
+
+.risk-tab.is-active {
+  color: #071744;
+  font-weight: 600;
+}
+
+.risk-tab.is-active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 3px;
+  background: #071744;
+  border-radius: 2px;
+}
+
+.risk-tabs__divider {
+  width: 100%;
+  height: 1px;
+  background: #e6eef5;
+}
+
+.no-caret {
+  caret-color: transparent;
+}
+
+.no-pointer {
+  pointer-events: none;
+}
