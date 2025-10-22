@@ -134,6 +134,7 @@ Write-Host "Atualizando variaveis de ambiente..."
 
 Set-EnvVarInFile $BackendEnv  "ALLOWED_HOSTS" "127.0.0.1,localhost,$HostOnly"
 Set-EnvVarInFile $BackendEnv  "TUNNEL_URL"    $Url
+Set-EnvVarInFile $BackendEnv  "BACKEND_URL"   $Url
 Set-EnvVarInFile $FrontendEnv "VITE_API_URL"  "$Url/api/v1/"
 Set-EnvVarInFile $MobileEnv   "API_URL"       "$Url/api/v1/"
 
@@ -168,7 +169,7 @@ if ($StartFrontend) {
   Push-Location $Frontend
   npm install
   npm run build
-  Write-Host "Iniciando servidor preview (porta 4173)..."
+  Write-Host "Iniciando servidor preview (porta 5173)..."
   Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd `"$Frontend`"; npm run preview" -WindowStyle Normal
   Pop-Location
 }
@@ -189,7 +190,7 @@ Write-Host "==============================="
 Write-Host "Ambiente Camaleao pronto!"
 Write-Host "Tunel ativo: $Url"
 Write-Host "Backend: http://127.0.0.1:8000"
-Write-Host "Frontend: http://127.0.0.1:4173"
+Write-Host "Frontend: http://localhost:5173"
 Write-Host "==============================="
 Write-Host ""
 Write-Host "Acesse a aplicacao em: $Url"
