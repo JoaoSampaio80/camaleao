@@ -87,19 +87,17 @@ function FormularioAtividades() {
     status: data?.status?.length ? data.status : FALLBACK_CHOICES.status,
   });
 
-  // Formata "YYYY-MM-DD" (ou ISO) para "dd/mm/aaaa" sem deslocar fuso
-  const formatDateBR = (value) => {
-    if (!value) return '';
-    const s = String(value);
-    const d = s.slice(0, 10); // pega só "YYYY-MM-DD" mesmo que venha ISO completo
-    const [yyyy, mm, dd] = d.split('-');
-    if (yyyy && mm && dd) return `${dd.padStart(2, '0')}/${mm.padStart(2, '0')}/${yyyy}`;
-    // fallback extremo (não deve ocorrer)
-    try {
-      return new Date(s).toLocaleDateString('pt-BR');
-    } catch {
-      return s;
-    }
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '-';
+    // Garante que a data ISO não seja interpretada em UTC
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const [year, month, day] = parts.map(Number);
+    const d = new Date(year, month - 1, day); // cria data local (sem fuso)
+    const dia = String(d.getDate()).padStart(2, '0');
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const ano = d.getFullYear();
+    return `${dia}/${mes}/${ano}`;
   };
 
   const loadChoices = async () => {
@@ -595,7 +593,7 @@ function FormularioAtividades() {
                       <td>{r.atividade}</td>
                       <td>{r.base_legal}</td>
                       <td>{r.evidencia}</td>
-                      <td>{r.proxima_revisao ? formatDateBR(r.proxima_revisao) : '-'}</td>
+                      <td>{r.proxima_revisao ? formatDate(r.proxima_revisao) : '-'}</td>
                       <td>{r.comentarios || '-'}</td>
                       <td title={r.criticidade_display}>{r.criticidade_display}</td>
                       <td title={r.status_display}>{r.status_display}</td>
