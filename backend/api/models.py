@@ -449,7 +449,9 @@ class MonitoringAction(models.Model):
 
 
 class Incident(models.Model):
-    numero_registro = models.AutoField(primary_key=True)
+    numero_registro = models.PositiveIntegerField(
+        unique=True, verbose_name="Número do registro"
+    )  # obrigatório e único
     descricao = models.TextField()
     fonte = models.CharField(max_length=120)
     data_registro = models.DateField()

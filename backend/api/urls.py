@@ -30,7 +30,9 @@ router.register(r"checklists", ChecklistViewSet, basename="checklists")
 router.register(r"inventarios", InventarioDadosViewSet, basename="inventarios")
 router.register(r"riscos", RiskViewSet, basename="riscos")
 router.register(r"planos-acao", ActionPlanViewSet, basename="planos-acao")
-router.register(r"monitoring", MonitoringActionViewSet, basename="monitoring")
+router.register(
+    r"acoes-monitoramento", MonitoringActionViewSet, basename="acoes-monitoramento"
+)
 router.register(r"incidentes", IncidentViewSet, basename="incidentes")
 
 urlpatterns = [

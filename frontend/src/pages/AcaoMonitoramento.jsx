@@ -81,9 +81,15 @@ function AcaoMonitoramento() {
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
-    const [y, m, d] = dateStr.split('-');
-    if (!y || !m || !d) return dateStr;
-    return `${d}/${m}/${y}`;
+    // Garante que a data ISO não seja interpretada em UTC
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const [year, month, day] = parts.map(Number);
+    const d = new Date(year, month - 1, day); // cria data local (sem fuso)
+    const dia = String(d.getDate()).padStart(2, '0');
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const ano = d.getFullYear();
+    return `${dia}/${mes}/${ano}`;
   };
 
   const focusFirstError = (errs) => {
