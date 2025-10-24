@@ -50,6 +50,7 @@ from .serializers import (
     ActionPlanSerializer,
     MonitoringActionSerializer,
     IncidentSerializer,
+    CalendarEventSerializer,
 )
 from .models import (
     User,
@@ -62,6 +63,7 @@ from .models import (
     Incident,
     LikelihoodItem,
     ImpactItem,
+    CalendarEvent,
 )
 from .permissions import (
     IsRoleAdmin,
@@ -1780,4 +1782,19 @@ class InviteSetPasswordView(APIView):
 
         return Response(
             {"detail": "Senha definida com sucesso."}, status=status.HTTP_200_OK
+        )
+
+
+class CalendarEventViewSet(viewsets.ModelViewSet):
+    """
+    Permite listar, criar, editar e excluir eventos do calendário.
+    Apenas o usuário autenticado vê e gerencia seus próprios eventos.
+    """
+
+    serializer_class = CalendarEventSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return CalendarEvent.objects.filter(user=self.request.user).order_by(
+            "date", "time"
         )

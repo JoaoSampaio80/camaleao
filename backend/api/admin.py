@@ -22,6 +22,7 @@ from .models import (
     ControlEffectivenessItem,
     RiskLevelBand,
     Instruction,
+    CalendarEvent,
 )
 
 # ===== User admin =====
@@ -536,3 +537,13 @@ class IncidentAdmin(admin.ModelAdmin):
     search_fields = ("numero_registro", "descricao", "fonte", "responsavel_analise")
     list_filter = ("fonte_informada",)
     date_hierarchy = "data_registro"
+
+
+@admin.register(CalendarEvent)
+class CalendarEventAdmin(admin.ModelAdmin):
+    list_display = ("date", "time", "text", "user")
+    list_filter = ("user", "date")
+    search_fields = ("text", "user__email")
+    ordering = ("-date", "-time")
+    autocomplete_fields = ("user",)
+    date_hierarchy = "date"

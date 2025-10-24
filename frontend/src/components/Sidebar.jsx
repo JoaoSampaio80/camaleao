@@ -26,6 +26,7 @@ import {
   faUserSecret,
   faUserPlus,
   faList,
+  faCalendarAlt,
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../context/AuthContext';
 import { ROUTES } from '../routes';
@@ -79,6 +80,7 @@ function Sidebar() {
     { to: ROUTES.INVENTARIO_DADOS, icon: faDatabase, label: 'Inventário de Dados' },
     { to: ROUTES.INVENTARIO_LISTA, icon: faList, label: 'Lista Inventários' },
     { to: ROUTES.MATRIZ_RISCO, icon: faExclamationTriangle, label: 'Matriz de Risco' },
+    { to: ROUTES.CALENDARIO, icon: faCalendarAlt, label: 'Calendário' },
     {
       to: ROUTES.CADASTRO,
       icon: faUserPlus,

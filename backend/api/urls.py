@@ -19,6 +19,7 @@ from .views import (
     InviteSetPasswordView,
     PasswordResetRequestView,
     PasswordResetConfirmView,
+    CalendarEventViewSet,
 )
 
 app_name = "api"
@@ -34,6 +35,7 @@ router.register(
     r"acoes-monitoramento", MonitoringActionViewSet, basename="acoes-monitoramento"
 )
 router.register(r"incidentes", IncidentViewSet, basename="incidentes")
+router.register(r"calendarevent", CalendarEventViewSet, basename="calendarevent")
 
 urlpatterns = [
     # JWT

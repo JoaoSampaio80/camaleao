@@ -21,6 +21,7 @@ from .models import (
     ControlEffectivenessItem,
     RiskLevelBand,
     Instruction,
+    CalendarEvent,
 )
 
 
@@ -635,3 +636,18 @@ class InstructionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Instruction
         fields = ("id", "title", "content", "updated_at")
+
+
+class CalendarEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CalendarEvent
+        fields = ["id", "user", "date", "time", "text", "details"]
+        read_only_fields = ["user"]
+
+    def create(self, validated_data):
+        """
+        Garante que o evento seja vinculado ao usuário logado.
+        """
+        request = self.context.get("request")
+        validated_data["user"] = request.user
+        return super().create(validated_data)

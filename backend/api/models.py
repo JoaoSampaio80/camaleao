@@ -525,3 +525,36 @@ class DocumentosLGPD(models.Model):
 
     def __str__(self):
         return f"[{self.get_dimensao_display()}] {self.atividade[:60]}"
+
+
+class CalendarEvent(models.Model):
+    """
+    Eventos do calendário integrados ao backend.
+    Cada evento pertence a um usuário autenticado.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="calendar_events",
+        verbose_name="Usuário",
+    )
+    date = models.DateField(verbose_name="Data")
+    time = models.TimeField(verbose_name="Hora")
+    text = models.CharField(max_length=255, verbose_name="Descrição do evento")
+    details = models.TextField(blank=True, null=True, verbose_name="Detalhes do evento")
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
+
+    class Meta:
+        verbose_name = "Evento de Calendário"
+        verbose_name_plural = "Eventos de Calendário"
+        ordering = ["date", "time"]
+        indexes = [
+            models.Index(fields=["date"]),
+            models.Index(fields=["user"]),
+        ]
+
+    def __str__(self):
+        return f"{self.date} {self.time} — {self.text}"
