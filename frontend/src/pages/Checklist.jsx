@@ -261,83 +261,224 @@ function Checklist() {
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
       <style>{`
-      /* Impedir rolagem lateral */
-  html, body {
-    overflow-x: hidden !important;
-  }
+        /* Impedir rolagem lateral */
+        html, body {
+          overflow-x: hidden !important;
+        }
 
-  /* Container principal sem scroll horizontal */
-  .d-flex {
-    max-width: 100vw !important;
-    overflow-x: hidden !important;
-  }
+        .d-flex {
+          max-width: 100vw !important;
+          overflow-x: hidden !important;
+        }
 
-  /* Bordas discretas */
-  .custom-table, .custom-table th, .custom-table td {
-    border-color: #d9e1e8 !important;
-    white-space: normal !important; /* quebra texto longo */
-    word-break: break-word !important; /* força quebra dentro de palavras grandes */
-  }
+        /* ===== TABELA ===== */
+        .custom-table,
+        .custom-table th,
+        .custom-table td {
+          border-color: #d9e1e8 !important;
+          white-space: normal !important;
+          word-break: break-word !important;
+        }
 
-  /* Cabeçalho: gradiente numa faixa única */
-  .thead-gradient {
-    background: linear-gradient(135deg, #003366, #005b96) !important;
-  }
-  .thead-gradient th {
-    background: transparent !important;
-    color: #fff !important;
-    border-color: #00528a !important;
-    white-space: nowrap;
-  }
+        /* Cabeçalho */
+        .thead-gradient {
+          background: linear-gradient(135deg, #003366, #005b96) !important;
+        }
+        .thead-gradient th {
+          background: transparent !important;
+          color: #fff !important;
+          border-color: #00528a !important;
+          white-space: nowrap;
+        }
 
-  /* Corpo: linhas alternadas (branco ↔ azul) */
-  .custom-table tbody tr:nth-child(odd) td  { background: #ffffff !important; color: #212529; }
-  .custom-table tbody tr:nth-child(even) td { background: #005b96 !important; color: #ffffff; }
+        /* Linhas alternadas */
+        .custom-table tbody tr:nth-child(odd) td {
+          background: #ffffff !important;
+          color: #212529;
+        }
+        .custom-table tbody tr:nth-child(even) td {
+          background: #005b96 !important;
+          color: #ffffff;
+        }
+        .custom-table.table-hover tbody tr:hover td {
+          background: #004b80 !important;
+          color: #fff;
+        }
 
-  /* Hover na linha toda */
-  .custom-table.table-hover tbody tr:hover td {
-    background: #004b80 !important; color: #fff;
-  }
+        /* Inputs e botões */
+        .custom-table tbody tr:nth-child(even) td .form-select,
+        .custom-table tbody tr:nth-child(even) td .form-control,
+        .custom-table tbody tr:nth-child(even) td .btn,
+        .custom-table.table-hover tbody tr:hover td .form-select,
+        .custom-table.table-hover tbody tr:hover td .form-control,
+        .custom-table.table-hover tbody tr:hover td .btn {
+          background-color: #ffffff !important;
+          color: #212529 !important;
+          border-color: #ced4da !important;
+          box-shadow: none !important;
+        }
+        .custom-table tbody tr:nth-child(even) td .form-select:focus {
+          border-color: #80bdff !important;
+        }
 
-  /* Inputs brancos mesmo em linhas azuis */
-  .custom-table tbody tr:nth-child(even) td .form-select,
-  .custom-table tbody tr:nth-child(even) td .form-control,
-  .custom-table tbody tr:nth-child(even) td .btn,
-  .custom-table.table-hover tbody tr:hover td .form-select,
-  .custom-table.table-hover tbody tr:hover td .form-control,
-  .custom-table.table-hover tbody tr:hover td .btn {
-    background-color: #ffffff !important;
-    color: #212529 !important;
-    border-color: #ced4da !important;
-    box-shadow: none !important;
-  }
-  .custom-table tbody tr:nth-child(even) td .form-select:focus {
-    border-color: #80bdff !important;
-  }
+        /* ===== LARGURAS PADRÃO ===== */
+        .custom-table th:nth-child(1),
+        .custom-table td:nth-child(1) {
+          width: 18% !important;
+          min-width: 140px !important;
+        }
 
-  /* ===== MODAL estilo "card" azul ===== */
-  .lgpd-modal-dialog { max-width: min(900px, 95vw); margin: 2rem auto; }
-  .lgpd-modal-content { border: 0; border-radius: 1rem; overflow: hidden; }
-  .lgpd-modal-content .modal-header { background: #063a6b; color: #fff; }
-  .lgpd-modal-content .modal-header .btn-close { filter: invert(1); opacity: .9; }
-  .lgpd-modal-content .modal-title { width: 100%; text-align: center; margin: 0; }
-  .lgpd-modal-content .modal-body   { background: #063a6b; }
-  .lgpd-modal-content .modal-footer { background: #063a6b; border-top: 1px solid rgba(255,255,255,0.15); }
-  .lgpd-modal-content .modal-body label { color: #ffffff; font-weight: 600; }
-  .lgpd-modal-content .modal-body .form-control,
-  .lgpd-modal-content .modal-body .form-select {
-    background: #ffffff !important;
-    color: #212529 !important;
-    border-color: #ced4da !important;
-    box-shadow: none !important;
-  }
+        .custom-table th:nth-child(2),
+        .custom-table td:nth-child(2) {
+          width: 48% !important;
+          max-width: 520px !important;
+        }
 
-  /* ===== MODAL CONFIRMAÇÃO ===== */
-  .confirm-modal-content .modal-header { background: #0b2e59; color: #fff; }
-  .confirm-modal-content .modal-footer { background: #0b2e59; border-top: 1px solid rgba(255,255,255,0.15); }
-  .confirm-modal-content .btn-cancel { background: #ffffff; color: #0b2e59; border: none; }
-  .confirm-modal-content .btn-delete { background: #c82333; border-color: #c82333; }
-    `}</style>
+        .custom-table th:nth-child(3),
+        .custom-table td:nth-child(3) {
+          width: 8% !important;
+          min-width: 65px !important;
+          text-align: center !important;
+        }
+
+        .custom-table th:nth-child(4),
+        .custom-table td:nth-child(4) {
+          width: 10% !important;
+          min-width: 80px !important;
+          text-align: center !important;
+        }
+
+        /* ===== RESPONSIVIDADE CONSOLIDADA ===== */
+        @media (max-width: 1400px) {
+          .custom-table th:nth-child(2),
+          .custom-table td:nth-child(2) {
+            width: 38% !important;
+            max-width: 420px !important;
+          }
+        }
+
+        @media (max-width: 1200px) {
+          .custom-table th:nth-child(1),
+          .custom-table td:nth-child(1) {
+            width: 22% !important;
+          }
+          .custom-table th:nth-child(2),
+          .custom-table td:nth-child(2) {
+            width: 35% !important;
+            max-width: 360px !important;
+          }
+        }
+
+        @media (max-width: 992px) {
+          .custom-table {
+            font-size: 0.9rem !important;
+          }
+          .custom-table th,
+          .custom-table td {
+            padding: 0.4rem !important;
+          }
+          .custom-table th:nth-child(1),
+          .custom-table td:nth-child(1) {
+            width: 25% !important;
+          }
+          .custom-table th:nth-child(2),
+          .custom-table td:nth-child(2) {
+            width: 33% !important;
+            max-width: 320px !important;
+          }
+          .custom-table th:nth-child(3),
+          .custom-table td:nth-child(3),
+          .custom-table th:nth-child(4),
+          .custom-table td:nth-child(4) {
+            width: 10% !important;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .custom-table {
+            font-size: 0.85rem !important;
+          }
+          .custom-table th,
+          .custom-table td {
+            padding: 0.3rem !important;
+          }
+          .custom-table th:nth-child(2),
+          .custom-table td:nth-child(2) {
+            width: 50% !important;
+            max-width: 300px !important;
+          }
+        }
+
+        /* ===== MODAIS ===== */
+        .lgpd-modal-dialog {
+          max-width: min(900px, 95vw);
+          margin: 2rem auto;
+        }
+        .lgpd-modal-content {
+          border: 0;
+          border-radius: 1rem;
+          overflow: hidden;
+        }
+        .lgpd-modal-content .modal-header {
+          background: #063a6b;
+          color: #fff;
+        }
+        .lgpd-modal-content .modal-header .btn-close {
+          filter: invert(1);
+          opacity: .9;
+        }
+        .lgpd-modal-content .modal-title {
+          width: 100%;
+          text-align: center;
+          margin: 0;
+        }
+        .lgpd-modal-content .modal-body {
+          background: #063a6b;
+        }
+        .lgpd-modal-content .modal-footer {
+          background: #063a6b;
+          border-top: 1px solid rgba(255,255,255,0.15);
+        }
+        .lgpd-modal-content .modal-body label {
+          color: #ffffff;
+          font-weight: 600;
+        }
+        .lgpd-modal-content .modal-body .form-control,
+        .lgpd-modal-content .modal-body .form-select {
+          background: #ffffff !important;
+          color: #212529 !important;
+          border-color: #ced4da !important;
+          box-shadow: none !important;
+        }
+
+        /* ===== MODAL CONFIRMAÇÃO ===== */
+        .confirm-modal-content .modal-header {
+          background: #0b2e59;
+          color: #fff;
+        }
+        .confirm-modal-content .modal-footer {
+          background: #0b2e59;
+          border-top: 1px solid rgba(255,255,255,0.15);
+        }
+        .confirm-modal-content .btn-cancel {
+          background: #ffffff;
+          color: #0b2e59;
+          border: none;
+        }
+        .confirm-modal-content .btn-delete {
+          background: #c82333;
+          border-color: #c82333;
+        }
+
+        /* ===== WRAPPER DA TABELA ===== */
+        .table-wrap {
+          flex: 1;
+          overflow-x: auto;
+        }
+        .table-wrap table {
+          margin-bottom: 0;
+        }
+      `}</style>
 
       <Sidebar />
 
@@ -392,70 +533,157 @@ function Checklist() {
           </div>
 
           {/* Tabela (full width) */}
-          <Table
-            bordered
-            hover
-            responsive
-            className="custom-table"
-            style={{ width: '100%' }}
-          >
-            <thead className="thead-gradient">
-              <tr>
-                <th style={{ width: '25%' }}>Atividade</th>
-                <th>Descrição</th>
-                <th style={{ width: 140, textAlign: 'center' }}>Situação</th>
-                <th style={{ width: 120, textAlign: 'center' }}>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(Array.isArray(rows) ? rows : []).map((item) => (
-                <tr key={item.id}>
-                  <td>{item.atividade}</td>
-                  <td>{item.descricao}</td>
-                  <td className="text-center">
-                    <Form.Check
-                      type="checkbox"
-                      checked={!!item.is_completed}
-                      disabled={readOnly}
-                      onChange={() => handleCheckChange(item.id, !!item.is_completed)}
-                      title={readOnly ? 'Somente leitura' : 'Alterar situação'}
-                      style={{ cursor: readOnly ? 'not-allowed' : 'pointer' }}
-                    />
-                  </td>
-                  <td className="text-center">
-                    <Dropdown align="end">
-                      <Dropdown.Toggle
-                        size="sm"
-                        variant="outline-secondary"
-                        disabled={readOnly}
-                      >
-                        Ações
-                      </Dropdown.Toggle>
-                      <Dropdown.Menu>
-                        <Dropdown.Item onClick={() => openEdit(item)} disabled={readOnly}>
-                          Editar
-                        </Dropdown.Item>
-                        <Dropdown.Item
-                          className="text-danger"
-                          onClick={() => askDelete(item)}
-                          disabled={readOnly}
-                        >
-                          Excluir
-                        </Dropdown.Item>
-                      </Dropdown.Menu>
-                    </Dropdown>
-                  </td>
-                </tr>
-              ))}
-              {(Array.isArray(rows) ? rows : []).length === 0 && (
+          <div className="table-wrap">
+            <Table
+              bordered
+              hover
+              responsive={false}
+              className="custom-table"
+              style={{ width: '100%', minWidth: 1200 }}
+            >
+              <thead className="thead-gradient">
                 <tr>
-                  <td colSpan={4} className="text-center text-muted py-4">
-                    Nenhum item encontrado.
-                  </td>
+                  {/* Atividade */}
+                  <th> Atividade </th>
+
+                  {/* Descrição */}
+                  <th
+                    style={{
+                      width: '40%',
+                      minWidth: 280,
+                      maxWidth: 480,
+                      whiteSpace: 'normal',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    Descrição
+                  </th>
+
+                  {/* Situação */}
+                  <th
+                    style={{
+                      width: '10%',
+                      minWidth: 80,
+                      maxWidth: 100,
+                      textAlign: 'center',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Situação
+                  </th>
+
+                  {/* Ações */}
+                  <th
+                    style={{
+                      width: '15%',
+                      minWidth: 100,
+                      maxWidth: 140,
+                      textAlign: 'center',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Ações
+                  </th>
                 </tr>
-              )}
-            </tbody>
-          </Table>
+              </thead>
+              <tbody>
+                {(Array.isArray(rows) ? rows : []).map((item) => (
+                  <tr key={item.id}>
+                    {/* Atividade */}
+                    <td
+                      style={{
+                        width: '20%',
+                        minWidth: 180,
+                        whiteSpace: 'normal',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {item.atividade}
+                    </td>
+
+                    {/* Descrição */}
+                    <td
+                      style={{
+                        width: '40%',
+                        minWidth: 280,
+                        maxWidth: 480,
+                        overflowWrap: 'break-word',
+                        whiteSpace: 'normal',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {item.descricao}
+                    </td>
+
+                    {/* Situação */}
+                    <td
+                      className="text-center"
+                      style={{
+                        width: '10%',
+                        minWidth: 80,
+                        maxWidth: 100,
+                      }}
+                    >
+                      <Form.Check
+                        type="checkbox"
+                        checked={!!item.is_completed}
+                        disabled={readOnly}
+                        onChange={() => handleCheckChange(item.id, !!item.is_completed)}
+                        title={readOnly ? 'Somente leitura' : 'Alterar situação'}
+                        style={{
+                          cursor: readOnly ? 'not-allowed' : 'pointer',
+                        }}
+                      />
+                    </td>
+
+                    {/* Ações */}
+                    <td
+                      className="text-center"
+                      style={{
+                        width: '15%',
+                        minWidth: 100,
+                        maxWidth: 140,
+                        overflow: 'visible',
+                      }}
+                    >
+                      <Dropdown align="end">
+                        <Dropdown.Toggle
+                          size="sm"
+                          variant="outline-secondary"
+                          disabled={readOnly}
+                          style={{ whiteSpace: 'nowrap' }}
+                        >
+                          Ações
+                        </Dropdown.Toggle>
+                        <Dropdown.Menu>
+                          <Dropdown.Item
+                            onClick={() => openEdit(item)}
+                            disabled={readOnly}
+                          >
+                            Editar
+                          </Dropdown.Item>
+                          <Dropdown.Item
+                            className="text-danger"
+                            onClick={() => askDelete(item)}
+                            disabled={readOnly}
+                          >
+                            Excluir
+                          </Dropdown.Item>
+                        </Dropdown.Menu>
+                      </Dropdown>
+                    </td>
+                  </tr>
+                ))}
+                {(Array.isArray(rows) ? rows : []).length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="text-center text-muted py-4">
+                      Nenhum item encontrado.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </Table>
+          </div>
 
           {/* Paginação */}
           <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 px-3">
