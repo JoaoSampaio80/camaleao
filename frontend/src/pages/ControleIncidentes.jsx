@@ -327,11 +327,11 @@ function ControleIncidentes() {
     <div className="d-flex" style={{ minHeight: '100vh' }}>
       <Sidebar />
       <div className="main-content">
+        <h2 className="page-title">Controle de Incidentes</h2>
+
         <div className="mb-4">
           <PaginacaoRiscos />
         </div>
-
-        <h2 className="page-title">Controle de Incidentes</h2>
 
         <div className="d-flex justify-content-between align-items-center mb-3">
           <Form.Group className="d-flex align-items-center mb-0">
