@@ -333,10 +333,6 @@ class ActionPlanInline(admin.TabularInline):
     model = ActionPlan
     extra = 1
     fields = (
-        "matriz_filial",
-        "setor_proprietario",
-        "processo",
-        "descricao",
         "como",
         "responsavel_execucao",
         "prazo",
@@ -384,7 +380,7 @@ class RiskAdmin(admin.ModelAdmin):
 
 
 class ActionPlanAdminForm(forms.ModelForm):
-    # (mantido igual ao que você tinha, sem alterações funcionais)
+    # Campos apenas de exibição (não gravam no banco)
     risco_display = forms.CharField(
         label="Risco",
         required=False,
@@ -412,10 +408,6 @@ class ActionPlanAdminForm(forms.ModelForm):
             "setor_display",
             "processo_display",
             "risco",
-            "matriz_filial",
-            "setor_proprietario",
-            "processo",
-            "descricao",
             "como",
             "responsavel_execucao",
             "prazo",
@@ -428,21 +420,17 @@ class ActionPlanAdmin(admin.ModelAdmin):
     form = ActionPlanAdminForm
     list_display = (
         "risco",
-        "matriz_filial",
-        "setor_proprietario",
-        "processo",
-        "descricao",
+        "como",
         "responsavel_execucao",
         "prazo",
         "status",
     )
     list_filter = ("status", "prazo")
-    search_fields = ("risco__risco_fator", "descricao", "responsavel_execucao")
+    search_fields = ("risco__risco_fator", "responsavel_execucao")
     autocomplete_fields = ("risco",)
     date_hierarchy = "prazo"
     list_select_related = ("risco",)
 
-    # (resto igual ao seu: get_form, save_model, etc.)
     def get_form(self, request, obj=None, **kwargs):
         from .models import Risk
 
@@ -463,40 +451,20 @@ class ActionPlanAdmin(admin.ModelAdmin):
                     initial.setdefault(
                         "risco_display", (str(r) if r else f"#{risco_id}")
                     )
-                    if r:
-                        initial.setdefault("matriz_display", r.matriz_filial or "")
-                        initial.setdefault("setor_display", r.setor or "")
-                        initial.setdefault("processo_display", r.processo or "")
                     initial.setdefault("risco", risco_id)
-                    if r:
-                        initial.setdefault("matriz_filial", r.matriz_filial or "")
-                        initial.setdefault("setor_proprietario", r.setor or "")
-                        initial.setdefault("processo", r.processo or "")
 
                 kw["initial"] = initial
                 super().__init__(*args, **kw)
 
-                if "descricao" in self.fields:
-                    self.fields["descricao"].widget.attrs["autofocus"] = "autofocus"
+                # foco inicial no campo "como"
+                if "como" in self.fields:
+                    self.fields["como"].widget.attrs["autofocus"] = "autofocus"
 
-                if is_add and risco_id:
-                    for real in (
-                        "risco",
-                        "matriz_filial",
-                        "setor_proprietario",
-                        "processo",
-                    ):
-                        if real in self.fields:
-                            self.fields[real].widget = forms.HiddenInput()
-                else:
-                    for disp in (
-                        "risco_display",
-                        "matriz_display",
-                        "setor_display",
-                        "processo_display",
-                    ):
-                        if disp in self.fields:
-                            self.fields[disp].widget = forms.HiddenInput()
+                # esconde o campo "risco" no modo de adição (ele é preenchido via GET)
+                if is_add and risco_id and "risco" in self.fields:
+                    self.fields["risco"].widget = forms.HiddenInput()
+                elif "risco_display" in self.fields:
+                    self.fields["risco_display"].widget = forms.HiddenInput()
 
         return FormWithInitials
 
@@ -508,11 +476,6 @@ class ActionPlanAdmin(admin.ModelAdmin):
                     obj.risco_id = int(risco_id)
                 except ValueError:
                     pass
-                r = getattr(obj, "risco", None)
-                if r:
-                    obj.matriz_filial = obj.matriz_filial or (r.matriz_filial or "")
-                    obj.setor_proprietario = obj.setor_proprietario or (r.setor or "")
-                    obj.processo = obj.processo or (r.processo or "")
         super().save_model(request, obj, form, change)
 
 

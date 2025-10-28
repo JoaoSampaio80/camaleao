@@ -424,6 +424,31 @@ class InventarioDadosSerializer(serializers.ModelSerializer):
         return attrs
 
 
+# Serializer para o modelo PlanoAcao
+class ActionPlanSerializer(serializers.ModelSerializer):
+    # ajuda o front a exibir o vínculo
+    risco_risco_fator = serializers.ReadOnlyField(source="risco.risco_fator")
+
+    class Meta:
+        model = ActionPlan
+        fields = "__all__"
+
+    def validate(self, attrs):
+        prazo = attrs.get("prazo") or (self.instance.prazo if self.instance else None)
+        if prazo and prazo < datetime.date.today():
+            raise serializers.ValidationError(
+                {"prazo": "Prazo não pode ser no passado."}
+            )
+
+        risco = attrs.get("risco") or (self.instance.risco if self.instance else None)
+        if not risco:
+            raise serializers.ValidationError(
+                {"risco": "Informe o risco ao qual este plano estará vinculado."}
+            )
+
+        return attrs
+
+
 # Serializer para o modelo MatrizRisco
 class RiskSerializer(serializers.ModelSerializer):
     # ------- extras de leitura p/ o front (mantidos) -------
@@ -444,6 +469,8 @@ class RiskSerializer(serializers.ModelSerializer):
 
     # “existe_controle” como você já tinha
     existe_controle = serializers.SerializerMethodField()
+
+    planos = ActionPlanSerializer(many=True, read_only=True)
 
     class Meta:
         model = Risk
@@ -569,31 +596,6 @@ class RiskSerializer(serializers.ModelSerializer):
         obj = super().update(instance, validated_data)
         self._recalc_and_sanitize(obj)
         return obj
-
-
-# Serializer para o modelo PlanoAcao
-class ActionPlanSerializer(serializers.ModelSerializer):
-    # ajuda o front a exibir o vínculo
-    risco_risco_fator = serializers.ReadOnlyField(source="risco.risco_fator")
-
-    class Meta:
-        model = ActionPlan
-        fields = "__all__"
-
-    def validate(self, attrs):
-        prazo = attrs.get("prazo") or (self.instance.prazo if self.instance else None)
-        if prazo and prazo < datetime.date.today():
-            raise serializers.ValidationError(
-                {"prazo": "Prazo não pode ser no passado."}
-            )
-
-        risco = attrs.get("risco") or (self.instance.risco if self.instance else None)
-        if not risco:
-            raise serializers.ValidationError(
-                {"risco": "Informe o risco ao qual este plano estará vinculado."}
-            )
-
-        return attrs
 
 
 class MonitoringActionSerializer(serializers.ModelSerializer):

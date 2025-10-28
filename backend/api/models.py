@@ -393,14 +393,15 @@ class Risk(models.Model):
 
 
 class ActionPlan(models.Model):
-    risco = models.ForeignKey(Risk, on_delete=models.CASCADE, related_name="planos")
-    matriz_filial = models.CharField(max_length=120)
-    setor_proprietario = models.CharField(max_length=120)
-    processo = models.CharField(max_length=200)
-    descricao = models.TextField()  # "Plano de Ação adicional"
+    risco = models.ForeignKey(
+        "Risk",
+        on_delete=models.CASCADE,
+        related_name="planos",
+    )
+
     como = models.TextField(blank=True)
-    responsavel_execucao = models.CharField(max_length=120)
-    prazo = models.DateField()
+    responsavel_execucao = models.CharField(max_length=120, blank=True)
+    prazo = models.DateField(blank=True, null=True)
     status = models.CharField(
         max_length=20,
         choices=[
@@ -408,6 +409,7 @@ class ActionPlan(models.Model):
             ("andamento", "Em andamento"),
             ("concluido", "Concluído"),
         ],
+        blank=True,
     )
 
     class Meta:
@@ -416,16 +418,12 @@ class ActionPlan(models.Model):
         ordering = ["prazo"]
 
     def __str__(self):
-        return f"{self.descricao[:60]}..."
+        return f"Plano de Ação ({self.risco.risco_fator[:50]})"
 
     def clean(self):
         errors = {}
-        if not self.risco_id:
-            errors["risco"] = "Selecione um Risco para vincular este plano de ação."
-
         if self.prazo and self.prazo < datetime.date.today():
-            errors["prazo"] = "Prazo não pode ser no passado."
-
+            errors["prazo"] = "O prazo não pode ser no passado."
         if errors:
             raise ValidationError(errors)
 
