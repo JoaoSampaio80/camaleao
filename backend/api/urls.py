@@ -30,7 +30,7 @@ router.register(r"documentos", DocumentosLGPDViewSet, basename="documentos")
 router.register(r"checklists", ChecklistViewSet, basename="checklists")
 router.register(r"inventarios", InventarioDadosViewSet, basename="inventarios")
 router.register(r"riscos", RiskViewSet, basename="riscos")
-router.register(r"planos-acao", ActionPlanViewSet, basename="planos-acao")
+router.register(r"actionplan", ActionPlanViewSet, basename="actionplan")
 router.register(
     r"acoes-monitoramento", MonitoringActionViewSet, basename="acoes-monitoramento"
 )

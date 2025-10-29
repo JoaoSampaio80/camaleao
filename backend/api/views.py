@@ -1452,58 +1452,90 @@ class RiskViewSet(viewsets.ModelViewSet):
 
 # ViewSet para PlanoAcao
 class ActionPlanViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet de Planos de Ação, refletindo exatamente os campos do modelo.
+    """
+
     queryset = ActionPlan.objects.all().select_related("risco")
     serializer_class = ActionPlanSerializer
     permission_classes = [IsAdminOrDPO]
 
+    # ===== Filtros =====
     filter_backends = [
         DjangoFilterBackend,
         filters.SearchFilter,
         filters.OrderingFilter,
     ]
+
     filterset_fields = {
         "status": ["exact"],
-        "setor_proprietario": ["exact", "icontains"],
-        "matriz_filial": ["exact", "icontains"],
-        "risco": ["exact"],
+        "prazo": ["exact", "lte", "gte"],
+        "risco": ["exact"],  # FK direta
     }
+
     search_fields = [
-        "descricao",
+        "como",
         "responsavel_execucao",
-        "processo",
-        "risco__risco_fator",
+        "risco__risco_fator",  # busca textual dentro do risco relacionado
     ]
+
     ordering_fields = ["prazo", "id"]
     ordering = ["prazo"]
 
+    # ===== Criação =====
     def perform_create(self, serializer):
-        # NÃO passar 'responsavel' (não existe no modelo). Deixe o payload popular 'responsavel_execucao'.
+        """
+        Cria um novo plano de ação vinculado a um risco.
+        """
         serializer.save()
 
-    @action(detail=False, methods=["get"], url_path=r"stats/overdue")
+    # ===== Atualização parcial (PATCH) =====
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Força PATCH a aceitar payloads parciais (sem todos os campos).
+        """
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    # ===== Limpar Complemento =====
+    @action(detail=True, methods=["patch"], url_path="limpar")
+    def limpar_complemento(self, request, pk=None):
+        """
+        Limpa os campos do plano sem excluir o registro.
+        """
+        plan = self.get_object()
+        plan.como = ""
+        plan.responsavel_execucao = ""
+        plan.prazo = None
+        plan.status = "nao_iniciado"
+        plan.save(update_fields=["como", "responsavel_execucao", "prazo", "status"])
+        return Response({"detail": "Complemento removido com sucesso."}, status=200)
+
+    # ===== Estatísticas de atrasos =====
+    @action(detail=False, methods=["get"], url_path="stats/overdue")
     def stats_overdue(self, request):
         """
-        Planos atrasados (não concluídos e com prazo < hoje).
+        Planos de ação atrasados (não concluídos e com prazo vencido).
         """
         today = timezone.localdate()
-        qs = (
-            self.filter_queryset(self.get_queryset())
-            .filter(
-                status__in=["nao_iniciado", "andamento"],
-                prazo__lt=today,
-            )
-            .select_related("risco")
+        qs = self.filter_queryset(self.get_queryset()).filter(
+            status__in=["nao_iniciado", "andamento"], prazo__lt=today
         )
 
         items = []
-        for ap in qs:
+        for ap in qs.select_related("risco"):
             dias = (today - ap.prazo).days
             items.append(
                 {
                     "id": ap.id,
                     "risco_id": ap.risco_id,
                     "risco_risco_fator": getattr(ap.risco, "risco_fator", ""),
-                    "setor_proprietario": ap.setor_proprietario,
+                    "matriz_filial": getattr(ap.risco, "matriz_filial", ""),
+                    "setor": getattr(ap.risco, "setor", ""),
+                    "processo": getattr(ap.risco, "processo", ""),
                     "prazo": ap.prazo.strftime("%Y-%m-%d"),
                     "dias_atraso": dias,
                     "status": ap.status,

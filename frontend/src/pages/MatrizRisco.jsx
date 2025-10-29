@@ -15,8 +15,9 @@ import {
 } from 'react-bootstrap';
 import Sidebar from '../components/Sidebar';
 import AxiosInstance from '../components/Axios';
-import '../estilos/matriz.css';
 import PaginacaoRiscos from '../components/PaginacaoRiscos';
+import ListaPlanoAcao from '../components/ListaPlanoAcao';
+import '../estilos/matriz.css';
 
 function MatrizRisco() {
   const [rows, setRows] = useState([]);
@@ -333,6 +334,12 @@ function MatrizRisco() {
       eficacia: String(item.eficacia || ''),
       risco_residual: item.risco_residual || '',
       resposta_risco: item.resposta_risco || '',
+      planos: item.resposta_risco
+        ? item.resposta_risco
+            .split('\n')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [],
     });
 
     setShowModal(true);
@@ -513,7 +520,29 @@ function MatrizRisco() {
                       <div className="cell-clip">{r.risco_residual || '-'}</div>
                     </td>
                     <td className="col-wide">
-                      <div className="cell-clip">{r.resposta_risco || '-'}</div>
+                      {r.resposta_risco ? (
+                        <ul style={{ margin: 0, paddingLeft: '1rem' }}>
+                          {r.resposta_risco
+                            .split(/[\n;,]+/) // divide por quebra de linha, ponto e vírgula ou vírgula
+                            .filter((acao) => acao.trim() !== '')
+                            .map((acao, i) => (
+                              <li
+                                key={i}
+                                style={{
+                                  whiteSpace: 'normal',
+                                  lineHeight: '1.4',
+                                  listStyleType: 'disc',
+                                  color: '#071744', // cor institucional do Camaleão
+                                  fontSize: '0.95rem',
+                                }}
+                              >
+                                {acao.trim()}
+                              </li>
+                            ))}
+                        </ul>
+                      ) : (
+                        <div className="cell-clip">-</div>
+                      )}
                     </td>
                     <td>
                       <Dropdown align="end">
@@ -558,249 +587,284 @@ function MatrizRisco() {
         }}
         size="xl"
         centered
-        scrollable
         contentClassName="modal-style"
       >
         <Form onSubmit={handleSave}>
-          <Modal.Header closeButton>
-            <Modal.Title>{editingId ? 'Editar Risco' : 'Cadastro de Risco'}</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <Container fluid>
-              {error && <Alert variant="danger">{error}</Alert>}
-              {okMsg && <Alert variant="success">{okMsg}</Alert>}
+          <div
+            style={{
+              maxHeight: '80vh', // ocupa até 80% da altura da tela
+              overflowY: 'auto', // ✅ rola tudo (body + footer)
+              overflowX: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <Modal.Header closeButton>
+              <Modal.Title>
+                {editingId ? 'Editar Risco' : 'Cadastro de Risco'}
+              </Modal.Title>
+            </Modal.Header>
+            <Modal.Body style={{ flexGrow: 1 }}>
+              <Container fluid>
+                {error && <Alert variant="danger">{error}</Alert>}
+                {okMsg && <Alert variant="success">{okMsg}</Alert>}
 
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Form.Label>Matriz/Filial</Form.Label>
-                  <Form.Select
-                    name="matriz_filial"
-                    value={form.matriz_filial}
-                    onChange={onChange}
-                    isInvalid={!!fieldErrors.matriz_filial}
-                  >
-                    <option value="">Selecione...</option>
-                    <option value="matriz">Matriz</option>
-                    <option value="filial">Filial</option>
-                    <option value="matriz/filial">Matriz / Filial</option>
-                  </Form.Select>
-                  <Form.Control.Feedback type="invalid">
-                    {fieldErrors.matriz_filial}
-                  </Form.Control.Feedback>
-                </Col>
-                <Col md={4}>
-                  <Form.Label>Setor</Form.Label>
+                <Row className="mb-3">
+                  <Col md={4}>
+                    <Form.Label>Matriz/Filial</Form.Label>
+                    <Form.Select
+                      name="matriz_filial"
+                      value={form.matriz_filial}
+                      onChange={onChange}
+                      isInvalid={!!fieldErrors.matriz_filial}
+                    >
+                      <option value="">Selecione...</option>
+                      <option value="matriz">Matriz</option>
+                      <option value="filial">Filial</option>
+                      <option value="matriz/filial">Matriz / Filial</option>
+                    </Form.Select>
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.matriz_filial}
+                    </Form.Control.Feedback>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Label>Setor</Form.Label>
+                    <Form.Control
+                      name="setor"
+                      value={form.setor}
+                      onChange={onChange}
+                      isInvalid={!!fieldErrors.setor}
+                    />
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.setor}
+                    </Form.Control.Feedback>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Label>Processo</Form.Label>
+                    <Form.Control
+                      name="processo"
+                      value={form.processo}
+                      onChange={onChange}
+                      isInvalid={!!fieldErrors.processo}
+                    />
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.processo}
+                    </Form.Control.Feedback>
+                  </Col>
+                </Row>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>Risco/Fator</Form.Label>
                   <Form.Control
-                    name="setor"
-                    value={form.setor}
+                    as="textarea"
+                    rows={2}
+                    name="risco_fator"
+                    value={form.risco_fator}
                     onChange={onChange}
-                    isInvalid={!!fieldErrors.setor}
+                    isInvalid={!!fieldErrors.risco_fator}
                   />
                   <Form.Control.Feedback type="invalid">
-                    {fieldErrors.setor}
+                    {fieldErrors.risco_fator}
                   </Form.Control.Feedback>
-                </Col>
-                <Col md={4}>
-                  <Form.Label>Processo</Form.Label>
+                </Form.Group>
+
+                <Row className="mb-3">
+                  <Col md={4}>
+                    <Form.Label>Probabilidade</Form.Label>
+                    <Form.Select
+                      name="probabilidade"
+                      value={form.probabilidade}
+                      onChange={onChange}
+                      isInvalid={!!fieldErrors.probabilidade}
+                    >
+                      <option value="">Selecione...</option>
+                      {likelihoods.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.label_pt} ({l.value})
+                        </option>
+                      ))}
+                    </Form.Select>
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.probabilidade}
+                    </Form.Control.Feedback>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Label>Impacto</Form.Label>
+                    <Form.Select
+                      name="impacto"
+                      value={form.impacto}
+                      onChange={onChange}
+                      isInvalid={!!fieldErrors.impacto}
+                    >
+                      <option value="">Selecione...</option>
+                      {impacts.map((i) => (
+                        <option key={i.id} value={i.id}>
+                          {i.label_pt} ({i.value})
+                        </option>
+                      ))}
+                    </Form.Select>
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.impacto}
+                    </Form.Control.Feedback>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Label>
+                      Pontuação do Risco{' '}
+                      {uiBand && (
+                        <Badge
+                          bg="light"
+                          text="dark"
+                          style={{ border: `1px solid ${uiBand.color}`, marginLeft: 8 }}
+                        >
+                          {uiBand.name}
+                        </Badge>
+                      )}
+                    </Form.Label>
+                    <Form.Control
+                      readOnly
+                      value={computedPontuacao || ''}
+                      isInvalid={!!fieldErrors.pontuacao}
+                      style={{
+                        ...bandBgStyle,
+                        borderLeft: uiBand ? `6px solid ${uiBand.color}` : undefined,
+                        fontWeight: 700,
+                      }}
+                    />
+                    {fieldErrors.pontuacao ? (
+                      <div className="invalid-feedback d-block">
+                        {fieldErrors.pontuacao}
+                      </div>
+                    ) : null}
+                  </Col>
+                </Row>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>Medidas de Controle</Form.Label>
                   <Form.Control
-                    name="processo"
-                    value={form.processo}
+                    as="textarea"
+                    rows={2}
+                    name="medidas_controle"
+                    value={form.medidas_controle}
                     onChange={onChange}
-                    isInvalid={!!fieldErrors.processo}
+                    isInvalid={!!fieldErrors.medidas_controle}
                   />
                   <Form.Control.Feedback type="invalid">
-                    {fieldErrors.processo}
+                    {fieldErrors.medidas_controle}
                   </Form.Control.Feedback>
-                </Col>
-              </Row>
+                </Form.Group>
 
-              <Form.Group className="mb-3">
-                <Form.Label>Risco/Fator</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={2}
-                  name="risco_fator"
-                  value={form.risco_fator}
-                  onChange={onChange}
-                  isInvalid={!!fieldErrors.risco_fator}
-                />
-                <Form.Control.Feedback type="invalid">
-                  {fieldErrors.risco_fator}
-                </Form.Control.Feedback>
-              </Form.Group>
+                <Row className="mb-3">
+                  <Col md={4}>
+                    <Form.Label>Tipo de Controle</Form.Label>
+                    <Form.Select
+                      name="tipo_controle"
+                      value={form.tipo_controle}
+                      onChange={onChange}
+                      isInvalid={!!fieldErrors.tipo_controle}
+                      disabled={!form.medidas_controle.trim()}
+                    >
+                      <option value="">Selecione...</option>
+                      <option value="C">Preventivo</option>
+                      <option value="D">Detectivo</option>
+                    </Form.Select>
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.tipo_controle}
+                    </Form.Control.Feedback>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Label>Eficácia</Form.Label>
+                    <Form.Select
+                      name="eficacia"
+                      value={form.eficacia}
+                      onChange={onChange}
+                      isInvalid={!!fieldErrors.eficacia}
+                      disabled={!form.medidas_controle.trim()}
+                    >
+                      <option value="">(Opcional)</option>
+                      {effs.map((e) => (
+                        <option key={e.id} value={e.id}>
+                          {e.label_pt} ({e.value})
+                        </option>
+                      ))}
+                    </Form.Select>
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.eficacia}
+                    </Form.Control.Feedback>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Label>Risco Residual</Form.Label>
+                    <Form.Select
+                      name="risco_residual"
+                      value={form.risco_residual}
+                      onChange={onChange}
+                      isInvalid={!!fieldErrors.risco_residual}
+                    >
+                      <option value="">Selecione...</option>
+                      <option value="baixo">Baixo</option>
+                      <option value="medio">Médio</option>
+                      <option value="alto">Alto</option>
+                    </Form.Select>
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.risco_residual}
+                    </Form.Control.Feedback>
+                  </Col>
+                </Row>
 
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Form.Label>Probabilidade</Form.Label>
-                  <Form.Select
-                    name="probabilidade"
-                    value={form.probabilidade}
-                    onChange={onChange}
-                    isInvalid={!!fieldErrors.probabilidade}
-                  >
-                    <option value="">Selecione...</option>
-                    {likelihoods.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.label_pt} ({l.value})
-                      </option>
-                    ))}
-                  </Form.Select>
-                  <Form.Control.Feedback type="invalid">
-                    {fieldErrors.probabilidade}
-                  </Form.Control.Feedback>
-                </Col>
-                <Col md={4}>
-                  <Form.Label>Impacto</Form.Label>
-                  <Form.Select
-                    name="impacto"
-                    value={form.impacto}
-                    onChange={onChange}
-                    isInvalid={!!fieldErrors.impacto}
-                  >
-                    <option value="">Selecione...</option>
-                    {impacts.map((i) => (
-                      <option key={i.id} value={i.id}>
-                        {i.label_pt} ({i.value})
-                      </option>
-                    ))}
-                  </Form.Select>
-                  <Form.Control.Feedback type="invalid">
-                    {fieldErrors.impacto}
-                  </Form.Control.Feedback>
-                </Col>
-                <Col md={4}>
-                  <Form.Label>
-                    Pontuação do Risco{' '}
-                    {uiBand && (
-                      <Badge
-                        bg="light"
-                        text="dark"
-                        style={{ border: `1px solid ${uiBand.color}`, marginLeft: 8 }}
-                      >
-                        {uiBand.name}
-                      </Badge>
-                    )}
-                  </Form.Label>
-                  <Form.Control
-                    readOnly
-                    value={computedPontuacao || ''}
-                    isInvalid={!!fieldErrors.pontuacao}
-                    style={{
-                      ...bandBgStyle,
-                      borderLeft: uiBand ? `6px solid ${uiBand.color}` : undefined,
-                      fontWeight: 700,
-                    }}
+                <Form.Group className="mb-3">
+                  <Form.Label>Resposta ao Risco (Plano de Ação)</Form.Label>
+                  <ListaPlanoAcao
+                    value={form.planos || []}
+                    onChange={(lista) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        planos: lista,
+                        resposta_risco: lista.join('\n'), // converte p/ backend
+                      }))
+                    }
                   />
-                  {fieldErrors.pontuacao ? (
+                  {fieldErrors.resposta_risco && (
                     <div className="invalid-feedback d-block">
-                      {fieldErrors.pontuacao}
+                      {fieldErrors.resposta_risco}
                     </div>
-                  ) : null}
-                </Col>
-              </Row>
-
-              <Form.Group className="mb-3">
-                <Form.Label>Medidas de Controle</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={2}
-                  name="medidas_controle"
-                  value={form.medidas_controle}
-                  onChange={onChange}
-                  isInvalid={!!fieldErrors.medidas_controle}
-                />
-                <Form.Control.Feedback type="invalid">
-                  {fieldErrors.medidas_controle}
-                </Form.Control.Feedback>
-              </Form.Group>
-
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Form.Label>Tipo de Controle</Form.Label>
-                  <Form.Select
-                    name="tipo_controle"
-                    value={form.tipo_controle}
-                    onChange={onChange}
-                    isInvalid={!!fieldErrors.tipo_controle}
-                    disabled={!form.medidas_controle.trim()}
-                  >
-                    <option value="">Selecione...</option>
-                    <option value="C">Preventivo</option>
-                    <option value="D">Detectivo</option>
-                  </Form.Select>
-                  <Form.Control.Feedback type="invalid">
-                    {fieldErrors.tipo_controle}
-                  </Form.Control.Feedback>
-                </Col>
-                <Col md={4}>
-                  <Form.Label>Eficácia</Form.Label>
-                  <Form.Select
-                    name="eficacia"
-                    value={form.eficacia}
-                    onChange={onChange}
-                    isInvalid={!!fieldErrors.eficacia}
-                    disabled={!form.medidas_controle.trim()}
-                  >
-                    <option value="">(Opcional)</option>
-                    {effs.map((e) => (
-                      <option key={e.id} value={e.id}>
-                        {e.label_pt} ({e.value})
-                      </option>
-                    ))}
-                  </Form.Select>
-                  <Form.Control.Feedback type="invalid">
-                    {fieldErrors.eficacia}
-                  </Form.Control.Feedback>
-                </Col>
-                <Col md={4}>
-                  <Form.Label>Risco Residual</Form.Label>
-                  <Form.Select
-                    name="risco_residual"
-                    value={form.risco_residual}
-                    onChange={onChange}
-                    isInvalid={!!fieldErrors.risco_residual}
-                  >
-                    <option value="">Selecione...</option>
-                    <option value="baixo">Baixo</option>
-                    <option value="medio">Médio</option>
-                    <option value="alto">Alto</option>
-                  </Form.Select>
-                  <Form.Control.Feedback type="invalid">
-                    {fieldErrors.risco_residual}
-                  </Form.Control.Feedback>
-                </Col>
-              </Row>
-
-              <Form.Group>
-                <Form.Label>Resposta ao Risco (Plano de Ação)</Form.Label>
-                <Form.Control
-                  name="resposta_risco"
-                  value={form.resposta_risco}
-                  onChange={onChange}
-                  isInvalid={!!fieldErrors.resposta_risco}
-                />
-                <Form.Control.Feedback type="invalid">
-                  {fieldErrors.resposta_risco}
-                </Form.Control.Feedback>
-              </Form.Group>
-            </Container>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button
-              variant="outline-secondary"
-              onClick={() => {
-                resetForm();
-                setShowModal(false);
+                  )}
+                </Form.Group>
+              </Container>
+            </Modal.Body>
+            {/* Rodapé adaptativo */}
+            <div
+              className="modal-footer"
+              style={{
+                position:
+                  window.innerHeight > 850
+                    ? 'sticky' // Fixa se houver bastante espaço
+                    : 'relative', // Rola junto se a viewport for pequena
+                bottom: 0,
+                background: 'inherit',
+                borderTop: 'none',
+                padding: '0.75rem 1rem',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '0.5rem',
+                zIndex: 10,
               }}
             >
-              Cancelar
-            </Button>
-            <Button variant="primary" type="submit" disabled={saving}>
-              {saving ? 'Salvando...' : 'Salvar Risco'}
-            </Button>
-          </Modal.Footer>
+              <Button
+                variant="outline-secondary"
+                onClick={() => {
+                  resetForm();
+                  setShowModal(false);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button variant="primary" type="submit" disabled={saving}>
+                {saving ? 'Salvando...' : 'Salvar Risco'}
+              </Button>
+            </div>
+          </div>
         </Form>
       </Modal>
+
       {/* === Modal de Exclusão === */}
       <Modal
         show={showDeleteModal}

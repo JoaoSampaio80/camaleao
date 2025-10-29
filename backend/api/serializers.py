@@ -426,7 +426,6 @@ class InventarioDadosSerializer(serializers.ModelSerializer):
 
 # Serializer para o modelo PlanoAcao
 class ActionPlanSerializer(serializers.ModelSerializer):
-    # ajuda o front a exibir o vínculo
     risco_risco_fator = serializers.ReadOnlyField(source="risco.risco_fator")
 
     class Meta:
@@ -434,19 +433,42 @@ class ActionPlanSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def validate(self, attrs):
-        prazo = attrs.get("prazo") or (self.instance.prazo if self.instance else None)
-        if prazo and prazo < datetime.date.today():
-            raise serializers.ValidationError(
-                {"prazo": "Prazo não pode ser no passado."}
-            )
+        """
+        Validações: mantém consistência, mas ignora campos ausentes
+        para permitir PATCH parciais sem erro 500.
+        """
+        instance = getattr(self, "instance", None)
 
-        risco = attrs.get("risco") or (self.instance.risco if self.instance else None)
+        # Valida prazo, mas só se informado
+        prazo = attrs.get("prazo", getattr(instance, "prazo", None))
+        if prazo and isinstance(prazo, datetime.date):
+            if prazo < datetime.date.today():
+                raise serializers.ValidationError(
+                    {"prazo": "Prazo não pode ser no passado."}
+                )
+
+        # Garante que o risco exista apenas em criações
+        risco = attrs.get("risco") or getattr(instance, "risco", None)
         if not risco:
             raise serializers.ValidationError(
                 {"risco": "Informe o risco ao qual este plano estará vinculado."}
             )
 
         return attrs
+
+    def update(self, instance, validated_data):
+        """
+        Atualiza o plano de ação ignorando campos vazios
+        para evitar erro 500 em PATCHs parciais.
+        """
+        for field, value in validated_data.items():
+            # Ignora campos vazios (ex: status = "")
+            if value == "" or value is None:
+                continue
+            setattr(instance, field, value)
+
+        instance.save()
+        return instance
 
 
 # Serializer para o modelo MatrizRisco
