@@ -553,10 +553,13 @@ export default function Calendar() {
             gap: 8,
           }}
         >
-          {days.map((d, idx) => {
+          {days.map((d) => {
             const iso = isoKey(d.getFullYear(), d.getMonth(), d.getDate());
             const list = events[iso] || [];
             const isToday = iso === todayISO;
+            const isPast = isPastDate(iso);
+            const hasEvents = list.length > 0;
+
             return (
               <div
                 key={iso}
@@ -574,13 +577,32 @@ export default function Calendar() {
                       month: '2-digit',
                     })}
                   </strong>
-                  <Button
-                    variant="outline-primary"
-                    size="sm"
-                    onClick={() => openModal(d.getFullYear(), d.getMonth(), d.getDate())}
-                  >
-                    + evento
-                  </Button>
+
+                  {isPast ? (
+                    hasEvents ? (
+                      <Button
+                        variant="outline-secondary"
+                        size="sm"
+                        onClick={() =>
+                          openModal(d.getFullYear(), d.getMonth(), d.getDate())
+                        }
+                      >
+                        👁 Ver
+                      </Button>
+                    ) : (
+                      <span className="text-muted small">—</span>
+                    )
+                  ) : (
+                    <Button
+                      variant="outline-primary"
+                      size="sm"
+                      onClick={() =>
+                        openModal(d.getFullYear(), d.getMonth(), d.getDate())
+                      }
+                    >
+                      + evento
+                    </Button>
+                  )}
                 </div>
 
                 {list.length > 0 ? (
