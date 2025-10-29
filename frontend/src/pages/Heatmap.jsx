@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import AxiosInstance from '../components/Axios';
+import PaginacaoRiscos from '../components/PaginacaoRiscos';
 
 export default function Heatmap() {
   const [matrix, setMatrix] = useState(() => buildEmptyMatrix());
@@ -175,23 +176,21 @@ export default function Heatmap() {
             marginBottom: '1rem',
           }}
         >
-          <div>
+          {/* Bloco do título centralizado */}
+          <div style={{ flex: 1, textAlign: 'center' }}>
             <h2
+              className="page-title"
               style={{
-                color: '#071744',
-                fontWeight: 700,
-                fontSize: '1.4rem',
                 margin: 0,
+                fontWeight: '700',
+                color: '#071744',
               }}
             >
               Heatmap de Risco
             </h2>
-            <p style={{ fontSize: '0.9rem', color: '#4a5568', margin: 0 }}>
-              Visualização consolidada de probabilidade × impacto. Cada ponto representa
-              riscos reais cadastrados no sistema.
-            </p>
           </div>
 
+          {/* Indicador de carregamento */}
           <div
             style={{
               fontSize: '0.8rem',
@@ -205,6 +204,15 @@ export default function Heatmap() {
           >
             {loading ? 'Carregando dados...' : 'Dados carregados'}
           </div>
+
+          {/* Paginador e descrição mantidos abaixo */}
+          <div className="w-100 mb-4">
+            <PaginacaoRiscos />
+          </div>
+          <p style={{ fontSize: '0.9rem', color: '#4a5568', margin: 0 }}>
+            Visualização consolidada de probabilidade × impacto. Cada ponto representa
+            riscos reais cadastrados no sistema.
+          </p>
         </header>
 
         {errorMsg && (
@@ -276,7 +284,7 @@ export default function Heatmap() {
           }}
         >
           <div>
-            <h3
+            {/* <h3
               style={{
                 fontSize: '1rem',
                 fontWeight: 600,
@@ -285,7 +293,7 @@ export default function Heatmap() {
               }}
             >
               Mapa de Calor de Risco
-            </h3>
+            </h3> */}
             <p style={{ fontSize: '0.8rem', color: '#4a5568', margin: 0 }}>
               Distribuição dos riscos por probabilidade e impacto. Quanto mais à direita e
               mais acima, maior a severidade.
