@@ -12,6 +12,7 @@ import {
 } from 'react-bootstrap';
 import Sidebar from '../components/Sidebar';
 import Axios from '../components/Axios';
+import TooltipInfo from '../components/TooltipInfo';
 
 // Fallbacks caso /api/documentos/choices/ falhe ou venha vazio
 const FALLBACK_CHOICES = {
@@ -558,11 +559,25 @@ function FormularioAtividades() {
               <thead className="thead-gradient">
                 <tr>
                   <th>Dimensão</th>
-                  <th>Atividade / Documento</th>
-                  <th>Base Legal</th>
-                  <th>Evidência</th>
-                  <th>Próxima Revisão</th>
-                  <th>Comentários</th>
+                  <th>
+                    Atividade / Documento{' '}
+                    <TooltipInfo message="Atividades de gerenciamento de privacidade e proteção de dados pessoais" />
+                  </th>
+                  <th>
+                    Base Legal{' '}
+                    <TooltipInfo message="Artigo ou referência da lei que justifique a atividade" />
+                  </th>
+                  <th>
+                    Evidência{' '}
+                    <TooltipInfo message="Documento que comprove a execução da atividade" />
+                  </th>
+                  <th>
+                    Próxima Revisão{' '}
+                    <TooltipInfo message="Prazo pré-definido da validade do documento" />
+                  </th>
+                  <th>
+                    Comentários <TooltipInfo message="Campo de preenchimento opcional" />
+                  </th>
                   <th>Criticidade</th>
                   <th>Status</th>
                   <th style={{ width: 120 }}>Ações</th>
@@ -677,7 +692,7 @@ function FormularioAtividades() {
                     onChange={(e) => setForm((f) => ({ ...f, dimensao: e.target.value }))}
                     required
                   >
-                    <option value="">Selecione…</option>
+                    <option value=""></option>
                     {selectOptions(choices.dimensao)}
                   </Form.Select>
                 </Col>
@@ -706,7 +721,10 @@ function FormularioAtividades() {
               </Row>
 
               <Form.Group className="mb-3">
-                <Form.Label>Atividade / Documento (descrição)</Form.Label>
+                <Form.Label>
+                  Atividade / Documento{' '}
+                  <TooltipInfo message="Atividades de gerenciamento de privacidade e proteção de dados pessoais" />{' '}
+                </Form.Label>
                 <Form.Control
                   as="textarea"
                   rows={3}
@@ -718,7 +736,10 @@ function FormularioAtividades() {
 
               <Row className="mb-3">
                 <Col md={6}>
-                  <Form.Label>Base Legal</Form.Label>
+                  <Form.Label>
+                    Base Legal{' '}
+                    <TooltipInfo message="Artigo ou referência da lei que justifique a atividade" />
+                  </Form.Label>
                   <Form.Control
                     value={form.base_legal}
                     onChange={(e) =>
@@ -728,7 +749,10 @@ function FormularioAtividades() {
                   />
                 </Col>
                 <Col md={6}>
-                  <Form.Label>Evidência</Form.Label>
+                  <Form.Label>
+                    Evidência{' '}
+                    <TooltipInfo message="Documento que comprove a execução da atividade" />
+                  </Form.Label>
                   <Form.Control
                     value={form.evidencia}
                     onChange={(e) =>
@@ -741,7 +765,10 @@ function FormularioAtividades() {
 
               <Row>
                 <Col md={4}>
-                  <Form.Label>Próxima Revisão</Form.Label>
+                  <Form.Label>
+                    Próxima Revisão{' '}
+                    <TooltipInfo message="Prazo pré-definido da validade do documento" />
+                  </Form.Label>
                   <Form.Control
                     type="date"
                     value={form.proxima_revisao || ''}
@@ -751,7 +778,9 @@ function FormularioAtividades() {
                   />
                 </Col>
                 <Col md={8}>
-                  <Form.Label>Comentários</Form.Label>
+                  <Form.Label>
+                    Comentários <TooltipInfo message="Campo de preenchimento opcional" />
+                  </Form.Label>
                   <Form.Control
                     as="textarea"
                     rows={2}

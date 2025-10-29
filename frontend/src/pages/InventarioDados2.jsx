@@ -8,6 +8,7 @@ import { useInventario } from '../context/InventarioContext';
 import SaveCancelBar from '../components/SaveCancelBar';
 import { toast } from 'react-toastify';
 import Axios from '../components/Axios';
+import TooltipInfo from '../components/TooltipInfo';
 
 const requiredStep2 = [
   'pessoas_acesso',
@@ -380,6 +381,7 @@ function InventarioDados2() {
               <Col md={6}>
                 <Form.Label>
                   Atualizações (Quando ocorrem?) <span className="text-danger">*</span>
+                  <TooltipInfo message="Modificação ou atualização" />
                 </Form.Label>
                 <Form.Control
                   placeholder="TextField"
@@ -439,7 +441,8 @@ function InventarioDados2() {
             <Row className="mb-3">
               <Col md={4}>
                 <Form.Label>
-                  Local de Armazenamento (Digital) <span className="text-danger">*</span>
+                  Local de Armazenamento <span className="text-danger">*</span>
+                  <TooltipInfo message="Locais de armazenamento (digital e físico)" />
                 </Form.Label>
                 <Form.Control
                   placeholder="TextField"
@@ -465,7 +468,7 @@ function InventarioDados2() {
                   onChange={(e) => setField('controlador_operador', e.target.value)}
                   isInvalid={hasError('controlador_operador')}
                 >
-                  <option value="">Select...</option>
+                  <option value=""></option>
                   <option value="controlador">Controlador</option>
                   <option value="operador">Operador</option>
                   <option value="ambos">Ambos</option>
@@ -517,6 +520,7 @@ function InventarioDados2() {
               <Col md={3}>
                 <Form.Label>
                   Exclusão <span className="text-danger">*</span>
+                  <TooltipInfo message="Eliminação" />
                 </Form.Label>
                 <Form.Control
                   placeholder="TextField"
@@ -534,6 +538,7 @@ function InventarioDados2() {
               <Col md={3}>
                 <Form.Label>
                   Forma de exclusão <span className="text-danger">*</span>
+                  <TooltipInfo message="Como é feita a eliminação?" />
                 </Form.Label>
                 <Form.Control
                   placeholder="TextField"
@@ -558,7 +563,7 @@ function InventarioDados2() {
                   onChange={(e) => setField('transferencia_terceiros', e.target.value)}
                   isInvalid={hasError('transferencia_terceiros')}
                 >
-                  <option value="">Select...</option>
+                  <option value=""></option>
                   <option value="sim">Sim</option>
                   <option value="nao">Não</option>
                 </Form.Select>
@@ -601,7 +606,7 @@ function InventarioDados2() {
                   }
                   isInvalid={hasError('transferencia_internacional')}
                 >
-                  <option value="">Select...</option>
+                  <option value=""></option>
                   <option value="sim">Sim</option>
                   <option value="nao">Não</option>
                 </Form.Select>

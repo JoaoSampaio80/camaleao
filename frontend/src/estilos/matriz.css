@@ -347,3 +347,18 @@
 .no-pointer {
   pointer-events: none;
 }
+
+/* Tooltip Camaleão azul */
+.custom-tooltip .tooltip-inner {
+  background-color: rgba(0, 51, 102, 0.95) !important; /* azul padrão Camaleão */
+  color: #fff !important;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  padding: 6px 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* seta (arrow) também azul */
+.custom-tooltip .tooltip-arrow::before {
+  border-top-color: rgba(0, 51, 102, 0.95) !important;
+}

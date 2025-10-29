@@ -14,9 +14,9 @@ import {
 } from 'react-bootstrap';
 import Sidebar from '../components/Sidebar';
 import AxiosInstance from '../components/Axios';
-import '../estilos/matriz.css';
 import PaginacaoRiscos from '../components/PaginacaoRiscos';
-import ReactDOM from 'react-dom';
+import TooltipInfo from '../components/TooltipInfo';
+import '../estilos/matriz.css';
 
 /** ===== Componente isolado para o Dropdown de Ações =====
  *  - Menu renderizado no <body> (portal) ⇒ não sofre com overflow do .table-wrap
@@ -358,14 +358,34 @@ function AcaoMonitoramento() {
               <thead className="thead-gradient">
                 <tr>
                   <th>Item</th>
-                  <th>Framework e Requisito</th>
-                  <th>Escopo / Descrição</th>
-                  <th>Data do Monitoramento</th>
-                  <th>Critério de Avaliação</th>
-                  <th>Responsável</th>
-                  <th>Data Última Auditoria</th>
+                  <th>
+                    Framework e Requisito{' '}
+                    <TooltipInfo message="Framework e requisito de avaliação para monitoramento / auditoria" />
+                  </th>
+                  <th>
+                    Escopo / Descrição{' '}
+                    <TooltipInfo message="Escopo e descrição da ação de monitoramento / auditoria" />
+                  </th>
+                  <th>
+                    Data do Monitoramento{' '}
+                    <TooltipInfo message="Data do monitoramento / auditoria" />
+                  </th>
+                  <th>
+                    Critério de Avaliação{' '}
+                    <TooltipInfo message="Critério de avaliação / mensuração" />
+                  </th>
+                  <th>
+                    Responsável <TooltipInfo message="Funcionário responsável" />
+                  </th>
+                  <th>
+                    Data Última Auditoria{' '}
+                    <TooltipInfo message="Data da conclusão do último monitoramento / auditoria" />
+                  </th>
                   <th>Deficiências Identificadas</th>
-                  <th>Ações Corretivas</th>
+                  <th>
+                    Ações Corretivas{' '}
+                    <TooltipInfo message="Ações corretivas implementadas" />
+                  </th>
                   <th>Ações</th>
                 </tr>
               </thead>

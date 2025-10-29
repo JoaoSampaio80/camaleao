@@ -14,6 +14,7 @@ import Sidebar from '../components/Sidebar';
 import Axios from '../components/Axios';
 import PaginacaoRiscos from '../components/PaginacaoRiscos';
 import ListaComplementos from '../components/ListaComplementos';
+import TooltipInfo from '../components/TooltipInfo';
 import '../estilos/matriz.css';
 
 function ControleAcoes() {
@@ -530,9 +531,7 @@ function ControleAcoes() {
           </div>
         )}
 
-        <h2 className="text-center mb-3" style={{ color: '#071744', fontWeight: 700 }}>
-          Controle de Ações
-        </h2>
+        <h2 className="page-title">Controle de Ações</h2>
 
         <div className="w-100 mb-4">
           <PaginacaoRiscos />
@@ -569,7 +568,10 @@ function ControleAcoes() {
                   <th>Processo</th>
                   <th>Plano de Ação Adicional</th>
                   <th>Como</th>
-                  <th>Funcionário Responsável</th>
+                  <th>
+                    Funcionário Responsável{' '}
+                    <TooltipInfo message="Funcionário responsável pela execução." />
+                  </th>
                   <th>Prazo</th>
                   <th>Status</th>
                   <th>Ações</th>

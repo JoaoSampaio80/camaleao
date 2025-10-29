@@ -284,16 +284,6 @@ export default function Heatmap() {
           }}
         >
           <div>
-            {/* <h3
-              style={{
-                fontSize: '1rem',
-                fontWeight: 600,
-                color: '#071744',
-                marginBottom: '0.3rem',
-              }}
-            >
-              Mapa de Calor de Risco
-            </h3> */}
             <p style={{ fontSize: '0.8rem', color: '#4a5568', margin: 0 }}>
               Distribuição dos riscos por probabilidade e impacto. Quanto mais à direita e
               mais acima, maior a severidade.

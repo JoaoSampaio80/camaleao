@@ -14,9 +14,10 @@ import {
 } from 'react-bootstrap';
 import Sidebar from '../components/Sidebar';
 import AxiosInstance from '../components/Axios';
-import '../estilos/matriz.css';
 import PaginacaoRiscos from '../components/PaginacaoRiscos';
 import ReactDOM from 'react-dom';
+import TooltipInfo from '../components/TooltipInfo';
+import '../estilos/matriz.css';
 
 /* ===== Componente de Dropdown (padrão matriz / ação monitoramento) ===== */
 function RowActions({ isActive, onToggle, onEdit, onDelete }) {
@@ -367,17 +368,37 @@ function ControleIncidentes() {
                 <tr>
                   <th>Item</th>
                   <th>Nº do Registro</th>
-                  <th>Descrição</th>
+                  <th>
+                    Descrição <TooltipInfo message="Descrição do Incidente" />
+                  </th>
                   <th>Fonte</th>
                   <th>Data Registro</th>
-                  <th>Responsável</th>
-                  <th>Data Final Análise</th>
-                  <th>Ação Recomendada</th>
-                  <th>Recomendações</th>
+                  <th>
+                    Responsável{' '}
+                    <TooltipInfo message="Funcionário responsável pela análise e recomendação da ação" />
+                  </th>
+                  <th>
+                    Data Final Análise{' '}
+                    <TooltipInfo message="Data de conclusão da análise" />
+                  </th>
+                  <th>
+                    Ação Recomendada <TooltipInfo message="Ação corretiva recomendada" />
+                  </th>
+                  <th>
+                    Recomendações <TooltipInfo message="Recomendações reportadas para:" />
+                  </th>
                   <th>Data Reporte</th>
-                  <th>Decisões</th>
-                  <th>Data Encerramento</th>
-                  <th>Fonte Informada</th>
+                  <th>
+                    Decisões <TooltipInfo message="Decisões de resolução efetivadas" />
+                  </th>
+                  <th>
+                    Data Encerramento{' '}
+                    <TooltipInfo message="Data de encerramento do registro" />
+                  </th>
+                  <th>
+                    Fonte Informada{' '}
+                    <TooltipInfo message="A Fonte foi informada do resultado?" />
+                  </th>
                   <th>Ações</th>
                 </tr>
               </thead>
@@ -551,7 +572,7 @@ function ControleIncidentes() {
                   value={form.fonte_informada}
                   onChange={(e) => setForm({ ...form, fonte_informada: e.target.value })}
                 >
-                  <option value="">Selecione…</option>
+                  <option value=""></option>
                   <option value="sim">Sim</option>
                   <option value="nao">Não</option>
                 </Form.Select>

@@ -410,7 +410,7 @@ function InventarioDados3() {
                   onChange={(e) => setField('adequado_contratualmente', e.target.value)}
                   isInvalid={hasError('adequado_contratualmente')}
                 >
-                  <option value="">Select...</option>
+                  <option value=""></option>
                   <option value="sim">Sim</option>
                   <option value="nao">Não</option>
                 </Form.Select>

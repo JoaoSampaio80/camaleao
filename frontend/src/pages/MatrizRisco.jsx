@@ -12,11 +12,14 @@ import {
   Col,
   Badge,
   Container,
+  OverlayTrigger,
+  Tooltip,
 } from 'react-bootstrap';
 import Sidebar from '../components/Sidebar';
 import AxiosInstance from '../components/Axios';
 import PaginacaoRiscos from '../components/PaginacaoRiscos';
 import ListaPlanoAcao from '../components/ListaPlanoAcao';
+import TooltipInfo from '../components/TooltipInfo';
 import '../estilos/matriz.css';
 
 function MatrizRisco() {
@@ -416,6 +419,10 @@ function MatrizRisco() {
     return <Pagination className="mb-0">{items}</Pagination>;
   };
 
+  const handleBlockedSelectClick = (event) => {
+    event.preventDefault();
+  };
+
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
       <Sidebar />
@@ -460,16 +467,29 @@ function MatrizRisco() {
                 <th>Item</th>
                 <th>Matriz/Filial</th>
                 <th>Setor</th>
-                <th>Processo</th>
+                <th>
+                  Processo <TooltipInfo message="Proceso de negócio envolvido" />
+                </th>
                 <th>Risco/Fator</th>
                 <th>Probabilidade</th>
                 <th>Impacto</th>
                 <th>Pontuação</th>
-                <th>Medidas de Controle</th>
-                <th>Tipo</th>
-                <th>Eficácia</th>
+                <th>
+                  Medidas de Controle <TooltipInfo message="Existe algum controle?" />
+                </th>
+                <th>
+                  Tipo <TooltipInfo message="Preventivo [C] ou Detectivo [D]" />
+                </th>
+                <th>
+                  Eficácia <TooltipInfo message="Avaliação de eficácia do controle." />
+                </th>
                 <th>Risco Residual</th>
-                <th>Plano de Ação</th>
+
+                <th>
+                  Plano de Ação
+                  <TooltipInfo message="Descrever o plano de ação com medidas de controle e mitigadoras do risco residual." />
+                </th>
+
                 <th>Ações</th>
               </tr>
             </thead>
@@ -618,7 +638,7 @@ function MatrizRisco() {
                       onChange={onChange}
                       isInvalid={!!fieldErrors.matriz_filial}
                     >
-                      <option value="">Selecione...</option>
+                      <option value=""></option>
                       <option value="matriz">Matriz</option>
                       <option value="filial">Filial</option>
                       <option value="matriz/filial">Matriz / Filial</option>
@@ -677,7 +697,7 @@ function MatrizRisco() {
                       onChange={onChange}
                       isInvalid={!!fieldErrors.probabilidade}
                     >
-                      <option value="">Selecione...</option>
+                      <option value=""></option>
                       {likelihoods.map((l) => (
                         <option key={l.id} value={l.id}>
                           {l.label_pt} ({l.value})
@@ -696,7 +716,7 @@ function MatrizRisco() {
                       onChange={onChange}
                       isInvalid={!!fieldErrors.impacto}
                     >
-                      <option value="">Selecione...</option>
+                      <option value=""></option>
                       {impacts.map((i) => (
                         <option key={i.id} value={i.id}>
                           {i.label_pt} ({i.value})
@@ -756,37 +776,91 @@ function MatrizRisco() {
                 <Row className="mb-3">
                   <Col md={4}>
                     <Form.Label>Tipo de Controle</Form.Label>
-                    <Form.Select
-                      name="tipo_controle"
-                      value={form.tipo_controle}
-                      onChange={onChange}
-                      isInvalid={!!fieldErrors.tipo_controle}
-                      disabled={!form.medidas_controle.trim()}
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="C">Preventivo</option>
-                      <option value="D">Detectivo</option>
-                    </Form.Select>
+                    <div style={{ position: 'relative' }}>
+                      {/* overlay clicável somente quando bloqueado */}
+                      {!form.medidas_controle.trim() ? (
+                        <OverlayTrigger
+                          placement="top"
+                          overlay={
+                            <Tooltip
+                              id="tooltip-tipo-controle"
+                              className="custom-tooltip"
+                            >
+                              Preencha o campo <strong>“Medidas de Controle”</strong> para
+                              habilitar esta seleção.
+                            </Tooltip>
+                          }
+                        >
+                          <div
+                            onClick={handleBlockedSelectClick}
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
+                              cursor: 'not-allowed',
+                              backgroundColor: 'transparent',
+                              zIndex: 2,
+                            }}
+                          />
+                        </OverlayTrigger>
+                      ) : null}
+                      <Form.Select
+                        name="tipo_controle"
+                        value={form.tipo_controle}
+                        onChange={onChange}
+                        isInvalid={!!fieldErrors.tipo_controle}
+                        disabled={!form.medidas_controle.trim()}
+                        style={{ position: 'relative', zIndex: 1 }}
+                      >
+                        <option value=""></option>
+                        <option value="C">Preventivo</option>
+                        <option value="D">Detectivo</option>
+                      </Form.Select>
+                    </div>
                     <Form.Control.Feedback type="invalid">
                       {fieldErrors.tipo_controle}
                     </Form.Control.Feedback>
                   </Col>
                   <Col md={4}>
                     <Form.Label>Eficácia</Form.Label>
-                    <Form.Select
-                      name="eficacia"
-                      value={form.eficacia}
-                      onChange={onChange}
-                      isInvalid={!!fieldErrors.eficacia}
-                      disabled={!form.medidas_controle.trim()}
-                    >
-                      <option value="">(Opcional)</option>
-                      {effs.map((e) => (
-                        <option key={e.id} value={e.id}>
-                          {e.label_pt} ({e.value})
-                        </option>
-                      ))}
-                    </Form.Select>
+                    <div style={{ position: 'relative' }}>
+                      {!form.medidas_controle.trim() ? (
+                        <OverlayTrigger
+                          placement="top"
+                          overlay={
+                            <Tooltip id="tooltip-eficacia" className="custom-tooltip">
+                              Preencha o campo <strong>“Medidas de Controle”</strong> para
+                              habilitar esta seleção.
+                            </Tooltip>
+                          }
+                        >
+                          <div
+                            onClick={handleBlockedSelectClick}
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
+                              cursor: 'not-allowed',
+                              backgroundColor: 'transparent',
+                              zIndex: 2,
+                            }}
+                          />
+                        </OverlayTrigger>
+                      ) : null}
+                      <Form.Select
+                        name="eficacia"
+                        value={form.eficacia}
+                        onChange={onChange}
+                        isInvalid={!!fieldErrors.eficacia}
+                        disabled={!form.medidas_controle.trim()}
+                        style={{ position: 'relative', zIndex: 1 }}
+                      >
+                        <option value="">(Opcional)</option>
+                        {effs.map((e) => (
+                          <option key={e.id} value={e.id}>
+                            {e.label_pt} ({e.value})
+                          </option>
+                        ))}
+                      </Form.Select>
+                    </div>
                     <Form.Control.Feedback type="invalid">
                       {fieldErrors.eficacia}
                     </Form.Control.Feedback>
@@ -799,7 +873,7 @@ function MatrizRisco() {
                       onChange={onChange}
                       isInvalid={!!fieldErrors.risco_residual}
                     >
-                      <option value="">Selecione...</option>
+                      <option value=""></option>
                       <option value="baixo">Baixo</option>
                       <option value="medio">Médio</option>
                       <option value="alto">Alto</option>

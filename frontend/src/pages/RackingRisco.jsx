@@ -3,8 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { Table, Form, Pagination, Alert } from 'react-bootstrap';
 import Sidebar from '../components/Sidebar';
 import Axios from '../components/Axios';
-import '../estilos/matriz.css';
 import PaginacaoRiscos from '../components/PaginacaoRiscos';
+import '../estilos/matriz.css';
 
 function RankingRisco() {
   const [rows, setRows] = useState([]);
@@ -119,12 +119,7 @@ function RankingRisco() {
 
         {/* título */}
         <div className="w-100 mb-2">
-          <h2
-            className="text-center"
-            style={{ color: '#071744', fontWeight: 700, fontSize: '1.6rem', margin: 0 }}
-          >
-            Ranking de Risco
-          </h2>
+          <h2 className="page-title">Ranking de Risco</h2>
         </div>
 
         <div className="w-100 mb-4">
@@ -205,7 +200,29 @@ function RankingRisco() {
                           <div className="cell-clip">{score ?? '-'}</div>
                         </td>
                         <td className="col-wide">
-                          <div className="cell-clip">{r.resposta_risco || '-'}</div>
+                          {r.resposta_risco ? (
+                            <ul style={{ margin: 0, paddingLeft: '1rem' }}>
+                              {r.resposta_risco
+                                .split(/[\n;,]+/) // divide por quebra de linha, ponto e vírgula ou vírgula
+                                .filter((acao) => acao.trim() !== '')
+                                .map((acao, i) => (
+                                  <li
+                                    key={i}
+                                    style={{
+                                      whiteSpace: 'normal',
+                                      lineHeight: '1.4',
+                                      listStyleType: 'disc',
+                                      color: '#071744', // azul institucional Camaleão
+                                      fontSize: '0.95rem',
+                                    }}
+                                  >
+                                    {acao.trim()}
+                                  </li>
+                                ))}
+                            </ul>
+                          ) : (
+                            <div className="cell-clip">-</div>
+                          )}
                         </td>
                       </tr>
                     );

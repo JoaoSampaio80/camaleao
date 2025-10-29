@@ -7,6 +7,7 @@ import { ROUTES } from '../routes';
 import { useInventario } from '../context/InventarioContext';
 import SaveCancelBar from '../components/SaveCancelBar';
 import { toast } from 'react-toastify';
+import TooltipInfo from '../components/TooltipInfo';
 
 const requiredStep1 = [
   'unidade',
@@ -233,7 +234,7 @@ function InventarioDados() {
                   onChange={(e) => setField('unidade', e.target.value)}
                   isInvalid={isInvalid('unidade')}
                 >
-                  <option value="">Select...</option>
+                  <option value=""></option>
                   <option value="matriz">Matriz</option>
                   <option value="filial">Filial</option>
                   <option value="matriz_filial">Matriz / Filial</option>
@@ -351,7 +352,7 @@ function InventarioDados() {
                   onChange={(e) => setField('tipo_dado', e.target.value)}
                   isInvalid={isInvalid('tipo_dado')}
                 >
-                  <option value="">Select...</option>
+                  <option value=""></option>
                   <option value="pessoal">Pessoal</option>
                   <option value="sensivel">Sensível</option>
                   <option value="anonimizado">Anonimizado</option>
@@ -383,13 +384,14 @@ function InventarioDados() {
               <Col md={3}>
                 <Form.Label>
                   Formato <span className="text-danger">*</span>
+                  <TooltipInfo message="Físico ou digital?" />
                 </Form.Label>
                 <Form.Select
                   value={form.formato || ''}
                   onChange={(e) => setField('formato', e.target.value)}
                   isInvalid={isInvalid('formato')}
                 >
-                  <option value="">Select...</option>
+                  <option value=""></option>
                   <option value="digital">Digital</option>
                   <option value="fisico">Físico</option>
                   <option value="hibrido">Físico e Digital</option>
@@ -411,7 +413,7 @@ function InventarioDados() {
                   onChange={(e) => setField('impresso', e.target.value)}
                   isInvalid={isInvalid('impresso')}
                 >
-                  <option value="">Select...</option>
+                  <option value=""></option>
                   <option value="sim">Sim</option>
                   <option value="nao">Não</option>
                 </Form.Select>
@@ -448,13 +450,14 @@ function InventarioDados() {
               <Col md={3}>
                 <Form.Label>
                   Dados de menores <span className="text-danger">*</span>
+                  <TooltipInfo message="Dados de criança / adolescente ou vulnerável?" />
                 </Form.Label>
                 <Form.Select
                   value={form.dados_menores || ''}
                   onChange={(e) => setField('dados_menores', e.target.value)}
                   isInvalid={isInvalid('dados_menores')}
                 >
-                  <option value="">Select...</option>
+                  <option value=""></option>
                   <option value="sim">Sim</option>
                   <option value="nao">Não</option>
                 </Form.Select>

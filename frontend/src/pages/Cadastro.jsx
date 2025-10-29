@@ -538,7 +538,7 @@ function Cadastro() {
                   onChange={handleChange}
                   isInvalid={!!errors.role}
                 >
-                  <option value="">Selecione...</option>
+                  <option value=""></option>
                   <option value="admin">Administrador</option>
                   <option value="dpo">DPO</option>
                   <option value="gerente">Gerente</option>
