@@ -22,6 +22,8 @@ from .views import (
     CalendarEventViewSet,
 )
 
+from .views_dashboard import DashboardViewSet
+
 app_name = "api"
 
 router = DefaultRouter()
@@ -36,6 +38,7 @@ router.register(
 )
 router.register(r"incidentes", IncidentViewSet, basename="incidentes")
 router.register(r"calendarevent", CalendarEventViewSet, basename="calendarevent")
+router.register(r"dashboard", DashboardViewSet, basename="dashboard")
 
 urlpatterns = [
     # JWT
