@@ -32,8 +32,12 @@ export default function Heatmap() {
   const aggregateToMatrix = useCallback((riscosList) => {
     const draft = buildEmptyMatrix();
     riscosList.forEach((r) => {
-      const p = Number(r.probabilidade);
-      const i = Number(r.impacto);
+      const p =
+        typeof r.probabilidade === 'object'
+          ? Number(r.probabilidade.value)
+          : Number(r.probabilidade);
+      const i =
+        typeof r.impacto === 'object' ? Number(r.impacto.value) : Number(r.impacto);
       if (p >= 1 && p <= 5 && i >= 1 && i <= 5 && !Number.isNaN(p) && !Number.isNaN(i)) {
         const rowIndex = i - 1;
         const colIndex = p - 1;
@@ -51,16 +55,11 @@ export default function Heatmap() {
     setLoading(true);
     setErrorMsg('');
     try {
-      let allResults = [];
-      let nextUrl = '/riscos/';
-      while (nextUrl) {
-        const { data } = await AxiosInstance.get(nextUrl);
-        const results = Array.isArray(data) ? data : data?.results || [];
-        allResults = [...allResults, ...results];
-        nextUrl = data?.next ? data.next.replace(window.location.origin, '') : null;
-      }
+      const { data } = await AxiosInstance.get('/riscos/ranking/');
+      const allResults = Array.isArray(data) ? data : data?.results || [];
 
       setRiscos(allResults);
+
       const aggregated = aggregateToMatrix(allResults);
       setMatrix(aggregated);
     } catch (err) {
@@ -83,9 +82,9 @@ export default function Heatmap() {
       riscoBaixo = 0;
 
     function classifyLevel(avgScore) {
-      if (avgScore <= 5) return 'baixo';
+      if (avgScore <= 6) return 'baixo';
       if (avgScore <= 12) return 'medio';
-      if (avgScore <= 20) return 'alto';
+      if (avgScore < 20) return 'alto';
       return 'critico';
     }
 
@@ -106,23 +105,49 @@ export default function Heatmap() {
     return { totalRiscos, riscoCritico, riscoAlto, riscoMedio, riscoBaixo };
   }, [matrix]);
 
+  const bandForScore = useCallback((s) => {
+    const v = Number(s) || 0;
+    if (v === 0) return { name: null };
+    if (v <= 6) return { name: 'Baixo' };
+    if (v <= 12) return { name: 'Médio' };
+    if (v <= 16) return { name: 'Alto' };
+    return { name: 'Crítico' };
+  }, []);
+
   const flatData = useMemo(() => {
     return riscos
-      .filter(
-        (r) =>
-          r &&
-          Number(r.probabilidade) >= 1 &&
-          Number(r.probabilidade) <= 5 &&
-          Number(r.impacto) >= 1 &&
-          Number(r.impacto) <= 5
-      )
-      .map((r) => ({
-        id: r.id,
-        probabilidade: Number(r.probabilidade),
-        impacto: Number(r.impacto),
-        risco_fator: r.risco_fator || '',
-        setor: r.setor || '',
-      }));
+      .filter((r) => r && r.probabilidade && r.impacto)
+      .map((r) => {
+        const prob =
+          typeof r.probabilidade === 'object'
+            ? Number(r.probabilidade.value)
+            : Number(r.probabilidade);
+        const imp =
+          typeof r.impacto === 'object' ? Number(r.impacto.value) : Number(r.impacto);
+
+        const score = Number(r.pontuacao) || prob * imp;
+
+        return {
+          id: r.id,
+          probabilidade: prob,
+          impacto: imp,
+          risco_fator: r.risco_fator || '',
+          setor: r.setor || '',
+          score,
+          // 🔹 garante que a classificação sempre esteja presente, mesmo se backend mudar o nome
+          level:
+            r.classificacao ||
+            r.nivel_risco ||
+            r.nivel ||
+            (score > 19
+              ? 'Crítico'
+              : score > 12
+                ? 'Alto'
+                : score > 6
+                  ? 'Médio'
+                  : 'Baixo'),
+        };
+      });
   }, [riscos]);
 
   useEffect(() => {
@@ -338,10 +363,7 @@ export default function Heatmap() {
                     const scaleX = (p) =>
                       chartX + ((p - 1) / 4) * (chartW - padding * 2) + padding;
                     const scaleY = (i) =>
-                      chartY +
-                      (chartH - padding * 2) -
-                      ((i - 1) / 4) * (chartH - padding * 2) +
-                      padding;
+                      chartY + ((5 - i) / 4) * (chartH - padding * 2) + padding;
 
                     // Agrupamento por coordenada
                     const grouped = {};
@@ -361,18 +383,33 @@ export default function Heatmap() {
 
                     const allPoints = [];
 
-                    // 1️⃣ Inicializa pontos com jitter leve
+                    // 1️⃣ Inicializa pontos em grade compacta (mantém agrupamento no mesmo quadrante)
                     Object.entries(grouped).forEach(([key, risks]) => {
                       const [p, i] = key.split('-').map(Number);
                       const baseX = scaleX(p);
                       const baseY = scaleY(i);
-                      const angleStep = (2 * Math.PI) / Math.max(risks.length, 1);
-                      const radius = Math.min(10 + risks.length * 2, 25);
+
+                      // --- parâmetros básicos dos pontos ---
+                      const dotR = 4; // mesmo raio visual
+                      const gap = 1; // pequena folga para não sobrepor
+                      const step = dotR * 2 + gap; // distância entre centros dos pontos
+
+                      // --- calcula grade centrada ---
+                      const cols = Math.ceil(Math.sqrt(risks.length));
+                      const rows = Math.ceil(risks.length / cols);
 
                       risks.forEach((r, idx) => {
-                        const offsetAngle = idx * angleStep;
-                        const px = baseX + radius * Math.cos(offsetAngle);
-                        const py = baseY + radius * Math.sin(offsetAngle);
+                        const c = idx % cols; // coluna atual
+                        const rr = Math.floor(idx / cols); // linha atual
+
+                        // centraliza grade no ponto base (baseX, baseY)
+                        const offsetX = (c - (cols - 1) / 2) * step;
+                        const offsetY = (rr - (rows - 1) / 2) * step;
+
+                        const px = baseX + offsetX;
+                        const py = baseY + offsetY;
+
+                        // mantém dentro dos limites do gráfico
                         allPoints.push({
                           ...r,
                           x: Math.min(chartBounds.maxX, Math.max(chartBounds.minX, px)),
@@ -382,7 +419,7 @@ export default function Heatmap() {
                     });
 
                     // 2️⃣ Aplica repulsão automática (3 iterações)
-                    const minDist = 14;
+                    const minDist = 9; // igual ao diâmetro + gap (~8–9)
                     for (let iter = 0; iter < 3; iter++) {
                       for (let a = 0; a < allPoints.length; a++) {
                         for (let b = a + 1; b < allPoints.length; b++) {
@@ -390,10 +427,9 @@ export default function Heatmap() {
                           const dy = allPoints[b].y - allPoints[a].y;
                           const dist = Math.sqrt(dx * dx + dy * dy);
                           if (dist < minDist) {
-                            const overlap = (minDist - dist) / 2;
+                            const overlap = (minDist - dist) / 4; // empurra de leve
                             const nx = dx / (dist || 1);
                             const ny = dy / (dist || 1);
-                            // Move ambos para lados opostos mantendo nos limites
                             allPoints[a].x = Math.max(
                               chartBounds.minX,
                               Math.min(chartBounds.maxX, allPoints[a].x - nx * overlap)
@@ -505,19 +541,19 @@ export default function Heatmap() {
 
                         {/* === PONTOS COM FOCO INTERATIVO E TOOLTIP CORRIGIDO === */}
                         {allPoints.map((r) => {
-                          const score = r.probabilidade * r.impacto;
-                          let level = 'Baixo';
-                          let color = '#2ecc71';
-                          if (score > 5 && score <= 12) {
-                            level = 'Médio';
-                            color = '#f1c40f';
-                          } else if (score > 12 && score <= 20) {
-                            level = 'Alto';
-                            color = '#e67e22';
-                          } else if (score > 20) {
-                            level = 'Crítico';
-                            color = '#e74c3c';
-                          }
+                          const score = r.score ?? r.probabilidade * r.impacto;
+
+                          // Nível igual à Matriz
+                          const band = bandForScore(score);
+                          const level = r.level || band.name || null;
+
+                          // Mantém seu esquema de cores, mas com os mesmos cortes da Matriz
+                          let color = '#2ecc71'; // Baixo
+                          if (score > 6 && score <= 12)
+                            color = '#f1c40f'; // Médio
+                          else if (score > 12 && score <= 16)
+                            color = '#e67e22'; // Alto
+                          else if (score > 19) color = '#e74c3c'; // Crítico
 
                           const isActive = tooltip && tooltip.id === r.id;
                           const radius = isActive ? 8 : 4;
