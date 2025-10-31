@@ -543,19 +543,34 @@ function ControleAcoes() {
             const toFront = (s) => traduzStatusParaFront(s) || '-';
             return acoes.length ? (
               <ul style={{ margin: 0, paddingLeft: '1rem' }}>
-                {acoes.map((_, i) => (
-                  <li
-                    key={i}
-                    style={{
-                      whiteSpace: 'normal',
-                      lineHeight: '1.4',
-                      color: '#071744',
-                      fontSize: '0.95rem',
-                    }}
-                  >
-                    {statusList[i] ? toFront(statusList[i]) : '-'}
-                  </li>
-                ))}
+                {acoes.map((_, i) => {
+                  const rawStatus = statusList[i] || '';
+                  const displayStatus = toFront(rawStatus);
+                  // 🔹 Se for atrasado, pinta em vermelho
+                  const color =
+                    rawStatus === 'atrasado'
+                      ? '#b71c1c' // vermelho forte
+                      : rawStatus === 'concluido'
+                        ? '#1b5e20' // verde escuro
+                        : rawStatus === 'andamento'
+                          ? '#0d47a1' // azul escuro
+                          : '#071744'; // padrão Camaleão
+
+                  return (
+                    <li
+                      key={i}
+                      style={{
+                        whiteSpace: 'normal',
+                        lineHeight: '1.4',
+                        color,
+                        fontWeight: rawStatus === 'atrasado' ? 700 : 400,
+                        fontSize: '0.95rem',
+                      }}
+                    >
+                      {displayStatus}
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <div className="cell-clip">-</div>
