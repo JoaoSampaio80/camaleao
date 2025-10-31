@@ -427,10 +427,25 @@ class InventarioDadosSerializer(serializers.ModelSerializer):
 # Serializer para o modelo PlanoAcao
 class ActionPlanSerializer(serializers.ModelSerializer):
     risco_risco_fator = serializers.ReadOnlyField(source="risco.risco_fator")
+    status_display = serializers.SerializerMethodField()  # 🔹 Novo campo de apoio
 
     class Meta:
         model = ActionPlan
-        fields = "__all__"
+        fields = "__all__"  # mantém compatibilidade total com os endpoints
+        extra_fields = ["status_display"]
+
+    def get_status_display(self, obj):
+        """
+        Retorna a versão legível do status.
+        Inclui o novo status 'atrasado'.
+        """
+        mapa = {
+            "nao_iniciado": "Não iniciado",
+            "andamento": "Em andamento",
+            "concluido": "Concluído",
+            "atrasado": "Atrasado",
+        }
+        return mapa.get(obj.status, obj.status or "-")
 
     def validate(self, attrs):
         """
@@ -439,7 +454,7 @@ class ActionPlanSerializer(serializers.ModelSerializer):
         """
         instance = getattr(self, "instance", None)
 
-        # Valida prazo, mas só se informado
+        # 🔹 Valida o prazo (não pode ser anterior a hoje)
         prazo = attrs.get("prazo", getattr(instance, "prazo", None))
         if prazo and isinstance(prazo, datetime.date):
             if prazo < datetime.date.today():
@@ -447,7 +462,7 @@ class ActionPlanSerializer(serializers.ModelSerializer):
                     {"prazo": "Prazo não pode ser no passado."}
                 )
 
-        # Garante que o risco exista apenas em criações
+        # 🔹 Garante que o risco esteja informado (na criação)
         risco = attrs.get("risco") or getattr(instance, "risco", None)
         if not risco:
             raise serializers.ValidationError(
@@ -459,13 +474,18 @@ class ActionPlanSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         """
         Atualiza o plano de ação ignorando campos vazios
-        para evitar erro 500 em PATCHs parciais.
+        e ajusta automaticamente o status 'atrasado' se o prazo estiver vencido.
         """
         for field, value in validated_data.items():
             # Ignora campos vazios (ex: status = "")
             if value == "" or value is None:
                 continue
             setattr(instance, field, value)
+
+        # 🔹 Atualiza o status automaticamente se o prazo estiver vencido
+        if instance.prazo and instance.prazo < datetime.date.today():
+            if instance.status not in ("concluido", "atrasado"):
+                instance.status = "atrasado"
 
         instance.save()
         return instance
@@ -498,6 +518,17 @@ class RiskSerializer(serializers.ModelSerializer):
         model = Risk
         fields = "__all__"
         # os extras acima já entram porque foram declarados no serializer
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["planos"] = sorted(
+            data.get("planos", []),
+            key=lambda p: (
+                p.get("prazo") or "9999-12-31",  # 🔹 datas vazias vão pro final
+                p.get("id", 0),
+            ),
+        )
+        return data
 
     # ---------- helpers ----------
     @staticmethod

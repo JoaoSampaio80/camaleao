@@ -4,6 +4,7 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 
 class CustomUserManager(BaseUserManager):
@@ -393,6 +394,13 @@ class Risk(models.Model):
 
 
 class ActionPlan(models.Model):
+    STATUS_CHOICES = [
+        ("nao_iniciado", "Não iniciado"),
+        ("andamento", "Em andamento"),
+        ("concluido", "Concluído"),
+        ("atrasado", "Atrasado"),  # 🆕 novo status
+    ]
+
     risco = models.ForeignKey(
         "Risk",
         on_delete=models.CASCADE,
@@ -404,28 +412,68 @@ class ActionPlan(models.Model):
     prazo = models.DateField(blank=True, null=True)
     status = models.CharField(
         max_length=20,
-        choices=[
-            ("nao_iniciado", "Não iniciado"),
-            ("andamento", "Em andamento"),
-            ("concluido", "Concluído"),
-        ],
+        choices=STATUS_CHOICES,
+        default="nao_iniciado",
+    )
+
+    # 🆕 Campo para priorização manual (sobrepõe prazo na ordenação)
+    ordem_manual = models.PositiveIntegerField(
         blank=True,
+        null=True,
+        help_text="Define a ordem manual de exibição/prioridade dentro do risco.",
     )
 
     class Meta:
         verbose_name = "Plano de Ação"
         verbose_name_plural = "Planos de Ação"
-        ordering = ["prazo"]
+        ordering = ["ordem_manual", "prazo", "id"]  # prioridade: ordem > prazo > id
+        indexes = [
+            models.Index(fields=["risco", "ordem_manual"]),
+            models.Index(fields=["risco", "prazo"]),
+            models.Index(fields=["status"]),
+        ]
 
     def __str__(self):
-        return f"Plano de Ação ({self.risco.risco_fator[:50]})"
+        fator = getattr(self.risco, "risco_fator", "") or ""
+        return f"Plano de Ação ({fator[:50]})"
 
     def clean(self):
+        """
+        🔹 Garante que o prazo não possa ser definido no passado no momento da criação/edição.
+        🔹 Não interfere na atualização automática de status (que acontece no save()).
+        """
         errors = {}
-        if self.prazo and self.prazo < datetime.date.today():
-            errors["prazo"] = "O prazo não pode ser no passado."
+        hoje = datetime.date.today()
+
+        if self.prazo and self.prazo < hoje:
+            errors["prazo"] = (
+                "O prazo não pode ser no passado. Escolha uma data futura."
+            )
+
         if errors:
             raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        """
+        🔸 Lógica automática:
+        - Auto-atribui 'ordem_manual' se não definido (sequencial por risco).
+        - Atualiza automaticamente para 'atrasado' se prazo < hoje e status ainda não for 'concluído'.
+        """
+        # 1️⃣ Preenche ordem_manual automaticamente (sequencial dentro do mesmo risco)
+        if self.ordem_manual is None and self.risco_id:
+            ultimo = (
+                ActionPlan.objects.filter(risco_id=self.risco_id)
+                .aggregate(models.Max("ordem_manual"))
+                .get("ordem_manual__max")
+            )
+            self.ordem_manual = (ultimo or 0) + 1
+
+        # 2️⃣ Atualiza automaticamente para 'atrasado' quando passar o prazo (mas não concluiu)
+        hoje = timezone.localdate()
+        if self.prazo and self.prazo < hoje and self.status != "concluido":
+            self.status = "atrasado"
+
+        super().save(*args, **kwargs)
 
 
 class MonitoringAction(models.Model):

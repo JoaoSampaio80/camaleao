@@ -55,13 +55,15 @@ function ControleAcoes() {
       const expanded = [];
 
       results.forEach((r) => {
-        const planos = Array.isArray(r.planos) ? r.planos : [];
+        const planos = Array.isArray(r.planos)
+          ? [...r.planos].sort((a, b) => (a.id > b.id ? 1 : -1))
+          : [];
 
-        // Extrai listas paralelas de cada campo (mantendo correspondência entre índices)
-        const comoList = planos.map((p) => p.como ?? '').filter((v) => v);
-        const respList = planos.map((p) => p.responsavel_execucao ?? '').filter((v) => v);
-        const prazoList = planos.map((p) => p.prazo ?? '').filter((v) => v);
-        const statusList = planos.map((p) => p.status ?? '').filter((v) => v);
+        const comoList = planos.map((p) => p.como ?? '');
+        const respList = planos.map((p) => p.responsavel_execucao ?? '');
+        const prazoList = planos.map((p) => p.prazo ?? '');
+        const statusList = planos.map((p) => p.status ?? '');
+        const planIds = planos.map((p) => p.id ?? null); // 🔹 pega os IDs
 
         expanded.push({
           id: r.id,
@@ -75,6 +77,7 @@ function ControleAcoes() {
           funcionario: respList.join('; '),
           prazo: prazoList.join('; '),
           status: statusList.join('; '),
+          planos_ids: planIds.join(';'), // 🔹 salva lista de IDs separados por ;
         });
       });
 
@@ -103,47 +106,97 @@ function ControleAcoes() {
     [rows, startIndex, endIndex]
   );
 
-  // ===== Modal Complemento =====
-  const openModal = (mode, row) => {
+  // ===== Modal Complemento revisado =====
+  const openModal = async (mode, row) => {
     setModalMode(mode);
     setActiveId(row.risco_id);
 
-    // Quebra o texto do campo "Plano de Ação Adicional" em ações separadas
+    // 🔹 Divide o texto do plano de ação adicional em ações separadas
     const acoes = (row.plano_acao_adicional || '')
       .split(/[\n;,]+/)
       .map((a) => a.trim())
       .filter((a) => a !== '');
 
-    // Gera um complemento por ação existente
-    const complementosIniciais = acoes.length
-      ? acoes.map((acao, idx) => ({
-          acao,
-          como: '',
-          responsavel: '',
-          prazo: '',
-          status: 'nao_iniciado',
-        }))
-      : [
-          {
-            acao: 'Ação 1',
-            como: '',
-            responsavel: '',
-            prazo: '',
-            status: 'nao_iniciado',
-          },
-        ];
+    // 🔹 Quebra os demais campos paralelos (mantendo índice por posição)
+    const comoList = (row.como || '').split(/[\n;,]+/).map((a) => a.trim());
+    const respList = (row.funcionario || '').split(/[\n;,]+/).map((a) => a.trim());
+    const prazoList = (row.prazo || '').split(/[\n;,]+/).map((a) => a.trim());
+    const statusList = (row.status || '').split(/[\n;,]+/).map((a) => a.trim());
 
-    // Carrega complementos existentes (caso haja)
-    if (row.actionplan_id && row.como) {
-      complementosIniciais[0] = {
-        acao: acoes[0] || 'Ação 1',
-        como: row.como,
-        responsavel: row.funcionario,
-        prazo: row.prazo,
-        status: row.status || 'nao_iniciado',
-      };
+    // 🔹 IDs (mantendo posições fixas)
+    const idsList = (row.planos_ids || '').split(/[\n;,]+/).map((a) => a.trim() || null);
+    // Se houver menos IDs que ações, completa com null
+    while (idsList.length < acoes.length) idsList.push(null);
+
+    // 🔹 Normaliza todos os arrays para o mesmo comprimento das ações
+    const len = acoes.length;
+    const norm = (arr) => Array.from({ length: len }, (_, i) => arr[i] || '');
+
+    const todasAsAcoes = acoes.map((acao, i) => ({
+      id: idsList[i] || null,
+      acao,
+      como: norm(comoList)[i],
+      responsavel: norm(respList)[i],
+      prazo: norm(prazoList)[i],
+      status: norm(statusList)[i],
+    }));
+
+    // 🔹 Identifica quais têm conteúdo e quais estão vazias
+    const preenchidas = todasAsAcoes.filter(
+      (c) => c.como.trim() || c.responsavel.trim() || c.prazo.trim() || c.status.trim()
+    );
+    const vazias = todasAsAcoes.filter(
+      (c) =>
+        !c.como.trim() && !c.responsavel.trim() && !c.prazo.trim() && !c.status.trim()
+    );
+
+    let complementosIniciais = [];
+
+    if (mode === 'edit') {
+      // 🟦 Editar → usa as preenchidas (mantendo IDs e posições corretas)
+      complementosIniciais =
+        preenchidas.length > 0
+          ? preenchidas.map((c, i) => ({
+              id: c.id || null,
+              acao: c.acao || `Ação ${i + 1}`,
+              como: c.como || '',
+              responsavel: c.responsavel || '',
+              prazo: c.prazo || '',
+              status: c.status || 'nao_iniciado',
+            }))
+          : [
+              {
+                acao: 'Ação 1',
+                como: '',
+                responsavel: '',
+                prazo: '',
+                status: 'nao_iniciado',
+              },
+            ];
+    } else {
+      // 🟩 Incluir → exibe apenas as ações que ainda não têm complemento
+      complementosIniciais =
+        vazias.length > 0
+          ? vazias.map((c, i) => ({
+              id: null, // novas, sem ID
+              acao: c.acao || `Ação ${i + 1}`,
+              como: '',
+              responsavel: '',
+              prazo: '',
+              status: 'nao_iniciado',
+            }))
+          : [
+              {
+                acao: 'Ação 1',
+                como: '',
+                responsavel: '',
+                prazo: '',
+                status: 'nao_iniciado',
+              },
+            ];
     }
 
+    // 🔹 Salva estado final e abre modal
     setComplementos(complementosIniciais);
     setShowModal(true);
   };
@@ -159,6 +212,7 @@ function ControleAcoes() {
       nao_iniciado: 'Não iniciado',
       andamento: 'Em andamento',
       concluido: 'Concluído',
+      atrasado: 'Atrasado',
     };
     return mapa[str] || str;
   }
@@ -188,8 +242,8 @@ function ControleAcoes() {
     const updated = [];
 
     for (const c of complementos) {
-      // Se já tem ID, atualiza; senão, cria novo
       if (c.id) {
+        // 🔹 Atualiza existente
         const { data } = await Axios.patch(`/actionplan/${c.id}/`, {
           como: c.como,
           responsavel_execucao: c.responsavel,
@@ -198,6 +252,7 @@ function ControleAcoes() {
         });
         updated.push(data);
       } else {
+        // 🔹 Cria novo (somente se for ação nova)
         const { data } = await Axios.post(`/actionplan/`, {
           risco: activeId,
           como: c.como,
@@ -245,34 +300,101 @@ function ControleAcoes() {
   };
 
   // ===== Estado para confirmação de exclusão =====
+  // ===== Exclusão por item =====
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteOptions, setDeleteOptions] = useState([]); // [{id, rotulo, resumo}]
+  const [selectedDeleteId, setSelectedDeleteId] = useState(null);
+  const [deleteRowRef, setDeleteRowRef] = useState(null);
 
-  const confirmDelete = (planId) => {
-    setDeleteTarget(planId);
+  const openDeletePicker = (row) => {
+    const { acoes, comoList, respList, prazoList, statusList, idsList } =
+      splitRowArrays(row);
+
+    // Deletáveis = só itens que têm ID (já existem no backend) E possuem algum conteúdo (não são “base” vazia)
+    const deletaveis = acoes
+      .map((acao, i) => ({
+        id: idsList[i] || null,
+        acao,
+        como: (comoList[i] || '').trim(),
+        responsavel: (respList[i] || '').trim(),
+        prazo: (prazoList[i] || '').trim(),
+        status: (statusList[i] || '').trim(),
+        idx: i,
+      }))
+      .filter((c) => c.id && (c.como || c.responsavel || c.prazo || c.status));
+
+    if (deletaveis.length === 0) {
+      showMsg('warning', 'Não há complementos para excluir nesta linha.');
+      return;
+    }
+
+    const options = deletaveis.map((c, k) => ({
+      id: c.id,
+      rotulo: `Ação ${c.idx + 1}: ${c.acao}`,
+      resumo: [
+        c.como && `Como: ${c.como}`,
+        c.responsavel && `Resp.: ${c.responsavel}`,
+        c.prazo && `Prazo: ${c.prazo}`,
+        c.status && `Status: ${traduzStatusParaFront(c.status)}`,
+      ]
+        .filter(Boolean)
+        .join(' • '),
+    }));
+
+    setDeleteOptions(options);
+    setSelectedDeleteId(options[0]?.id || null);
+    setDeleteRowRef(row);
     setShowDeleteModal(true);
   };
 
   const closeDeleteModal = () => {
     setShowDeleteModal(false);
-    setDeleteTarget(null);
+    setDeleteOptions([]);
+    setSelectedDeleteId(null);
+    setDeleteRowRef(null);
   };
 
   const handleDeleteConfirmed = async () => {
-    if (!deleteTarget) return;
-
+    if (!selectedDeleteId) return;
     try {
-      // Chama o novo endpoint do backend que apenas limpa o complemento
-      await Axios.patch(`/actionplan/${deleteTarget}/limpar/`);
-
+      // Backend limpa o complemento (não apaga ação-base)
+      await Axios.patch(`/actionplan/${selectedDeleteId}/limpar/`);
       await loadRows();
       showMsg('success', 'Complemento removido com sucesso.');
     } catch (err) {
       console.error('Erro ao limpar complemento:', err);
-      showMsg('danger', 'Erro ao remover o complemento do plano de ação.');
+      showMsg('danger', 'Erro ao remover o complemento.');
     } finally {
       closeDeleteModal();
     }
+  };
+
+  const splitRowArrays = (row) => {
+    const acoes = (row.plano_acao_adicional || '')
+      .split(/[\n;,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const comoList = (row.como || '').split(/[\n;,]+/).map((s) => s.trim());
+    const respList = (row.funcionario || '').split(/[\n;,]+/).map((s) => s.trim());
+    const prazoList = (row.prazo || '').split(/[\n;,]+/).map((s) => s.trim());
+    const statusList = (row.status || '').split(/[\n;,]+/).map((s) => s.trim());
+    const idsList = (row.planos_ids || '')
+      .split(/[\n;,]+/)
+      .map((s) => s.trim())
+      .filter((v) => v !== '');
+
+    // normaliza tamanhos sem quebrar a ordem (se faltar índice, fica vazio)
+    const len = acoes.length;
+    const norm = (arr) => Array.from({ length: len }, (_, i) => arr[i] || '');
+    return {
+      acoes,
+      comoList: norm(comoList),
+      respList: norm(respList),
+      prazoList: norm(prazoList),
+      statusList: norm(statusList),
+      idsList: norm(idsList),
+    };
   };
 
   // ===== Render =====
@@ -341,12 +463,11 @@ function ControleAcoes() {
         </td>
 
         <td>
-          {r.como ? (
-            <ul style={{ margin: 0, paddingLeft: '1rem' }}>
-              {r.como
-                .split(/[\n;,]+/)
-                .filter((t) => t.trim() !== '')
-                .map((txt, i) => (
+          {(() => {
+            const { acoes, comoList } = splitRowArrays(r);
+            return acoes.length ? (
+              <ul style={{ margin: 0, paddingLeft: '1rem' }}>
+                {acoes.map((_, i) => (
                   <li
                     key={i}
                     style={{
@@ -356,21 +477,22 @@ function ControleAcoes() {
                       fontSize: '0.95rem',
                     }}
                   >
-                    {txt.trim()}
+                    {comoList[i] ? comoList[i] : '-'}
                   </li>
                 ))}
-            </ul>
-          ) : (
-            <div className="cell-clip">-</div>
-          )}
+              </ul>
+            ) : (
+              <div className="cell-clip">-</div>
+            );
+          })()}
         </td>
+
         <td>
-          {r.funcionario ? (
-            <ul style={{ margin: 0, paddingLeft: '1rem' }}>
-              {r.funcionario
-                .split(/[\n;,]+/)
-                .filter((t) => t.trim() !== '')
-                .map((txt, i) => (
+          {(() => {
+            const { acoes, respList } = splitRowArrays(r);
+            return acoes.length ? (
+              <ul style={{ margin: 0, paddingLeft: '1rem' }}>
+                {acoes.map((_, i) => (
                   <li
                     key={i}
                     style={{
@@ -380,21 +502,22 @@ function ControleAcoes() {
                       fontSize: '0.95rem',
                     }}
                   >
-                    {txt.trim()}
+                    {respList[i] ? respList[i] : '-'}
                   </li>
                 ))}
-            </ul>
-          ) : (
-            <div className="cell-clip">-</div>
-          )}
+              </ul>
+            ) : (
+              <div className="cell-clip">-</div>
+            );
+          })()}
         </td>
+
         <td>
-          {r.prazo ? (
-            <ul style={{ margin: 0, paddingLeft: '1rem' }}>
-              {r.prazo
-                .split(/[\n;,]+/)
-                .filter((t) => t.trim() !== '')
-                .map((txt, i) => (
+          {(() => {
+            const { acoes, prazoList } = splitRowArrays(r);
+            return acoes.length ? (
+              <ul style={{ margin: 0, paddingLeft: '1rem' }}>
+                {acoes.map((_, i) => (
                   <li
                     key={i}
                     style={{
@@ -404,21 +527,23 @@ function ControleAcoes() {
                       fontSize: '0.95rem',
                     }}
                   >
-                    {formatDate(txt.trim())}
+                    {prazoList[i] ? formatDate(prazoList[i]) : '-'}
                   </li>
                 ))}
-            </ul>
-          ) : (
-            <div className="cell-clip">-</div>
-          )}
+              </ul>
+            ) : (
+              <div className="cell-clip">-</div>
+            );
+          })()}
         </td>
+
         <td>
-          {r.status ? (
-            <ul style={{ margin: 0, paddingLeft: '1rem' }}>
-              {r.status
-                .split(/[\n;,]+/)
-                .filter((t) => t.trim() !== '')
-                .map((txt, i) => (
+          {(() => {
+            const { acoes, statusList } = splitRowArrays(r);
+            const toFront = (s) => traduzStatusParaFront(s) || '-';
+            return acoes.length ? (
+              <ul style={{ margin: 0, paddingLeft: '1rem' }}>
+                {acoes.map((_, i) => (
                   <li
                     key={i}
                     style={{
@@ -428,31 +553,69 @@ function ControleAcoes() {
                       fontSize: '0.95rem',
                     }}
                   >
-                    {traduzStatusParaFront(txt.trim())}
+                    {statusList[i] ? toFront(statusList[i]) : '-'}
                   </li>
                 ))}
-            </ul>
-          ) : (
-            <div className="cell-clip">-</div>
-          )}
+              </ul>
+            ) : (
+              <div className="cell-clip">-</div>
+            );
+          })()}
         </td>
+
         <td className="actions-cell">
           <Dropdown align="end">
             <Dropdown.Toggle size="sm" variant="outline-secondary">
               Ações
             </Dropdown.Toggle>
             <Dropdown.Menu>
-              <Dropdown.Item onClick={() => openModal(hasPlan ? 'edit' : 'add', r)}>
-                {hasPlan ? 'Editar Complemento' : 'Incluir Complemento'}
-              </Dropdown.Item>
-              {hasPlan && (
-                <Dropdown.Item
-                  onClick={() => confirmDelete(r.actionplan_id)}
-                  className="text-danger"
-                >
-                  Excluir
-                </Dropdown.Item>
-              )}
+              {(() => {
+                const { acoes, comoList, respList, prazoList, statusList, idsList } =
+                  splitRowArrays(r);
+
+                const todas = acoes.map((acao, i) => ({
+                  acao,
+                  como: (comoList[i] || '').trim(),
+                  responsavel: (respList[i] || '').trim(),
+                  prazo: (prazoList[i] || '').trim(),
+                  status: (statusList[i] || '').trim(),
+                  id: idsList[i] || null,
+                }));
+
+                const preenchidas = todas.filter(
+                  (c) => c.como || c.responsavel || c.prazo || c.status
+                );
+                const vazias = todas.filter(
+                  (c) => !c.como && !c.responsavel && !c.prazo && !c.status
+                );
+
+                const temAcoesSemComplemento = vazias.length > 0;
+                const label = temAcoesSemComplemento
+                  ? 'Incluir Complemento'
+                  : 'Editar Complemento';
+                const mode = temAcoesSemComplemento ? 'add' : 'edit';
+
+                const deletaveis = todas.filter(
+                  (c) => c.id && (c.como || c.responsavel || c.prazo || c.status)
+                );
+
+                return (
+                  <>
+                    <Dropdown.Item onClick={() => openModal(mode, r)}>
+                      {label}
+                    </Dropdown.Item>
+
+                    {deletaveis.length > 0 && (
+                      <Dropdown.Item
+                        onClick={() => openDeletePicker(r)}
+                        className="text-danger"
+                      >
+                        Excluir Complemento…
+                      </Dropdown.Item>
+                    )}
+                  </>
+                );
+              })()}
             </Dropdown.Menu>
           </Dropdown>
         </td>
@@ -607,7 +770,6 @@ function ControleAcoes() {
       </div>
 
       {/* Modal Complemento */}
-      {/* Modal Complemento */}
       <Modal
         show={showModal}
         onHide={closeModal}
@@ -665,13 +827,38 @@ function ControleAcoes() {
       {/* Modal de Confirmação de Exclusão */}
       <Modal show={showDeleteModal} onHide={closeDeleteModal} centered>
         <Modal.Header closeButton style={{ background: '#071744' }}>
-          <Modal.Title style={{ color: '#fff' }}>Confirmar exclusão</Modal.Title>
+          <Modal.Title style={{ color: '#fff' }}>Excluir complemento</Modal.Title>
         </Modal.Header>
+
         <Modal.Body style={{ background: '#0b2a5b', color: '#fff' }}>
-          Tem certeza de que deseja excluir este plano de ação?
-          <br />
-          Essa operação não poderá ser desfeita.
+          <p className="mb-2">
+            Selecione qual complemento você deseja remover (a ação-base da Avaliação de
+            Riscos não será alterada):
+          </p>
+
+          <div className="list-group">
+            {deleteOptions.map((opt) => (
+              <label
+                key={opt.id}
+                className="list-group-item"
+                style={{ background: '#0e386f', color: '#fff', borderColor: '#0b2a5b' }}
+              >
+                <input
+                  type="radio"
+                  name="delOpt"
+                  className="form-check-input me-2"
+                  checked={selectedDeleteId === opt.id}
+                  onChange={() => setSelectedDeleteId(opt.id)}
+                />
+                <div>
+                  <div className="fw-semibold">{opt.rotulo}</div>
+                  {opt.resumo && <div className="small text-light">{opt.resumo}</div>}
+                </div>
+              </label>
+            ))}
+          </div>
         </Modal.Body>
+
         <Modal.Footer style={{ background: '#0b2a5b' }}>
           <Button variant="secondary" onClick={closeDeleteModal}>
             Cancelar
