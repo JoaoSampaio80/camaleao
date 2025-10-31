@@ -113,63 +113,40 @@ class DashboardViewSet(viewsets.ViewSet):
         hoje = timezone.localdate()
 
         for risco in riscos:
-            # Divide as ações de resposta_risco igual à tela ControleAcoes
             acoes = _split_acoes(risco.resposta_risco)
             total_acoes = len(acoes)
-            planos = list(risco.planos.all())
+            planos = list(risco.planos.all().order_by("id"))
 
-            # 🔹 Sem planos: todas as ações contam como "Não iniciado"
-            if not planos:
-                status_data["nao_iniciado"] += total_acoes
+            if total_acoes == 0:
                 continue
 
-            # 🔹 Se há planos, mapeia status dos complementos
-            resto = max(0, total_acoes - len(planos))
-            for idx, plano in enumerate(planos):
-                status = (plano.status or "").strip().lower()
-                prazo = plano.prazo
+            for i in range(total_acoes):
+                if i < len(planos):
+                    plano = planos[i]
+                    status = plano.status or "nao_iniciado"
 
-                if status in ("andamento", "em andamento"):
-                    status_data["andamento"] += 1
-                elif status in (
-                    "concluido",
-                    "concluída",
-                    "concluidas",
-                    "concluído",
-                    "concluida",
-                ):
-                    status_data["concluido"] += 1
-                elif status == "atrasada" or (
-                    prazo
-                    and prazo < hoje
-                    and status
-                    not in (
-                        "concluido",
-                        "concluída",
-                        "concluidas",
-                        "concluído",
-                        "concluida",
-                    )
-                ):
-                    status_data["atrasada"] += 1
+                    # 🔹 Se prazo passou e não foi concluído, marca como atrasado
+                    if (
+                        plano.prazo
+                        and plano.prazo < hoje
+                        and status not in {"concluido", "atrasado"}
+                    ):
+                        status = "atrasado"
                 else:
-                    status_data["nao_iniciado"] += 1
+                    status = "nao_iniciado"
 
-                # adiciona ações “sobrando” (sem plano correspondente) como não iniciadas
-                if idx == len(planos) - 1 and resto > 0:
-                    status_data["nao_iniciado"] += resto
+                status_data[status] += 1
 
-        # 🔹 Garante a ordem consistente
+        # 🔹 Ordem e rótulos fixos (humanizados só aqui)
         label_map = {
-            "nao_iniciado": "Não iniciado",
-            "andamento": "Em andamento",
             "concluido": "Concluído",
-            "atrasada": "Atrasadas",
+            "andamento": "Em andamento",
+            "nao_iniciado": "Não iniciado",
+            "atrasado": "Atrasado",
         }
 
         acoesStatus = [
-            {"name": label_map.get(k, k.capitalize()), "value": v}
-            for k, v in status_data.items()
+            {"name": label_map[k], "value": status_data.get(k, 0)} for k in label_map
         ]
 
         # ===== Timeline de Execução (Planejado × Concluído × Andamento × Atrasadas) =====
