@@ -1,7 +1,7 @@
 from datetime import timedelta
 from rest_framework import viewsets, permissions, status, filters
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAdminOrDPO
 from rest_framework.decorators import action
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
@@ -38,6 +38,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus.doctemplate import LayoutError
 from xml.sax.saxutils import escape
 from collections import Counter
+from .services import update_overdue_actions_if_needed
 
 
 from .serializers import (
@@ -1830,3 +1831,14 @@ class CalendarEventViewSet(viewsets.ModelViewSet):
         return CalendarEvent.objects.filter(user=self.request.user).order_by(
             "date", "time"
         )
+
+
+class EnsureOverdueUpdatedView(APIView):
+    permission_classes = [IsAdminOrDPO]  # ou [] se desejar público
+
+
+def post(self, request, *args, **kwargs):
+    updated = update_overdue_actions_if_needed(force=False)
+    return Response(
+        {"updated": updated, "detail": "Overdue check executed (if needed)."}
+    )

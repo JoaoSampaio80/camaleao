@@ -1,5 +1,8 @@
-from datetime import timedelta
+from collections import defaultdict
+from datetime import timedelta, datetime
 from django.utils import timezone
+from django.db.models import Count
+import re
 from rest_framework import viewsets, permissions
 from rest_framework.response import Response
 from .models import (
@@ -14,11 +17,24 @@ from .models import (
     ImpactItem,
 )
 
+SPLIT_RE = re.compile(r"[\n;,•\u2022]+")
+
+
+# helper: mesma lógica de split da tela, mas tolerante a \r e bullets
+def _split_acoes(texto):
+    """Divide o campo resposta_risco em ações individuais."""
+    if not texto:
+        return []
+    return [
+        t.strip() for t in SPLIT_RE.split(texto) if t and t.strip() and t.strip() != "-"
+    ]
+
 
 class DashboardViewSet(viewsets.ViewSet):
     """
     GET /api/dashboard/
-    Retorna os dados do dashboard. Protegido por IsAuthenticated.
+    Retorna os dados consolidados do Dashboard.
+    Protegido por IsAuthenticated.
     """
 
     permission_classes = [permissions.IsAuthenticated]
@@ -29,10 +45,11 @@ class DashboardViewSet(viewsets.ViewSet):
 
         # ===== KPIs =====
         kpis = {
-            "conformidade": 75,  # placeholder temporário
+            "conformidade": 75,
             "riscosAtivos": Risk.objects.count(),
             "acoesAtrasadas": ActionPlan.objects.filter(
-                status__in=["nao_iniciado", "andamento"], prazo__lt=hoje
+                status__in=["nao_iniciado", "andamento"],
+                prazo__lt=hoje,
             ).count(),
             "docsVencendo30d": DocumentosLGPD.objects.filter(
                 proxima_revisao__range=(hoje, daqui_30)
@@ -40,16 +57,10 @@ class DashboardViewSet(viewsets.ViewSet):
             "alertas": 0,
         }
 
-        # ===== Carrega parametrizações reais =====
-        likelihoods = {str(l.id): l.value for l in LikelihoodItem.objects.all()}
-        impacts = {str(i.id): i.value for i in ImpactItem.objects.all()}
-
-        # ===== Distribuição de Riscos (usando a mesma lógica da Matriz) =====
+        # ===== Distribuição de Riscos =====
         baixo = medio = alto = critico = 0
-
         for r in Risk.objects.all():
             score = r.pontuacao or 0
-
             if score == 0:
                 continue
             elif score <= 6:
@@ -68,14 +79,164 @@ class DashboardViewSet(viewsets.ViewSet):
             {"name": "Crítico", "value": critico},
         ]
 
-        # ===== Monta resposta completa =====
+        # ===== Riscos por Setor =====
+        riscosPorSetor_qs = (
+            Risk.objects.values("setor")
+            .annotate(quantidade=Count("id"))
+            .order_by("-quantidade")
+        )
+        riscosPorSetor = [
+            {"setor": r["setor"] or "Não informado", "quantidade": r["quantidade"]}
+            for r in riscosPorSetor_qs
+        ]
+
+        # ===== Top 5 Riscos =====
+        top_riscos_qs = (
+            Risk.objects.exclude(pontuacao=None)
+            .order_by("-pontuacao")[:5]
+            .values("id", "risco_fator", "pontuacao", "setor", "processo")
+        )
+        topRiscos = [
+            {
+                "id": r["id"],
+                "titulo": r["risco_fator"],
+                "score": r["pontuacao"],
+                "setor": r["setor"],
+                "owner": r["processo"],
+            }
+            for r in top_riscos_qs
+        ]
+
+        # ===== Ações Status =====
+        status_data = defaultdict(int)
+        riscos = Risk.objects.prefetch_related("planos").all()
+        hoje = timezone.localdate()
+
+        for risco in riscos:
+            # Divide as ações de resposta_risco igual à tela ControleAcoes
+            acoes = _split_acoes(risco.resposta_risco)
+            total_acoes = len(acoes)
+            planos = list(risco.planos.all())
+
+            # 🔹 Sem planos: todas as ações contam como "Não iniciado"
+            if not planos:
+                status_data["nao_iniciado"] += total_acoes
+                continue
+
+            # 🔹 Se há planos, mapeia status dos complementos
+            resto = max(0, total_acoes - len(planos))
+            for idx, plano in enumerate(planos):
+                status = (plano.status or "").strip().lower()
+                prazo = plano.prazo
+
+                if status in ("andamento", "em andamento"):
+                    status_data["andamento"] += 1
+                elif status in (
+                    "concluido",
+                    "concluída",
+                    "concluidas",
+                    "concluído",
+                    "concluida",
+                ):
+                    status_data["concluido"] += 1
+                elif status == "atrasada" or (
+                    prazo
+                    and prazo < hoje
+                    and status
+                    not in (
+                        "concluido",
+                        "concluída",
+                        "concluidas",
+                        "concluído",
+                        "concluida",
+                    )
+                ):
+                    status_data["atrasada"] += 1
+                else:
+                    status_data["nao_iniciado"] += 1
+
+                # adiciona ações “sobrando” (sem plano correspondente) como não iniciadas
+                if idx == len(planos) - 1 and resto > 0:
+                    status_data["nao_iniciado"] += resto
+
+        # 🔹 Garante a ordem consistente
+        label_map = {
+            "nao_iniciado": "Não iniciado",
+            "andamento": "Em andamento",
+            "concluido": "Concluído",
+            "atrasada": "Atrasadas",
+        }
+
+        acoesStatus = [
+            {"name": label_map.get(k, k.capitalize()), "value": v}
+            for k, v in status_data.items()
+        ]
+
+        # ===== Timeline de Execução (Planejado × Concluído × Andamento × Atrasadas) =====
+        timeline = defaultdict(
+            lambda: {"planejadas": 0, "andamento": 0, "concluidas": 0, "atrasadas": 0}
+        )
+        hoje = timezone.localdate()
+
+        for risco in Risk.objects.prefetch_related("planos"):
+            # 1️⃣ Extrai todas as ações descritas no campo texto
+            acoes_texto = _split_acoes(risco.resposta_risco)
+            total_texto = len(acoes_texto)
+
+            # 2️⃣ Obtém os planos cadastrados (ActionPlan)
+            planos = list(risco.planos.all())
+
+            # 3️⃣ Faz correspondência entre planos e ações
+            #    se houver menos planos do que ações no texto, as demais viram "não iniciadas"
+            for idx, acao in enumerate(acoes_texto):
+                if idx < len(planos):
+                    plano = planos[idx]
+                    prazo = plano.prazo or hoje
+                    status = (plano.status or "nao_iniciado").lower().strip()
+                else:
+                    prazo = hoje
+                    status = "nao_iniciado"
+
+                mes_label = prazo.strftime("%b/%y")
+                bucket = timeline[mes_label]
+
+                # Toda ação conta como planejada
+                bucket["planejadas"] += 1
+
+                # Normaliza status
+                if status in {"concluido", "concluida", "concluídas", "concluidas"}:
+                    bucket["concluidas"] += 1
+                elif status in {"andamento", "em andamento"}:
+                    bucket["andamento"] += 1
+                elif status in {"atrasada", "atrasado"} or (
+                    prazo < hoje
+                    and status
+                    not in {"concluido", "concluida", "concluídas", "concluidas"}
+                ):
+                    bucket["atrasadas"] += 1
+
+        # 4) Converte para lista e ordena cronologicamente (formato "Oct/25")
+        acoesTimeline = [
+            {
+                "mes": k,
+                "planejadas": v["planejadas"],
+                "andamento": v["andamento"],
+                "concluidas": v["concluidas"],
+                "atrasadas": v["atrasadas"],
+            }
+            for k, v in sorted(
+                timeline.items(), key=lambda x: datetime.strptime(x[0], "%b/%y")
+            )
+        ]
+
+        # ===== Monta resposta =====
         data = {
             "kpis": kpis,
             "riscosDistribuicao": riscosDistribuicao,
-            "riscosPorSetor": [],
-            "topRiscos": [],
-            "acoesStatus": [],
-            "acoesTimeline": [],
+            "riscosPorSetor": riscosPorSetor,
+            "topRiscos": topRiscos,
+            "acoesStatus": acoesStatus,
+            "acoesTimeline": acoesTimeline,
             "documentosVencimentos": [],
             "incidentesTimeline": [],
             "loginsRecentes": [],

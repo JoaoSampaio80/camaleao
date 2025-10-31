@@ -20,6 +20,7 @@ from .views import (
     PasswordResetRequestView,
     PasswordResetConfirmView,
     CalendarEventViewSet,
+    EnsureOverdueUpdatedView,
 )
 
 from .views_dashboard import DashboardViewSet
@@ -39,6 +40,7 @@ router.register(
 router.register(r"incidentes", IncidentViewSet, basename="incidentes")
 router.register(r"calendarevent", CalendarEventViewSet, basename="calendarevent")
 router.register(r"dashboard", DashboardViewSet, basename="dashboard")
+
 
 urlpatterns = [
     # JWT
@@ -69,6 +71,7 @@ urlpatterns = [
         name="password-reset-confirm",
     ),
     path("risk-config/", RiskConfigView.as_view(), name="risk-config"),
+    path("overdue/ensure/", EnsureOverdueUpdatedView.as_view(), name="overdue-ensure"),
     # ViewSets
     path("", include(router.urls)),
 ]

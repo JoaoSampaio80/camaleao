@@ -33,6 +33,16 @@ function Home() {
 
   useEffect(() => {
     console.log('O componente Home foi renderizado!');
+
+    // ✅ Verificação automática de ações atrasadas
+    (async () => {
+      try {
+        await Axios.post('/overdue/ensure/');
+        console.log('Verificação de ações atrasadas executada com sucesso.');
+      } catch (e) {
+        console.warn('Falha ao garantir atualização de atrasados:', e?.message || e);
+      }
+    })();
   }, []);
 
   return (
