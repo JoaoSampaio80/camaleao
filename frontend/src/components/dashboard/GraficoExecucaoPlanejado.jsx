@@ -21,7 +21,28 @@ const COLORS = {
   neutral: '#ccc',
 };
 
+// 🔹 Mapeamento dos meses abreviados para PT-BR
+const MESES_PT = {
+  Jan: 'Jan',
+  Feb: 'Fev',
+  Mar: 'Mar',
+  Apr: 'Abr',
+  May: 'Mai',
+  Jun: 'Jun',
+  Jul: 'Jul',
+  Aug: 'Ago',
+  Sep: 'Set',
+  Oct: 'Out',
+  Nov: 'Nov',
+  Dec: 'Dez',
+};
+
 export default function GraficoExecucaoPlanejado({ data = [] }) {
+  const traduzMes = (label) => {
+    if (!label) return label;
+    const [mesAbrev, ano] = label.split('/');
+    return `${MESES_PT[mesAbrev] || mesAbrev}/${ano}`;
+  };
   // 🔹 Normaliza o dataset para evitar undefined/null
   const safeData = (Array.isArray(data) ? data : []).map((d) => ({
     mes: d.mes || '—',
@@ -54,7 +75,7 @@ export default function GraficoExecucaoPlanejado({ data = [] }) {
             <ResponsiveContainer>
               <LineChart data={safeData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={COLORS.neutral} />
-                <XAxis dataKey="mes" />
+                <XAxis dataKey="mes" tickFormatter={traduzMes} />
                 <YAxis allowDecimals={false} />
                 <Tooltip
                   formatter={(value, name) => {
@@ -63,7 +84,7 @@ export default function GraficoExecucaoPlanejado({ data = [] }) {
                     const label = value > 1 ? `${value} ações` : `${value} ação`;
                     return [label, name];
                   }}
-                  labelFormatter={(label) => `Mês: ${label}`}
+                  labelFormatter={(label) => `Mês: ${traduzMes(label)}`}
                   contentStyle={{
                     fontSize: '0.9rem',
                     borderRadius: 8,
