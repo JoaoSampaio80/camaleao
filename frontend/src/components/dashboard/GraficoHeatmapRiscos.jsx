@@ -228,13 +228,13 @@ export default function HeatmapDashboard() {
                     rx="8"
                   />
 
-                  {/* === Eixos === */}
+                  {/* === EIXO Y === */}
                   <text
-                    x={chartX - 70}
+                    x={chartX - 85}
                     y={chartY + chartH / 2}
-                    transform={`rotate(-90, ${chartX - 70}, ${chartY + chartH / 2})`}
+                    transform={`rotate(-90, ${chartX - 85}, ${chartY + chartH / 2})`}
                     textAnchor="middle"
-                    fontSize="13"
+                    fontSize="14"
                     fontWeight="700"
                     fill="#071744"
                   >
@@ -242,18 +242,33 @@ export default function HeatmapDashboard() {
                   </text>
 
                   {['Catastrófico', 'Grande', 'Médio', 'Pequeno', 'Muito Pequeno'].map(
-                    (txt, idx) => (
-                      <text
-                        key={txt}
-                        x={chartX - 10}
-                        y={chartY + (idx * chartH) / 4 + 10}
-                        textAnchor="end"
-                        fontSize="11"
-                        fill="#071744"
-                      >
-                        {txt}
-                      </text>
-                    )
+                    (txt, idx) => {
+                      // idx = 0 -> Catastrófico (topo)
+                      // idx = 4 -> Muito Pequeno (base)
+
+                      // posição base "bonita" igualmente espaçada dentro do retângulo:
+                      const baseY = chartY + (idx * chartH) / 4;
+
+                      // empurra só o último rótulo ("Muito Pequeno") ligeiramente pra cima,
+                      // e sobe todos um pouquinho pra garantir que nenhum fique fora do retângulo.
+                      const adjust =
+                        idx === 4
+                          ? -5 // sobe "Muito Pequeno" 5px
+                          : 10; // os demais descem 10px pra ficarem mais centralizados nas faixas
+
+                      return (
+                        <text
+                          key={txt}
+                          x={chartX - 10}
+                          y={baseY + adjust}
+                          textAnchor="end"
+                          fontSize="12"
+                          fill="#071744"
+                        >
+                          {txt}
+                        </text>
+                      );
+                    }
                   )}
 
                   <text
