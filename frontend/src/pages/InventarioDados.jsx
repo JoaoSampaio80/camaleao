@@ -75,7 +75,7 @@ function InventarioDados() {
   const [serverErrors, setServerErrors] = React.useState({}); // <— novo
 
   // toast padrão 3s
-  const TOAST = { autoClose: 3000 };
+  const TOAST = { autoClose: 1500 };
 
   // Se vier ?id, carrega para edição (uma vez)
   React.useEffect(() => {

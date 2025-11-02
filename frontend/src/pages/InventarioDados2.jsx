@@ -166,7 +166,7 @@ function InventarioDados2() {
   const [clientErrors, setClientErrors] = React.useState({});
 
   // toast padrão (3s) + flash
-  const TOAST = { autoClose: 3000 };
+  const TOAST = { autoClose: 1500 };
   const [flash, setFlash] = React.useState({ variant: '', msg: '' });
   React.useEffect(() => {
     if (!flash.msg) return;
@@ -576,6 +576,26 @@ function InventarioDados2() {
               </Col>
             </Row>
 
+            <Row className="mb-4">
+              <Col>
+                <Form.Label>
+                  Empresa terceira <span className="text-danger">*</span>
+                </Form.Label>
+                <Form.Control
+                  placeholder="TextField"
+                  value={form.empresa_terceira || ''}
+                  onChange={(e) => setField('empresa_terceira', e.target.value)}
+                  isInvalid={hasError('empresa_terceira')}
+                />
+                <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
+                {getFirstError('empresa_terceira') && (
+                  <div className="invalid-feedback d-block">
+                    {getFirstError('empresa_terceira')}
+                  </div>
+                )}
+              </Col>
+            </Row>
+
             <Row className="mb-3">
               <Col md={6}>
                 <Form.Label>
@@ -614,26 +634,6 @@ function InventarioDados2() {
                 {getFirstError('transferencia_internacional') && (
                   <div className="invalid-feedback d-block">
                     {getFirstError('transferencia_internacional')}
-                  </div>
-                )}
-              </Col>
-            </Row>
-
-            <Row className="mb-4">
-              <Col>
-                <Form.Label>
-                  Empresa terceira <span className="text-danger">*</span>
-                </Form.Label>
-                <Form.Control
-                  placeholder="TextField"
-                  value={form.empresa_terceira || ''}
-                  onChange={(e) => setField('empresa_terceira', e.target.value)}
-                  isInvalid={hasError('empresa_terceira')}
-                />
-                <Form.Control.Feedback type="invalid">Obrigatório.</Form.Control.Feedback>
-                {getFirstError('empresa_terceira') && (
-                  <div className="invalid-feedback d-block">
-                    {getFirstError('empresa_terceira')}
                   </div>
                 )}
               </Col>

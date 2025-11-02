@@ -295,7 +295,7 @@ function MatrizRisco() {
         setShowModal(false);
         resetForm();
         loadRows(page, pageSize); // mantém a página atual
-      }, 3000);
+      }, 1500);
     } catch (err) {
       const data = err?.response?.data;
 
@@ -368,7 +368,7 @@ function MatrizRisco() {
         setSelectedToDelete(null);
         loadRows(page, pageSize);
         setDeleteMsg('');
-      }, 2000);
+      }, 1500);
     } catch (err) {
       const msg =
         err?.response?.data?.detail ||

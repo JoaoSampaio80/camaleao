@@ -169,7 +169,7 @@ function InventarioDados3() {
   const [serverErrors, setServerErrors] = React.useState({});
   const [clientErrors, setClientErrors] = React.useState({});
 
-  const TOAST = { autoClose: 3000 };
+  const TOAST = { autoClose: 1500 };
   const [flash, setFlash] = React.useState({ variant: '', msg: '' });
   React.useEffect(() => {
     if (!flash.msg) return;
