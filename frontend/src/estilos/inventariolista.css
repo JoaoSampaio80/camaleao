@@ -47,9 +47,10 @@
   min-width: 2200px;
 }
 
-/* bordas/cabeçalho da tabela */
+/*
+bordas/cabeçalho da tabela
 .pg-inventariolista .table.smart-table {
-  --bs-border-color: #b8c4da; /* suaviza a cor das bordas do Bootstrap */
+  --bs-border-color: #b8c4da;  suaviza a cor das bordas do Bootstrap
 }
 
 .pg-inventariolista .smart-head th {
@@ -60,7 +61,7 @@
   z-index: 1;
 }
 
-/* separadores verticais leves para melhorar a leitura */
+separadores verticais leves para melhorar a leitura
 .pg-inventariolista .table.smart-table > :not(caption) > * > th,
 .pg-inventariolista .table.smart-table > :not(caption) > * > td {
   border-right: 1px solid #b8c4da;
@@ -76,10 +77,11 @@
   border-top: 1px solid #c3cfe6;
 }
 
-/* leve realce no hover para guiar a leitura horizontal */
+leve realce no hover para guiar a leitura horizontal
 .pg-inventariolista .table.smart-table tbody tr:hover > * {
   background-color: #f2f6ff;
 }
+/*
 
 /* células com bastante conteúdo podem quebrar linha de forma elegante */
 .pg-inventariolista .wrap {
@@ -112,4 +114,34 @@
 .pg-inventariolista .container-gradient .dropdown-menu .dropdown-item,
 .pg-inventariolista .container-gradient .dropdown-menu .form-check-label {
   color: #212529 !important; /* cor padrão do Bootstrap */
+}
+
+.thead-gradient {
+  background: linear-gradient(90deg, #003366, #005b96);
+  color: #fff;
+}
+
+.row-blue {
+  background-color: #f5f8ff;
+}
+
+.row-white {
+  background-color: #fff;
+}
+
+.cell-clip {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+/* Harmoniza a cor do item "Excluir" no dropdown do Inventário */
+.pg-inventariolista .dropdown-menu .dropdown-item.text-danger {
+  color: #c62828 !important; /* mesmo vermelho usado na Matriz */
+}
+
+.pg-inventariolista .dropdown-menu .dropdown-item.text-danger:hover {
+  background-color: #fdecea; /* leve realce ao passar o mouse */
+  color: #b71c1c !important;
 }

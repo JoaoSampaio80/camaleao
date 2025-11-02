@@ -724,21 +724,15 @@ function InventarioLista() {
 
             {/* TABELA (card branco) */}
             <Card className="shadow-sm card-fill labels-reset">
-              {/* sem Card.Header (era claro); deixamos só a tabela */}
               <Card.Body className="pt-0">
                 {loading ? (
                   <div className="py-5 text-center">
                     <Spinner animation="border" role="status" />
                   </div>
                 ) : (
-                  <div className="table-wrapper">
-                    <Table
-                      striped
-                      hover
-                      bordered
-                      className="mt-3 smart-table table-striped-columns"
-                    >
-                      <thead className="smart-head">
+                  <div className="table-wrap">
+                    <Table bordered hover className="custom-table">
+                      <thead className="thead-gradient">
                         <tr>
                           {visibleColumns.map((col) => (
                             <th
@@ -757,7 +751,7 @@ function InventarioLista() {
                           ))}
                           <th
                             style={{
-                              width: 220,
+                              width: 160,
                               position: 'sticky',
                               right: 0,
                               background: '#fff',
@@ -768,48 +762,62 @@ function InventarioLista() {
                           </th>
                         </tr>
                       </thead>
+
                       <tbody>
-                        {items.map((it, idx) => (
-                          <tr key={it.id}>
-                            {visibleColumns.map((col) => {
-                              let content;
-                              let title = '';
-                              if (col.key === ROWNUM_KEY) {
-                                const base = (page - 1) * pageSize;
-                                content = base + idx + 1;
-                              } else {
-                                const raw = it[col.key];
-                                content = formatCell(raw, col.key);
-                                title = raw == null ? '' : String(raw);
-                              }
-                              return (
-                                <td key={col.key} style={tdStyle(col)} title={title}>
-                                  {content}
-                                </td>
-                              );
-                            })}
-                            <td
-                              style={{ position: 'sticky', right: 0, background: '#fff' }}
+                        {items.length ? (
+                          items.map((it, idx) => (
+                            <tr
+                              key={it.id}
+                              className={idx % 2 ? 'row-blue' : 'row-white'} // mesmo padrão da matriz
                             >
-                              <Button
-                                size="sm"
-                                variant="outline-primary"
-                                className="me-3"
-                                onClick={() => handleEdit(it.id)}
+                              {visibleColumns.map((col) => {
+                                const raw = it[col.key];
+                                const content =
+                                  col.key === ROWNUM_KEY
+                                    ? (page - 1) * pageSize + idx + 1
+                                    : formatCell(raw, col.key);
+                                const title = raw == null ? '' : String(raw);
+
+                                return (
+                                  <td key={col.key} style={tdStyle(col)} title={title}>
+                                    <div className="cell-clip">{content}</div>
+                                  </td>
+                                );
+                              })}
+
+                              {/* Coluna de ações no mesmo estilo da matriz */}
+                              <td
+                                style={{
+                                  position: 'sticky',
+                                  right: 0,
+                                  background: '#fff',
+                                  textAlign: 'center',
+                                }}
                               >
-                                Editar
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline-danger"
-                                onClick={() => askDelete(it.id)} /* ← abre modal */
-                              >
-                                Excluir
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                        {!items.length && !loading && (
+                                <Dropdown align="end">
+                                  <Dropdown.Toggle
+                                    size="sm"
+                                    variant="outline-secondary"
+                                    id={`dropdown-${it.id}`}
+                                  >
+                                    Ações
+                                  </Dropdown.Toggle>
+                                  <Dropdown.Menu>
+                                    <Dropdown.Item onClick={() => handleEdit(it.id)}>
+                                      Editar
+                                    </Dropdown.Item>
+                                    <Dropdown.Item
+                                      className="text-danger"
+                                      onClick={() => askDelete(it.id)}
+                                    >
+                                      Excluir
+                                    </Dropdown.Item>
+                                  </Dropdown.Menu>
+                                </Dropdown>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
                           <tr>
                             <td
                               colSpan={visibleColumns.length + 1}
