@@ -11,10 +11,12 @@ import {
   Card,
   Badge,
   Pagination,
+  Dropdown,
   Modal,
 } from 'react-bootstrap';
 import AxiosInstance from '../components/Axios';
 import Sidebar from '../components/Sidebar';
+import '../estilos/cadastro.css';
 
 const NameMax = 60;
 
@@ -102,14 +104,14 @@ function Cadastro() {
 
   const [originalRole, setOriginalRole] = useState(null);
 
-  // ====== flash helper 3s ======
+  // ====== flash helper 1,5s ======
   const showFlash = (v, t) => {
     setVariant(v);
     setMessage(t);
     setTimeout(() => {
       setMessage('');
       setVariant('');
-    }, 3000);
+    }, 1500);
   };
 
   // ====== modal confirmação exclusão ======
@@ -733,8 +735,8 @@ function Cadastro() {
           </Form>
         </Container>
 
-        <Container fluid style={{ maxWidth: 1100 }} className="mt-4">
-          <Card className="shadow-sm">
+        <Container fluid className="container-gradient mt-4" style={{ maxWidth: 1100 }}>
+          <Card className="shadow-sm card-fill labels-reset">
             <Card.Header className="bg-white">
               <Form onSubmit={onFilter}>
                 <Row className="g-2 align-items-end">
@@ -792,49 +794,64 @@ function Cadastro() {
                 </div>
               ) : (
                 <>
-                  <Table striped hover responsive className="mt-3">
-                    <thead>
-                      <tr>
-                        <th>E-mail</th>
-                        <th>Nome</th>
-                        <th>Função</th>
-                        <th style={{ width: 160 }}>Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(Array.isArray(users) ? users : []).map((u) => (
-                        <tr key={u.id}>
-                          <td>{u.email}</td>
-                          <td>{[u.first_name, u.last_name].filter(Boolean).join(' ')}</td>
-                          <td>{u.role}</td>
-                          <td>
-                            <Button
-                              size="sm"
-                              variant="outline-primary"
-                              className="me-2"
-                              onClick={() => handleEdit(u.id)}
-                            >
-                              Editar
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline-danger"
-                              onClick={() => askDelete(u.id)}
-                            >
-                              Excluir
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                      {(!users || users.length === 0) && (
+                  <div className="table-wrap">
+                    <Table bordered hover responsive className="custom-table mt-3">
+                      <thead className="thead-gradient">
                         <tr>
-                          <td colSpan={4} className="text-center text-muted py-4">
-                            Nenhum usuário encontrado.
-                          </td>
+                          <th>E-mail</th>
+                          <th>Nome</th>
+                          <th>Função</th>
+                          <th style={{ width: 160 }}>Ações</th>
                         </tr>
-                      )}
-                    </tbody>
-                  </Table>
+                      </thead>
+                      <tbody>
+                        {(Array.isArray(users) ? users : []).map((u, idx) => (
+                          <tr key={u.id} className={idx % 2 ? 'row-blue' : 'row-white'}>
+                            <td>
+                              <div className="cell-clip">{u.email}</div>
+                            </td>
+                            <td>
+                              <div className="cell-clip">
+                                {[u.first_name, u.last_name].filter(Boolean).join(' ')}
+                              </div>
+                            </td>
+                            <td>
+                              <div className="cell-clip">{u.role}</div>
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <Dropdown align="end">
+                                <Dropdown.Toggle
+                                  size="sm"
+                                  variant="outline-secondary"
+                                  id={`dropdown-${u.id}`}
+                                >
+                                  Ações
+                                </Dropdown.Toggle>
+                                <Dropdown.Menu>
+                                  <Dropdown.Item onClick={() => handleEdit(u.id)}>
+                                    Editar
+                                  </Dropdown.Item>
+                                  <Dropdown.Item
+                                    className="text-danger"
+                                    onClick={() => askDelete(u.id)}
+                                  >
+                                    Excluir
+                                  </Dropdown.Item>
+                                </Dropdown.Menu>
+                              </Dropdown>
+                            </td>
+                          </tr>
+                        ))}
+                        {(!users || users.length === 0) && (
+                          <tr>
+                            <td colSpan={4} className="text-center text-muted py-4">
+                              Nenhum usuário encontrado.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </Table>
+                  </div>
 
                   <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div className="text-muted">

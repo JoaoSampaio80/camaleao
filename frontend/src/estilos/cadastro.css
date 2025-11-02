@@ -1,0 +1,27 @@
+.thead-gradient {
+  background: linear-gradient(90deg, #003366, #005b96);
+  color: #fff;
+}
+
+.row-blue {
+  background-color: #f5f8ff;
+}
+
+.row-white {
+  background-color: #fff;
+}
+
+.cell-clip {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.dropdown-menu .dropdown-item.text-danger {
+  color: #c62828 !important;
+}
+.dropdown-menu .dropdown-item.text-danger:hover {
+  background-color: #fdecea;
+  color: #b71c1c !important;
+}
