@@ -65,9 +65,9 @@ function FormularioAtividades() {
   // Upload (via input oculto por linha)
   const fileInputsRef = useRef({});
 
-  // Mensagens (padrão 3s)
+  // Mensagens (padrão 1,5s)
   const [notice, setNotice] = useState(null); // {variant, text}
-  const showMsg = (variant, text, ms = 3000) => {
+  const showMsg = (variant, text, ms = 1500) => {
     setNotice({ variant, text });
     if (ms) setTimeout(() => setNotice(null), ms);
   };
