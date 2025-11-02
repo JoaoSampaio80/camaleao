@@ -34,7 +34,9 @@ function ControleAcoes() {
     { como: '', responsavel: '', prazo: '', status: '' },
   ]);
 
-  const showMsg = (variant, text, ms = 3500) => {
+  const [hoveredRow, setHoveredRow] = useState(null);
+
+  const showMsg = (variant, text, ms = 1500) => {
     setNotice({ variant, text });
     if (ms) setTimeout(() => setNotice(null), ms);
   };
@@ -420,6 +422,8 @@ function ControleAcoes() {
       <tr
         key={`${r.id}-${r.actionplan_id || 'new'}`}
         className={idx % 2 === 0 ? 'row-white' : 'row-blue'}
+        onMouseEnter={() => setHoveredRow(idx)}
+        onMouseLeave={() => setHoveredRow(null)}
       >
         <td>
           <div className="cell-clip">{(page - 1) * pageSize + idx + 1}</div>
@@ -449,7 +453,7 @@ function ControleAcoes() {
                       whiteSpace: 'normal',
                       lineHeight: '1.4',
                       listStyleType: 'disc',
-                      color: '#071744', // cor institucional do Camaleão
+                      color: 'inherit',
                       fontSize: '0.95rem',
                     }}
                   >
@@ -473,7 +477,7 @@ function ControleAcoes() {
                     style={{
                       whiteSpace: 'normal',
                       lineHeight: '1.4',
-                      color: '#071744',
+                      color: 'inherit',
                       fontSize: '0.95rem',
                     }}
                   >
@@ -498,7 +502,7 @@ function ControleAcoes() {
                     style={{
                       whiteSpace: 'normal',
                       lineHeight: '1.4',
-                      color: '#071744',
+                      color: 'inherit',
                       fontSize: '0.95rem',
                     }}
                   >
@@ -523,7 +527,7 @@ function ControleAcoes() {
                     style={{
                       whiteSpace: 'normal',
                       lineHeight: '1.4',
-                      color: '#071744',
+                      color: 'inherit',
                       fontSize: '0.95rem',
                     }}
                   >
@@ -547,14 +551,22 @@ function ControleAcoes() {
                   const rawStatus = statusList[i] || '';
                   const displayStatus = toFront(rawStatus);
                   // 🔹 Se for atrasado, pinta em vermelho
-                  const color =
-                    rawStatus === 'atrasado'
-                      ? '#b71c1c' // vermelho forte
-                      : rawStatus === 'concluido'
-                        ? '#1b5e20' // verde escuro
-                        : rawStatus === 'andamento'
-                          ? '#0d47a1' // azul escuro
-                          : '#071744'; // padrão Camaleão
+                  const isBlueRow = idx % 2 !== 0;
+                  const isHovering = hoveredRow === idx;
+
+                  // 🔹 linhas azuis e hover (azul escuro) devem usar as cores claras
+                  const useLightColors = isBlueRow || isHovering;
+
+                  let color;
+                  if (rawStatus === 'atrasado') {
+                    color = useLightColors ? '#ef9a9a' : '#b71c1c'; // vermelho claro no azul/hover
+                  } else if (rawStatus === 'concluido') {
+                    color = useLightColors ? '#a5d6a7' : '#1b5e20'; // verde claro
+                  } else if (rawStatus === 'andamento') {
+                    color = useLightColors ? '#90caf9' : '#0d47a1'; // azul claro
+                  } else {
+                    color = useLightColors ? '#ffffff' : '#071744'; // neutro
+                  }
 
                   return (
                     <li
