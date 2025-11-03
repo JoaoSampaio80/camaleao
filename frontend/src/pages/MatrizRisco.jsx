@@ -286,11 +286,36 @@ function MatrizRisco() {
       if (editingId) {
         await AxiosInstance.put(`riscos/${editingId}/`, payload);
         setOkMsg('Risco atualizado com sucesso.');
+
+        // 🔹 Rola o modal até o alerta de sucesso (igual ao foco de erro)
+        setTimeout(() => {
+          const successAlert = document.querySelector('.modal.show .alert.alert-success');
+          if (successAlert && typeof successAlert.scrollIntoView === 'function') {
+            successAlert.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start',
+              inline: 'nearest',
+            });
+          }
+        }, 50);
       } else {
         await AxiosInstance.post('riscos/', payload);
         setOkMsg('Risco criado com sucesso.');
+
+        // 🔹 Rola o modal até o alerta de sucesso (igual ao foco de erro)
+        setTimeout(() => {
+          const successAlert = document.querySelector('.modal.show .alert.alert-success');
+          if (successAlert && typeof successAlert.scrollIntoView === 'function') {
+            successAlert.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start',
+              inline: 'nearest',
+            });
+          }
+        }, 50);
       }
 
+      // 🔹 Mantém sua regra original de 1.5s para fechar o modal
       setTimeout(() => {
         setShowModal(false);
         resetForm();
@@ -552,7 +577,7 @@ function MatrizRisco() {
                                   whiteSpace: 'normal',
                                   lineHeight: '1.4',
                                   listStyleType: 'disc',
-                                  color: '#071744', // cor institucional do Camaleão
+                                  color: 'inherit',
                                   fontSize: '0.95rem',
                                 }}
                               >
