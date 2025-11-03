@@ -212,7 +212,7 @@ function RankingRisco() {
                                       whiteSpace: 'normal',
                                       lineHeight: '1.4',
                                       listStyleType: 'disc',
-                                      color: '#071744', // azul institucional Camaleão
+                                      color: 'inherit',
                                       fontSize: '0.95rem',
                                     }}
                                   >
