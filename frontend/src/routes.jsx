@@ -18,7 +18,7 @@ import Notificacoes from './pages/Notificacao';
 import Cadastro from './pages/Cadastro';
 import Perfil from './pages/Perfil';
 import InventarioLista from './pages/InventarioLista';
-import RankingRisco from './pages/RackingRisco';
+import RankingRisco from './pages/RankingRisco';
 import ControlPlanoAcao from './pages/ControlPlanoAcao';
 import AcaoMonitoramento from './pages/AcaoMonitoramento';
 import ControleIncidentes from './pages/ControleIncidentes';
@@ -49,7 +49,7 @@ export const ROUTES = {
   NOTIFICACOES: '/notificacao',
   PERFIL: '/perfil',
   INVENTARIO_LISTA: '/dados/lista',
-  RANCKING_RISCO: '/ranckingrisco',
+  RANKING_RISCO: '/rankingrisco',
   CONTROL_PLANO_ACAO: '/controlplanoacao',
   ACAO_MONITORAMENTO: '/acaomonitoramento',
   CONTROLE_INCIDENTES: '/controleincidentes',
@@ -84,7 +84,7 @@ function AppRouter() {
         <Route path={ROUTES.DOCUMENTOS} element={<Documentos />} />
         <Route path={ROUTES.MATRIZ_RISCO} element={<MatrizRisco />} />
         <Route path={ROUTES.NOTIFICACOES} element={<Notificacoes />} />
-        <Route path={ROUTES.RANCKING_RISCO} element={<RankingRisco />} />
+        <Route path={ROUTES.RANKING_RISCO} element={<RankingRisco />} />
         <Route path={ROUTES.CONTROL_PLANO_ACAO} element={<ControlPlanoAcao />} />
         <Route path={ROUTES.ACAO_MONITORAMENTO} element={<AcaoMonitoramento />} />
         <Route path={ROUTES.CONTROLE_INCIDENTES} element={<ControleIncidentes />} />
