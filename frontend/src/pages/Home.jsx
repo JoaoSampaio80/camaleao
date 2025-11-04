@@ -15,6 +15,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import Sidebar from '../components/Sidebar';
 import { ROUTES } from '../routes';
+import AxiosInstance from '../components/Axios';
 
 function Home() {
   const navigate = useNavigate();
@@ -34,11 +35,19 @@ function Home() {
   useEffect(() => {
     console.log('O componente Home foi renderizado!');
 
-    // ✅ Verificação automática de ações atrasadas
     (async () => {
+      const lastRun = localStorage.getItem('overdue_check_date');
+      const today = new Date().toISOString().slice(0, 10); // yyyy-mm-dd
+
+      if (lastRun === today) {
+        console.log('Verificação de ações atrasadas já executada hoje.');
+        return;
+      }
+
       try {
-        await Axios.post('/overdue/ensure/');
+        await AxiosInstance.post('/overdue/ensure/'); // ✅ mantém POST
         console.log('Verificação de ações atrasadas executada com sucesso.');
+        localStorage.setItem('overdue_check_date', today);
       } catch (e) {
         console.warn('Falha ao garantir atualização de atrasados:', e?.message || e);
       }
