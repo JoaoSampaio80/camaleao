@@ -346,6 +346,7 @@ function ControleIncidentes() {
               <option value={5}>5</option>
               <option value={10}>10</option>
               <option value={20}>20</option>
+              <option value={50}>50</option>
             </Form.Select>
           </Form.Group>
 
@@ -444,141 +445,177 @@ function ControleIncidentes() {
         contentClassName="modal-style"
       >
         <Form onSubmit={handleSave}>
-          <Modal.Header closeButton>
-            <Modal.Title>
-              {editingItem ? 'Editar Incidente' : 'Novo Incidente'}
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <Container fluid>
-              {notice && <Alert variant={notice.variant}>{notice.text}</Alert>}
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Form.Label>Número do Registro</Form.Label>
-                  <Form.Control
-                    type="text"
-                    value={form.numero_registro || ''}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, ''); // só números
-                      setForm({ ...form, numero_registro: value });
-                    }}
-                    required
-                    placeholder="Ex: 1001"
-                  />
-                </Col>
-                <Col md={4}>
-                  <Form.Label>Fonte</Form.Label>
-                  <Form.Control
-                    value={form.fonte}
-                    onChange={(e) => setForm({ ...form, fonte: e.target.value })}
-                  />
-                </Col>
-                <Col md={4}>
-                  <Form.Label>Data Registro</Form.Label>
-                  <Form.Control
-                    type="date"
-                    value={form.data_registro}
-                    onChange={(e) => setForm({ ...form, data_registro: e.target.value })}
-                  />
-                </Col>
-              </Row>
+          <div
+            style={{
+              maxHeight: '80vh', // ocupa até 80% da altura da tela
+              overflowY: 'auto', // ✅ rola tudo (body + footer)
+              overflowX: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <Modal.Header closeButton>
+              <Modal.Title>
+                {editingItem ? 'Editar Incidente' : 'Novo Incidente'}
+              </Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+              <Container fluid>
+                {notice && <Alert variant={notice.variant}>{notice.text}</Alert>}
+                <Row className="mb-3">
+                  <Col md={4}>
+                    <Form.Label>Número do Registro</Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={form.numero_registro || ''}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, ''); // só números
+                        setForm({ ...form, numero_registro: value });
+                      }}
+                      required
+                      placeholder="Ex: 1001"
+                    />
+                  </Col>
+                  <Col md={4}>
+                    <Form.Label>Fonte</Form.Label>
+                    <Form.Control
+                      value={form.fonte}
+                      onChange={(e) => setForm({ ...form, fonte: e.target.value })}
+                    />
+                  </Col>
+                  <Col md={4}>
+                    <Form.Label>Data Registro</Form.Label>
+                    <Form.Control
+                      type="date"
+                      value={form.data_registro}
+                      onChange={(e) =>
+                        setForm({ ...form, data_registro: e.target.value })
+                      }
+                    />
+                  </Col>
+                </Row>
 
-              <Form.Group className="mb-3">
-                <Form.Label>Descrição</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={2}
-                  value={form.descricao}
-                  onChange={(e) => setForm({ ...form, descricao: e.target.value })}
-                />
-              </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label>
+                    Descrição <TooltipInfo message="Descrição do Incidente" />
+                  </Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={2}
+                    value={form.descricao}
+                    onChange={(e) => setForm({ ...form, descricao: e.target.value })}
+                  />
+                </Form.Group>
 
-              <Row className="mb-3">
-                <Col md={6}>
-                  <Form.Label>Responsável</Form.Label>
-                  <Form.Control
-                    value={form.responsavel_analise}
-                    onChange={(e) =>
-                      setForm({ ...form, responsavel_analise: e.target.value })
-                    }
-                  />
-                </Col>
-                <Col md={6}>
-                  <Form.Label>Data Final Análise</Form.Label>
-                  <Form.Control
-                    type="date"
-                    value={form.data_final_analise}
-                    onChange={(e) =>
-                      setForm({ ...form, data_final_analise: e.target.value })
-                    }
-                  />
-                </Col>
-              </Row>
+                <Row className="mb-3">
+                  <Col md={6}>
+                    <Form.Label>
+                      Responsável{' '}
+                      <TooltipInfo message="Funcionário responsável pela análise e recomendação da ação" />
+                    </Form.Label>
+                    <Form.Control
+                      value={form.responsavel_analise}
+                      onChange={(e) =>
+                        setForm({ ...form, responsavel_analise: e.target.value })
+                      }
+                    />
+                  </Col>
+                  <Col md={6}>
+                    <Form.Label>
+                      Data Final Análise{' '}
+                      <TooltipInfo message="Data de conclusão da análise" />
+                    </Form.Label>
+                    <Form.Control
+                      type="date"
+                      value={form.data_final_analise}
+                      onChange={(e) =>
+                        setForm({ ...form, data_final_analise: e.target.value })
+                      }
+                    />
+                  </Col>
+                </Row>
 
-              <Row className="mb-3">
-                <Col md={6}>
-                  <Form.Label>Ação Recomendada</Form.Label>
-                  <Form.Control
-                    value={form.acao_recomendada}
-                    onChange={(e) =>
-                      setForm({ ...form, acao_recomendada: e.target.value })
-                    }
-                  />
-                </Col>
-                <Col md={6}>
-                  <Form.Label>Recomendações</Form.Label>
-                  <Form.Control
-                    value={form.recomendacoes_reportadas}
-                    onChange={(e) =>
-                      setForm({ ...form, recomendacoes_reportadas: e.target.value })
-                    }
-                  />
-                </Col>
-              </Row>
+                <Row className="mb-3">
+                  <Col md={6}>
+                    <Form.Label>
+                      Ação Recomendada{' '}
+                      <TooltipInfo message="Ação corretiva recomendada" />
+                    </Form.Label>
+                    <Form.Control
+                      value={form.acao_recomendada}
+                      onChange={(e) =>
+                        setForm({ ...form, acao_recomendada: e.target.value })
+                      }
+                    />
+                  </Col>
+                  <Col md={6}>
+                    <Form.Label>
+                      Recomendações{' '}
+                      <TooltipInfo message="Recomendações reportadas para:" />
+                    </Form.Label>
+                    <Form.Control
+                      value={form.recomendacoes_reportadas}
+                      onChange={(e) =>
+                        setForm({ ...form, recomendacoes_reportadas: e.target.value })
+                      }
+                    />
+                  </Col>
+                </Row>
 
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Form.Label>Data Reporte</Form.Label>
-                  <Form.Control
-                    type="date"
-                    value={form.data_reporte}
-                    onChange={(e) => setForm({ ...form, data_reporte: e.target.value })}
-                  />
-                </Col>
-                <Col md={4}>
-                  <Form.Label>Decisões</Form.Label>
-                  <Form.Control
-                    value={form.decisoes_resolucao}
-                    onChange={(e) =>
-                      setForm({ ...form, decisoes_resolucao: e.target.value })
-                    }
-                  />
-                </Col>
-                <Col md={4}>
-                  <Form.Label>Data Encerramento</Form.Label>
-                  <Form.Control
-                    type="date"
-                    value={form.data_encerramento}
-                    onChange={(e) =>
-                      setForm({ ...form, data_encerramento: e.target.value })
-                    }
-                  />
-                </Col>
-              </Row>
+                <Row className="mb-3">
+                  <Col md={4}>
+                    <Form.Label>Data Reporte</Form.Label>
+                    <Form.Control
+                      type="date"
+                      value={form.data_reporte}
+                      onChange={(e) => setForm({ ...form, data_reporte: e.target.value })}
+                    />
+                  </Col>
+                  <Col md={4}>
+                    <Form.Label>
+                      Decisões <TooltipInfo message="Decisões de resolução efetivadas" />
+                    </Form.Label>
+                    <Form.Control
+                      value={form.decisoes_resolucao}
+                      onChange={(e) =>
+                        setForm({ ...form, decisoes_resolucao: e.target.value })
+                      }
+                    />
+                  </Col>
+                  <Col md={4}>
+                    <Form.Label>
+                      Data Encerramento{' '}
+                      <TooltipInfo message="Data de encerramento do registro" />
+                    </Form.Label>
+                    <Form.Control
+                      type="date"
+                      value={form.data_encerramento}
+                      onChange={(e) =>
+                        setForm({ ...form, data_encerramento: e.target.value })
+                      }
+                    />
+                  </Col>
+                </Row>
 
-              <Form.Group>
-                <Form.Label>Fonte Informada</Form.Label>
-                <Form.Select
-                  value={form.fonte_informada}
-                  onChange={(e) => setForm({ ...form, fonte_informada: e.target.value })}
-                >
-                  <option value=""></option>
-                  <option value="sim">Sim</option>
-                  <option value="nao">Não</option>
-                </Form.Select>
-              </Form.Group>
-            </Container>
-          </Modal.Body>
+                <Form.Group>
+                  <Form.Label>
+                    Fonte Informada{' '}
+                    <TooltipInfo message="A Fonte foi informada do resultado?" />
+                  </Form.Label>
+                  <Form.Select
+                    value={form.fonte_informada}
+                    onChange={(e) =>
+                      setForm({ ...form, fonte_informada: e.target.value })
+                    }
+                  >
+                    <option value=""></option>
+                    <option value="sim">Sim</option>
+                    <option value="nao">Não</option>
+                  </Form.Select>
+                </Form.Group>
+              </Container>
+            </Modal.Body>
+          </div>
           <Modal.Footer>
             <Button
               variant="outline-secondary"
