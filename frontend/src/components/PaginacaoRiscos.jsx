@@ -6,7 +6,7 @@ import '../estilos/matriz.css';
 // Rotas EXATAS que você definiu:
 const TABS = [
   { label: 'Avaliação de Risco', path: '/matrizrisco' },
-  { label: 'Rancking de Riscos', path: '/ranckingrisco' },
+  { label: 'Ranking de Riscos', path: '/rankingrisco' },
   { label: 'Controle de Plano de Ação', path: '/controlplanoacao' },
   { label: 'Ações de monitoramento', path: '/acaomonitoramento' },
   { label: 'Controle de incidentes', path: '/controleincidentes' },
