@@ -337,6 +337,7 @@ function AcaoMonitoramento() {
               <option value={5}>5</option>
               <option value={10}>10</option>
               <option value={20}>20</option>
+              <option value={50}>50</option>
             </Form.Select>
           </Form.Group>
 
@@ -431,143 +432,195 @@ function AcaoMonitoramento() {
         contentClassName="modal-style"
       >
         <Form onSubmit={handleSave}>
-          <Modal.Header closeButton>
-            <Modal.Title>
-              {editingId ? 'Editar Ação de Monitoramento' : 'Nova Ação de Monitoramento'}
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <Container fluid>
-              {error && <Alert variant="danger">{error}</Alert>}
-              {okMsg && <Alert variant="success">{okMsg}</Alert>}
+          <div
+            style={{
+              maxHeight: '80vh', // ocupa até 80% da altura da tela
+              overflowY: 'auto', // ✅ rola tudo (body + footer)
+              overflowX: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <Modal.Header closeButton>
+              <Modal.Title>
+                {editingId
+                  ? 'Editar Ação de Monitoramento'
+                  : 'Nova Ação de Monitoramento'}
+              </Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+              <Container fluid>
+                {error && <Alert variant="danger">{error}</Alert>}
+                {okMsg && <Alert variant="success">{okMsg}</Alert>}
 
-              <Row className="mb-3">
-                <Col md={6}>
-                  <Form.Label>Framework e Requisito</Form.Label>
+                <Row className="mb-3">
+                  <Col md={6}>
+                    <Form.Label>
+                      Framework e Requisito{' '}
+                      <TooltipInfo message="Framework e requisito de avaliação para monitoramento / auditoria" />
+                    </Form.Label>
+                    <Form.Control
+                      name="framework_requisito"
+                      value={form.framework_requisito}
+                      onChange={(e) =>
+                        setForm({ ...form, framework_requisito: e.target.value })
+                      }
+                      isInvalid={!!fieldErrors.framework_requisito}
+                    />
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.framework_requisito}
+                    </Form.Control.Feedback>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Label>
+                      Critério de Avaliação{' '}
+                      <TooltipInfo message="Critério de avaliação / mensuração" />
+                    </Form.Label>
+                    <Form.Control
+                      name="criterio_avaliacao"
+                      value={form.criterio_avaliacao}
+                      onChange={(e) =>
+                        setForm({ ...form, criterio_avaliacao: e.target.value })
+                      }
+                      isInvalid={!!fieldErrors.criterio_avaliacao}
+                    />
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.criterio_avaliacao}
+                    </Form.Control.Feedback>
+                  </Col>
+                </Row>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>
+                    Escopo / Descrição da Ação{' '}
+                    <TooltipInfo message="Escopo e descrição da ação de monitoramento / auditoria" />
+                  </Form.Label>
                   <Form.Control
-                    name="framework_requisito"
-                    value={form.framework_requisito}
-                    onChange={(e) =>
-                      setForm({ ...form, framework_requisito: e.target.value })
-                    }
-                    isInvalid={!!fieldErrors.framework_requisito}
+                    as="textarea"
+                    rows={2}
+                    name="escopo"
+                    value={form.escopo}
+                    onChange={(e) => setForm({ ...form, escopo: e.target.value })}
+                    isInvalid={!!fieldErrors.escopo}
                   />
                   <Form.Control.Feedback type="invalid">
-                    {fieldErrors.framework_requisito}
+                    {fieldErrors.escopo}
                   </Form.Control.Feedback>
-                </Col>
-                <Col md={6}>
-                  <Form.Label>Critério de Avaliação</Form.Label>
+                </Form.Group>
+
+                <Row className="mb-3">
+                  <Col md={6}>
+                    <Form.Label>
+                      Data do Monitoramento{' '}
+                      <TooltipInfo message="Data do monitoramento / auditoria" />
+                    </Form.Label>
+                    <Form.Control
+                      type="date"
+                      name="data_monitoramento"
+                      value={form.data_monitoramento}
+                      onChange={(e) =>
+                        setForm({ ...form, data_monitoramento: e.target.value })
+                      }
+                      isInvalid={!!fieldErrors.data_monitoramento}
+                    />
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.data_monitoramento}
+                    </Form.Control.Feedback>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Label>
+                      Data da Última Auditoria{' '}
+                      <TooltipInfo message="Data da conclusão do último monitoramento / auditoria" />
+                    </Form.Label>
+                    <Form.Control
+                      type="date"
+                      name="data_conclusao"
+                      value={form.data_conclusao}
+                      onChange={(e) =>
+                        setForm({ ...form, data_conclusao: e.target.value })
+                      }
+                      isInvalid={!!fieldErrors.data_conclusao}
+                    />
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.data_conclusao}
+                    </Form.Control.Feedback>
+                  </Col>
+                </Row>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>
+                    Responsável <TooltipInfo message="Funcionário responsável" />
+                  </Form.Label>
                   <Form.Control
-                    name="criterio_avaliacao"
-                    value={form.criterio_avaliacao}
-                    onChange={(e) =>
-                      setForm({ ...form, criterio_avaliacao: e.target.value })
-                    }
-                    isInvalid={!!fieldErrors.criterio_avaliacao}
+                    name="responsavel"
+                    value={form.responsavel}
+                    onChange={(e) => setForm({ ...form, responsavel: e.target.value })}
+                    isInvalid={!!fieldErrors.responsavel}
                   />
                   <Form.Control.Feedback type="invalid">
-                    {fieldErrors.criterio_avaliacao}
+                    {fieldErrors.responsavel}
                   </Form.Control.Feedback>
-                </Col>
-              </Row>
+                </Form.Group>
 
-              <Form.Group className="mb-3">
-                <Form.Label>Escopo / Descrição da Ação</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={2}
-                  name="escopo"
-                  value={form.escopo}
-                  onChange={(e) => setForm({ ...form, escopo: e.target.value })}
-                  isInvalid={!!fieldErrors.escopo}
-                />
-                <Form.Control.Feedback type="invalid">
-                  {fieldErrors.escopo}
-                </Form.Control.Feedback>
-              </Form.Group>
-
-              <Row className="mb-3">
-                <Col md={6}>
-                  <Form.Label>Data do Monitoramento</Form.Label>
+                <Form.Group className="mb-3">
+                  <Form.Label>Deficiências Identificadas</Form.Label>
                   <Form.Control
-                    type="date"
-                    name="data_monitoramento"
-                    value={form.data_monitoramento}
-                    onChange={(e) =>
-                      setForm({ ...form, data_monitoramento: e.target.value })
-                    }
-                    isInvalid={!!fieldErrors.data_monitoramento}
+                    as="textarea"
+                    rows={2}
+                    name="deficiencias"
+                    value={form.deficiencias}
+                    onChange={(e) => setForm({ ...form, deficiencias: e.target.value })}
                   />
-                  <Form.Control.Feedback type="invalid">
-                    {fieldErrors.data_monitoramento}
-                  </Form.Control.Feedback>
-                </Col>
-                <Col md={6}>
-                  <Form.Label>Data da Última Auditoria</Form.Label>
+                </Form.Group>
+
+                <Form.Group>
+                  <Form.Label>
+                    Ações Corretivas{' '}
+                    <TooltipInfo message="Ações corretivas implementadas" />
+                  </Form.Label>
                   <Form.Control
-                    type="date"
-                    name="data_conclusao"
-                    value={form.data_conclusao}
-                    onChange={(e) => setForm({ ...form, data_conclusao: e.target.value })}
-                    isInvalid={!!fieldErrors.data_conclusao}
+                    as="textarea"
+                    rows={2}
+                    name="corretivas"
+                    value={form.corretivas}
+                    onChange={(e) => setForm({ ...form, corretivas: e.target.value })}
                   />
-                  <Form.Control.Feedback type="invalid">
-                    {fieldErrors.data_conclusao}
-                  </Form.Control.Feedback>
-                </Col>
-              </Row>
-
-              <Form.Group className="mb-3">
-                <Form.Label>Responsável</Form.Label>
-                <Form.Control
-                  name="responsavel"
-                  value={form.responsavel}
-                  onChange={(e) => setForm({ ...form, responsavel: e.target.value })}
-                  isInvalid={!!fieldErrors.responsavel}
-                />
-                <Form.Control.Feedback type="invalid">
-                  {fieldErrors.responsavel}
-                </Form.Control.Feedback>
-              </Form.Group>
-
-              <Form.Group className="mb-3">
-                <Form.Label>Deficiências Identificadas</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={2}
-                  name="deficiencias"
-                  value={form.deficiencias}
-                  onChange={(e) => setForm({ ...form, deficiencias: e.target.value })}
-                />
-              </Form.Group>
-
-              <Form.Group>
-                <Form.Label>Ações Corretivas Implementadas</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={2}
-                  name="corretivas"
-                  value={form.corretivas}
-                  onChange={(e) => setForm({ ...form, corretivas: e.target.value })}
-                />
-              </Form.Group>
-            </Container>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button
-              variant="outline-secondary"
-              onClick={() => {
-                resetForm();
-                setShowModal(false);
+                </Form.Group>
+              </Container>
+            </Modal.Body>
+            <div
+              className="modal-footer"
+              style={{
+                position:
+                  window.innerHeight > 850
+                    ? 'sticky' // Fixa se houver bastante espaço
+                    : 'relative', // Rola junto se a viewport for pequena
+                bottom: 0,
+                background: 'inherit',
+                borderTop: 'none',
+                padding: '0.75rem 1rem',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '0.5rem',
+                zIndex: 10,
               }}
             >
-              Cancelar
-            </Button>
-            <Button variant="primary" type="submit" disabled={saving}>
-              {saving ? 'Salvando...' : 'Salvar Ação'}
-            </Button>
-          </Modal.Footer>
+              <Modal.Footer>
+                <Button
+                  variant="outline-secondary"
+                  onClick={() => {
+                    resetForm();
+                    setShowModal(false);
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button variant="primary" type="submit" disabled={saving}>
+                  {saving ? 'Salvando...' : 'Salvar Ação'}
+                </Button>
+              </Modal.Footer>
+            </div>
+          </div>
         </Form>
       </Modal>
 
