@@ -36,6 +36,8 @@ function ControleAcoes() {
 
   const [hoveredRow, setHoveredRow] = useState(null);
 
+  const [modalMsg, setModalMsg] = useState(null);
+
   const showMsg = (variant, text, ms = 1500) => {
     setNotice({ variant, text });
     if (ms) setTimeout(() => setNotice(null), ms);
@@ -115,18 +117,18 @@ function ControleAcoes() {
 
     // 🔹 Divide o texto do plano de ação adicional em ações separadas
     const acoes = (row.plano_acao_adicional || '')
-      .split(/[\n;,]+/)
+      .split(/[\n;]+/)
       .map((a) => a.trim())
       .filter((a) => a !== '');
 
     // 🔹 Quebra os demais campos paralelos (mantendo índice por posição)
-    const comoList = (row.como || '').split(/[\n;,]+/).map((a) => a.trim());
-    const respList = (row.funcionario || '').split(/[\n;,]+/).map((a) => a.trim());
-    const prazoList = (row.prazo || '').split(/[\n;,]+/).map((a) => a.trim());
-    const statusList = (row.status || '').split(/[\n;,]+/).map((a) => a.trim());
+    const comoList = (row.como || '').split(/[\n;]+/).map((a) => a.trim());
+    const respList = (row.funcionario || '').split(/[\n;]+/).map((a) => a.trim());
+    const prazoList = (row.prazo || '').split(/[\n;]+/).map((a) => a.trim());
+    const statusList = (row.status || '').split(/[\n;]+/).map((a) => a.trim());
 
     // 🔹 IDs (mantendo posições fixas)
-    const idsList = (row.planos_ids || '').split(/[\n;,]+/).map((a) => a.trim() || null);
+    const idsList = (row.planos_ids || '').split(/[\n;]+/).map((a) => a.trim() || null);
     // Se houver menos IDs que ações, completa com null
     while (idsList.length < acoes.length) idsList.push(null);
 
@@ -287,17 +289,35 @@ function ControleAcoes() {
     try {
       if (modalMode === 'edit' && filled.some((c) => c.id)) {
         await updateComplemento();
-        showMsg('success', 'Complementos atualizados com sucesso.');
+        setModalMsg({
+          variant: 'success',
+          text: 'Complementos atualizados com sucesso.',
+        });
       } else {
         await createComplemento();
-        showMsg('success', 'Complementos incluídos com sucesso.');
+        setModalMsg({ variant: 'success', text: 'Complementos incluídos com sucesso.' });
       }
 
-      await loadRows();
-      closeModal();
+      // rola até a mensagem de sucesso dentro do modal
+      setTimeout(() => {
+        const successAlert = document.querySelector('.modal.show .alert.alert-success');
+        if (successAlert && typeof successAlert.scrollIntoView === 'function') {
+          successAlert.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 50);
+
+      // fecha o modal após 1.5s
+      setTimeout(() => {
+        setModalMsg(null);
+        closeModal();
+        loadRows();
+      }, 1500);
     } catch (e) {
       console.error('Erro ao salvar complementos:', e);
-      showMsg('danger', 'Falha ao salvar complementos.');
+      setModalMsg({
+        variant: 'danger',
+        text: 'Falha ao salvar complementos. Verifique os campos destacados.',
+      });
     }
   };
 
@@ -373,16 +393,16 @@ function ControleAcoes() {
 
   const splitRowArrays = (row) => {
     const acoes = (row.plano_acao_adicional || '')
-      .split(/[\n;,]+/)
+      .split(/[\n;]+/)
       .map((s) => s.trim())
       .filter(Boolean);
 
-    const comoList = (row.como || '').split(/[\n;,]+/).map((s) => s.trim());
-    const respList = (row.funcionario || '').split(/[\n;,]+/).map((s) => s.trim());
-    const prazoList = (row.prazo || '').split(/[\n;,]+/).map((s) => s.trim());
-    const statusList = (row.status || '').split(/[\n;,]+/).map((s) => s.trim());
+    const comoList = (row.como || '').split(/[\n;]+/).map((s) => s.trim());
+    const respList = (row.funcionario || '').split(/[\n;]+/).map((s) => s.trim());
+    const prazoList = (row.prazo || '').split(/[\n;]+/).map((s) => s.trim());
+    const statusList = (row.status || '').split(/[\n;]+/).map((s) => s.trim());
     const idsList = (row.planos_ids || '')
-      .split(/[\n;,]+/)
+      .split(/[\n;]+/)
       .map((s) => s.trim())
       .filter((v) => v !== '');
 
@@ -708,7 +728,7 @@ function ControleAcoes() {
           width: '100%',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           padding: '2rem 1rem',
           marginTop: '56px',
         }}
@@ -727,7 +747,7 @@ function ControleAcoes() {
           <PaginacaoRiscos />
         </div>
 
-        <div className="d-flex justify-content-between align-items-center mb-3">
+        <div className="d-flex justify-content-start align-items-center mb-3">
           <Form.Group className="d-flex align-items-center mb-0">
             <Form.Label className="me-2 mb-0">Itens por página</Form.Label>
             <Form.Select
@@ -816,6 +836,16 @@ function ControleAcoes() {
             overflowY: 'auto',
           }}
         >
+          {modalMsg && (
+            <Alert
+              variant={modalMsg.variant}
+              onClose={() => setModalMsg(null)}
+              dismissible
+              className="mb-3"
+            >
+              {modalMsg.text}
+            </Alert>
+          )}
           <div className="container-fluid">
             <div className="row g-3">
               <div className="col-12">

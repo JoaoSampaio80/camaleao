@@ -174,14 +174,25 @@ function AcaoMonitoramento() {
         await AxiosInstance.post('/acoes-monitoramento/', payload);
         setOkMsg('Ação de monitoramento criada com sucesso.');
       }
+
+      // rola até a mensagem de sucesso dentro do modal
+      setTimeout(() => {
+        const successAlert = document.querySelector('.modal.show .alert.alert-success');
+        if (successAlert && typeof successAlert.scrollIntoView === 'function') {
+          successAlert.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 50);
+
+      // fecha o modal apenas após 1,5s
       setTimeout(() => {
         setShowModal(false);
         resetForm();
         loadRows(page, pageSize);
-      }, 1200);
+      }, 1500);
     } catch (err) {
       setError(
-        err?.response?.data?.detail || 'Erro ao salvar ação. Verifique os campos.'
+        err?.response?.data?.detail ||
+          'Erro ao salvar ação. Verifique os campos destacados.'
       );
     } finally {
       setSaving(false);

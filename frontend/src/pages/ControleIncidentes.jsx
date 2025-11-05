@@ -125,7 +125,9 @@ function ControleIncidentes() {
 
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState(null);
+  const [error, setError] = useState('');
+  const [okMsg, setOkMsg] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [editingItem, setEditingItem] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedToDelete, setSelectedToDelete] = useState(null);
@@ -147,18 +149,41 @@ function ControleIncidentes() {
 
   const [form, setForm] = useState(emptyForm);
 
-  const showMsg = (variant, text, ms = 3500) => {
-    setNotice({ variant, text });
-    if (ms) setTimeout(() => setNotice(null), ms);
+  // ---------- helpers (reset + erros) ----------
+  const resetForm = () => {
+    setForm({ ...emptyForm });
+    setFieldErrors({});
+    setError('');
+    setOkMsg('');
+  };
+
+  const mapBackendErrors = (data) => {
+    const out = {};
+    const toText = (v) =>
+      Array.isArray(v) ? v.join(' ') : typeof v === 'string' ? v : String(v);
+
+    Object.entries(data || {}).forEach(([key, val]) => {
+      out[key] = toText(val);
+    });
+    return out;
+  };
+
+  const focusFirstError = (errs) => {
+    const firstKey = Object.keys(errs || {})[0];
+    if (!firstKey) return;
+    const el = document.querySelector(`[name="${firstKey}"]`);
+    if (el) {
+      el.focus();
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   };
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
-    // Garante que a data ISO não seja interpretada em UTC
     const parts = dateStr.split('-');
     if (parts.length !== 3) return dateStr;
     const [year, month, day] = parts.map(Number);
-    const d = new Date(year, month - 1, day); // cria data local (sem fuso)
+    const d = new Date(year, month - 1, day);
     const dia = String(d.getDate()).padStart(2, '0');
     const mes = String(d.getMonth() + 1).padStart(2, '0');
     const ano = d.getFullYear();
@@ -179,7 +204,7 @@ function ControleIncidentes() {
       setPage(targetPage);
       setPageSize(targetPageSize);
     } catch {
-      showMsg('danger', 'Falha ao carregar incidentes.');
+      setError('Falha ao carregar incidentes.');
     } finally {
       setLoading(false);
     }
@@ -192,27 +217,59 @@ function ControleIncidentes() {
     loadRows(page, pageSize);
   }, [page, pageSize]);
 
-  const handleSave = async (ev) => {
-    ev.preventDefault();
+  // ---------- salvar ----------
+  const handleSave = async (e) => {
+    e.preventDefault();
     if (saving) return;
     setSaving(true);
+    setError('');
+    setOkMsg('');
+    setFieldErrors({});
 
     try {
       const payload = { ...form, fonte_informada: form.fonte_informada === 'sim' };
+
       if (editingItem) {
         await AxiosInstance.put(`/incidentes/${editingItem.id}/`, payload);
-        showMsg('success', 'Incidente atualizado com sucesso!');
+        setOkMsg('Incidente atualizado com sucesso!');
       } else {
         await AxiosInstance.post('/incidentes/', payload);
-        showMsg('success', 'Incidente criado com sucesso!');
+        setOkMsg('Incidente criado com sucesso!');
       }
-      setShowModal(false);
-      setEditingItem(null);
-      setForm(emptyForm);
-      loadRows(page, pageSize);
-    } catch (e) {
-      console.error(e);
-      showMsg('danger', 'Erro ao salvar incidente. Verifique os campos.', 6000);
+
+      // rola até a mensagem de sucesso
+      setTimeout(() => {
+        const successAlert = document.querySelector('.modal.show .alert.alert-success');
+        if (successAlert && typeof successAlert.scrollIntoView === 'function') {
+          successAlert.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 50);
+
+      // fecha após 1.5s
+      setTimeout(() => {
+        setShowModal(false);
+        resetForm();
+        loadRows(page, pageSize);
+      }, 1500);
+    } catch (err) {
+      const data = err?.response?.data;
+
+      if (data && typeof data === 'object') {
+        const mapped = mapBackendErrors(data);
+        if (Object.keys(mapped).length) {
+          setFieldErrors(mapped);
+          setError('Verifique os campos destacados.');
+          focusFirstError(mapped);
+          setSaving(false);
+          return;
+        }
+      }
+
+      setError(
+        (typeof data === 'string' && data) ||
+          err?.response?.data?.detail ||
+          'Erro ao salvar incidente.'
+      );
     } finally {
       setSaving(false);
     }
@@ -234,6 +291,9 @@ function ControleIncidentes() {
       data_encerramento: item.data_encerramento || '',
       fonte_informada: item.fonte_informada ? 'sim' : 'nao',
     });
+    setError('');
+    setOkMsg('');
+    setFieldErrors({});
     setShowModal(true);
   };
 
@@ -246,10 +306,10 @@ function ControleIncidentes() {
     if (!selectedToDelete) return;
     try {
       await AxiosInstance.delete(`/incidentes/${selectedToDelete.id}/`);
-      showMsg('success', 'Excluído com sucesso.');
+      setOkMsg('Incidente excluído com sucesso.');
       loadRows(page, pageSize);
-    } catch (e) {
-      showMsg('danger', 'Erro ao excluir. Verifique a conexão.', 6000);
+    } catch {
+      setError('Erro ao excluir. Verifique a conexão.');
     } finally {
       setShowDeleteModal(false);
       setSelectedToDelete(null);
@@ -257,6 +317,7 @@ function ControleIncidentes() {
   };
 
   const gotoPage = (p) => setPage(Math.min(Math.max(1, p), totalPages));
+
   const renderPagination = () => {
     const items = [];
     const windowSize = 5;
@@ -353,7 +414,7 @@ function ControleIncidentes() {
           <Button
             variant="primary"
             onClick={() => {
-              setForm(emptyForm);
+              resetForm();
               setEditingItem(null);
               setShowModal(true);
             }}
@@ -436,7 +497,7 @@ function ControleIncidentes() {
       <Modal
         show={showModal}
         onHide={() => {
-          setForm(emptyForm);
+          resetForm();
           setShowModal(false);
         }}
         size="xl"
@@ -447,8 +508,8 @@ function ControleIncidentes() {
         <Form onSubmit={handleSave}>
           <div
             style={{
-              maxHeight: '80vh', // ocupa até 80% da altura da tela
-              overflowY: 'auto', // ✅ rola tudo (body + footer)
+              maxHeight: '80vh',
+              overflowY: 'auto',
               overflowX: 'hidden',
               display: 'flex',
               flexDirection: 'column',
@@ -461,37 +522,52 @@ function ControleIncidentes() {
             </Modal.Header>
             <Modal.Body>
               <Container fluid>
-                {notice && <Alert variant={notice.variant}>{notice.text}</Alert>}
+                {error && <Alert variant="danger">{error}</Alert>}
+                {okMsg && <Alert variant="success">{okMsg}</Alert>}
+
+                {/* Campos com validação */}
                 <Row className="mb-3">
                   <Col md={4}>
                     <Form.Label>Número do Registro</Form.Label>
                     <Form.Control
-                      type="text"
-                      value={form.numero_registro || ''}
+                      name="numero_registro"
+                      value={form.numero_registro}
                       onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, ''); // só números
+                        const value = e.target.value.replace(/\D/g, '');
                         setForm({ ...form, numero_registro: value });
                       }}
-                      required
-                      placeholder="Ex: 1001"
+                      isInvalid={!!fieldErrors.numero_registro}
                     />
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.numero_registro}
+                    </Form.Control.Feedback>
                   </Col>
                   <Col md={4}>
                     <Form.Label>Fonte</Form.Label>
                     <Form.Control
+                      name="fonte"
                       value={form.fonte}
                       onChange={(e) => setForm({ ...form, fonte: e.target.value })}
+                      isInvalid={!!fieldErrors.fonte}
                     />
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.fonte}
+                    </Form.Control.Feedback>
                   </Col>
                   <Col md={4}>
                     <Form.Label>Data Registro</Form.Label>
                     <Form.Control
                       type="date"
+                      name="data_registro"
                       value={form.data_registro}
                       onChange={(e) =>
                         setForm({ ...form, data_registro: e.target.value })
                       }
+                      isInvalid={!!fieldErrors.data_registro}
                     />
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.data_registro}
+                    </Form.Control.Feedback>
                   </Col>
                 </Row>
 
@@ -502,9 +578,14 @@ function ControleIncidentes() {
                   <Form.Control
                     as="textarea"
                     rows={2}
+                    name="descricao"
                     value={form.descricao}
                     onChange={(e) => setForm({ ...form, descricao: e.target.value })}
+                    isInvalid={!!fieldErrors.descricao}
                   />
+                  <Form.Control.Feedback type="invalid">
+                    {fieldErrors.descricao}
+                  </Form.Control.Feedback>
                 </Form.Group>
 
                 <Row className="mb-3">
@@ -514,11 +595,16 @@ function ControleIncidentes() {
                       <TooltipInfo message="Funcionário responsável pela análise e recomendação da ação" />
                     </Form.Label>
                     <Form.Control
+                      name="responsavel_analise"
                       value={form.responsavel_analise}
                       onChange={(e) =>
                         setForm({ ...form, responsavel_analise: e.target.value })
                       }
+                      isInvalid={!!fieldErrors.responsavel_analise}
                     />
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.responsavel_analise}
+                    </Form.Control.Feedback>
                   </Col>
                   <Col md={6}>
                     <Form.Label>
@@ -527,11 +613,16 @@ function ControleIncidentes() {
                     </Form.Label>
                     <Form.Control
                       type="date"
+                      name="data_final_analise"
                       value={form.data_final_analise}
                       onChange={(e) =>
                         setForm({ ...form, data_final_analise: e.target.value })
                       }
+                      isInvalid={!!fieldErrors.data_final_analise}
                     />
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.data_final_analise}
+                    </Form.Control.Feedback>
                   </Col>
                 </Row>
 
@@ -542,11 +633,16 @@ function ControleIncidentes() {
                       <TooltipInfo message="Ação corretiva recomendada" />
                     </Form.Label>
                     <Form.Control
+                      name="acao_recomendada"
                       value={form.acao_recomendada}
                       onChange={(e) =>
                         setForm({ ...form, acao_recomendada: e.target.value })
                       }
+                      isInvalid={!!fieldErrors.acao_recomendada}
                     />
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.acao_recomendada}
+                    </Form.Control.Feedback>
                   </Col>
                   <Col md={6}>
                     <Form.Label>
@@ -554,11 +650,16 @@ function ControleIncidentes() {
                       <TooltipInfo message="Recomendações reportadas para:" />
                     </Form.Label>
                     <Form.Control
+                      name="recomendacoes_reportadas"
                       value={form.recomendacoes_reportadas}
                       onChange={(e) =>
                         setForm({ ...form, recomendacoes_reportadas: e.target.value })
                       }
+                      isInvalid={!!fieldErrors.recomendacoes_reportadas}
                     />
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.recomendacoes_reportadas}
+                    </Form.Control.Feedback>
                   </Col>
                 </Row>
 
@@ -567,20 +668,30 @@ function ControleIncidentes() {
                     <Form.Label>Data Reporte</Form.Label>
                     <Form.Control
                       type="date"
+                      name="data_reporte"
                       value={form.data_reporte}
                       onChange={(e) => setForm({ ...form, data_reporte: e.target.value })}
+                      isInvalid={!!fieldErrors.data_reporte}
                     />
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.data_reporte}
+                    </Form.Control.Feedback>
                   </Col>
                   <Col md={4}>
                     <Form.Label>
                       Decisões <TooltipInfo message="Decisões de resolução efetivadas" />
                     </Form.Label>
                     <Form.Control
+                      name="decisoes_resolucao"
                       value={form.decisoes_resolucao}
                       onChange={(e) =>
                         setForm({ ...form, decisoes_resolucao: e.target.value })
                       }
+                      isInvalid={!!fieldErrors.decisoes_resolucao}
                     />
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.decisoes_resolucao}
+                    </Form.Control.Feedback>
                   </Col>
                   <Col md={4}>
                     <Form.Label>
@@ -589,11 +700,16 @@ function ControleIncidentes() {
                     </Form.Label>
                     <Form.Control
                       type="date"
+                      name="data_encerramento"
                       value={form.data_encerramento}
                       onChange={(e) =>
                         setForm({ ...form, data_encerramento: e.target.value })
                       }
+                      isInvalid={!!fieldErrors.data_encerramento}
                     />
+                    <Form.Control.Feedback type="invalid">
+                      {fieldErrors.data_encerramento}
+                    </Form.Control.Feedback>
                   </Col>
                 </Row>
 
@@ -603,33 +719,39 @@ function ControleIncidentes() {
                     <TooltipInfo message="A Fonte foi informada do resultado?" />
                   </Form.Label>
                   <Form.Select
+                    name="fonte_informada"
                     value={form.fonte_informada}
                     onChange={(e) =>
                       setForm({ ...form, fonte_informada: e.target.value })
                     }
+                    isInvalid={!!fieldErrors.fonte_informada}
                   >
                     <option value=""></option>
                     <option value="sim">Sim</option>
                     <option value="nao">Não</option>
                   </Form.Select>
+                  <Form.Control.Feedback type="invalid">
+                    {fieldErrors.fonte_informada}
+                  </Form.Control.Feedback>
                 </Form.Group>
               </Container>
             </Modal.Body>
+
+            <Modal.Footer>
+              <Button
+                variant="outline-secondary"
+                onClick={() => {
+                  resetForm();
+                  setShowModal(false);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button variant="primary" type="submit" disabled={saving}>
+                {saving ? 'Salvando...' : 'Salvar Incidente'}
+              </Button>
+            </Modal.Footer>
           </div>
-          <Modal.Footer>
-            <Button
-              variant="outline-secondary"
-              onClick={() => {
-                setForm(emptyForm);
-                setShowModal(false);
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button variant="primary" type="submit" disabled={saving}>
-              {saving ? 'Salvando...' : 'Salvar Incidente'}
-            </Button>
-          </Modal.Footer>
         </Form>
       </Modal>
 
