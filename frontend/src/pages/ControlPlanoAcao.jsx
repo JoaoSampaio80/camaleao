@@ -727,23 +727,21 @@ function ControleAcoes() {
           <PaginacaoRiscos />
         </div>
 
-        <div className="w-100 d-flex justify-content-end mb-2">
-          <div className="d-flex align-items-center gap-2">
-            <span className="me-2" style={{ color: '#071744', fontWeight: 600 }}>
-              Itens por página
-            </span>
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <Form.Group className="d-flex align-items-center mb-0">
+            <Form.Label className="me-2 mb-0">Itens por página</Form.Label>
             <Form.Select
-              value={pageSize}
-              onChange={handlePageSize}
-              style={{ width: 110 }}
               size="sm"
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              style={{ width: '80px' }}
             >
               <option value={5}>5</option>
               <option value={10}>10</option>
               <option value={20}>20</option>
               <option value={50}>50</option>
             </Form.Select>
-          </div>
+          </Form.Group>
         </div>
 
         <div className="list-shell" style={{ width: '100%', alignSelf: 'stretch' }}>
