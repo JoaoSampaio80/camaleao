@@ -1,6 +1,7 @@
 // src/components/ListaComplementos.jsx
 import React from 'react';
 import { Form } from 'react-bootstrap';
+import TooltipInfo from './TooltipInfo';
 
 function ListaComplementos({ complementos, setComplementos }) {
   const handleChange = (index, field, value) => {
@@ -25,19 +26,23 @@ function ListaComplementos({ complementos, setComplementos }) {
           </h6>
 
           <Form.Group className="mb-3">
-            <Form.Label className="text-white">Como</Form.Label>
+            <Form.Label className="text-white">
+              Como <TooltipInfo message="Descreva como executar a ação" />
+            </Form.Label>
             <Form.Control
               as="textarea"
               rows={2}
               value={c.como}
               onChange={(e) => handleChange(idx, 'como', e.target.value)}
-              placeholder="Descreva como executar a ação..."
             />
           </Form.Group>
 
           <div className="row">
             <div className="col-md-4 mb-3">
-              <Form.Label className="text-white">Responsável</Form.Label>
+              <Form.Label className="text-white">
+                Responsável{' '}
+                <TooltipInfo message="Funcionário responsável pela execução." />
+              </Form.Label>
               <Form.Control
                 value={c.responsavel}
                 onChange={(e) => handleChange(idx, 'responsavel', e.target.value)}
