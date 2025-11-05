@@ -110,7 +110,7 @@ export default function HeatmapDashboard() {
           <svg
             viewBox="0 0 800 450"
             width="100%"
-            height="auto"
+            lenght="auto"
             preserveAspectRatio="xMidYMid meet"
             style={{
               background: '#fff',
