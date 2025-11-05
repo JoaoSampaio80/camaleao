@@ -20,16 +20,18 @@
 /* ===== TABELA ===== */
 .table-wrap {
   width: 100%;
-  overflow-x: auto !important;
+  overflow-x: auto !important; /* ✅ mantém rolagem horizontal */
   overflow-y: hidden !important;
   margin-bottom: 1rem;
 }
 
+/* estrutura da tabela */
 .custom-table {
   border-color: #d9e1e8 !important;
   border-collapse: collapse !important;
-  min-width: 2200px;
-  table-layout: auto;
+  width: max-content !important; /* ✅ permite expansão natural */
+  min-width: 100% !important; /* mantém responsividade base */
+  table-layout: fixed !important; /* ✅ essencial para respeitar min-width */
 }
 
 /* Cabeçalho azul escuro e texto branco */
@@ -37,6 +39,7 @@
   background: linear-gradient(135deg, #002d5c, #004b80) !important;
 }
 
+/* cabeçalho */
 .custom-table thead.thead-gradient th {
   background: linear-gradient(135deg, #002d5c, #004b80) !important;
   color: #ffffff !important;
@@ -44,7 +47,8 @@
   text-align: left;
   padding: 0.75rem;
   border-color: #003a6b !important;
-  white-space: nowrap;
+  white-space: nowrap !important; /* ✅ impede quebra do cabeçalho */
+  word-break: normal !important; /* ✅ evita dividir palavras */
   position: sticky;
   top: 0;
   z-index: 3;
@@ -68,33 +72,40 @@
   transition: background-color 0.25s ease;
 }
 
-/* ===== CELULAS ===== */
+/* células padrão */
 .custom-table td,
 .custom-table th {
   border-color: #d0d7de !important;
   vertical-align: top;
-  white-space: nowrap;
-  word-break: keep-all;
+  white-space: normal !important;
+  word-break: break-word !important;
   overflow-wrap: break-word;
-  min-width: 180px;
   padding: 0.75rem 0.9rem;
   line-height: 1.4;
 }
 
-/* ===== CONTEÚDO DAS CÉLULAS (controle de altura) ===== */
+/* colunas textuais (Processo, Risco/Fator, Medidas de Controle, Plano de Ação) */
+.custom-table .col-wide {
+  min-width: 320px !important; /* largura mínima */
+  width: fit-content !important; /* ✅ cresce ilimitadamente */
+  max-width: none !important;
+  white-space: normal !important;
+  word-break: normal !important; /* ❌ evita quebra no meio das palavras */
+  overflow-wrap: anywhere;
+}
+
+/* conteúdo interno — texto completo em até 2 linhas visuais */
 .cell-clip {
   display: block;
   line-height: 1.4em;
-  max-height: calc(2 * 1.4em); /* Limita visualmente a 2 linhas reais */
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: normal;
   word-break: break-word;
-}
+  overflow: visible !important;
+  text-overflow: unset !important;
 
-/* As colunas mais textuais (risco, controle, plano) têm largura mínima maior */
-.custom-table .col-wide {
-  min-width: 320px;
+  /* ⚙️ controla o equilíbrio: cresce horizontalmente até caber em 2 linhas */
+  max-height: calc(2 * 1.4em);
+  min-width: max-content;
 }
 
 /* ==========================================================================
@@ -361,4 +372,12 @@
 /* seta (arrow) também azul */
 .custom-tooltip .tooltip-arrow::before {
   border-top-color: rgba(0, 51, 102, 0.95) !important;
+}
+
+.custom-table .cell-clip {
+  overflow: visible !important;
+  text-overflow: unset !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+  max-height: none !important;
 }

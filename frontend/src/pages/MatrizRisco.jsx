@@ -470,6 +470,7 @@ function MatrizRisco() {
               <option value={5}>5</option>
               <option value={10}>10</option>
               <option value={20}>20</option>
+              <option value={50}>50</option>
             </Form.Select>
           </Form.Group>
 
@@ -685,7 +686,9 @@ function MatrizRisco() {
                     </Form.Control.Feedback>
                   </Col>
                   <Col md={4}>
-                    <Form.Label>Processo</Form.Label>
+                    <Form.Label>
+                      Processo <TooltipInfo message="Proceso de negócio envolvido" />
+                    </Form.Label>
                     <Form.Control
                       name="processo"
                       value={form.processo}
@@ -784,7 +787,9 @@ function MatrizRisco() {
                 </Row>
 
                 <Form.Group className="mb-3">
-                  <Form.Label>Medidas de Controle</Form.Label>
+                  <Form.Label>
+                    Medidas de Controle <TooltipInfo message="Existe algum controle?" />
+                  </Form.Label>
                   <Form.Control
                     as="textarea"
                     rows={2}
@@ -800,7 +805,10 @@ function MatrizRisco() {
 
                 <Row className="mb-3">
                   <Col md={4}>
-                    <Form.Label>Tipo de Controle</Form.Label>
+                    <Form.Label>
+                      Tipo de Controle{' '}
+                      <TooltipInfo message="Preventivo [C] ou Detectivo [D]" />
+                    </Form.Label>
                     <div style={{ position: 'relative' }}>
                       {/* overlay clicável somente quando bloqueado */}
                       {!form.medidas_controle.trim() ? (
@@ -846,7 +854,10 @@ function MatrizRisco() {
                     </Form.Control.Feedback>
                   </Col>
                   <Col md={4}>
-                    <Form.Label>Eficácia</Form.Label>
+                    <Form.Label>
+                      Eficácia{' '}
+                      <TooltipInfo message="Avaliação de eficácia do controle." />
+                    </Form.Label>
                     <div style={{ position: 'relative' }}>
                       {!form.medidas_controle.trim() ? (
                         <OverlayTrigger
@@ -910,7 +921,10 @@ function MatrizRisco() {
                 </Row>
 
                 <Form.Group className="mb-3">
-                  <Form.Label>Resposta ao Risco (Plano de Ação)</Form.Label>
+                  <Form.Label>
+                    Resposta ao Risco (Plano de Ação){' '}
+                    <TooltipInfo message="Descrever o plano de ação com medidas de controle e mitigadoras do risco residual." />
+                  </Form.Label>
                   <ListaPlanoAcao
                     value={form.planos || []}
                     onChange={(lista) =>
