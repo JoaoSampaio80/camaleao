@@ -154,3 +154,12 @@
     min-width: 180px;
   }
 }
+
+.risk-table .risk-cell,
+.custom-table-ranking .cell-clip {
+  max-height: none !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+}

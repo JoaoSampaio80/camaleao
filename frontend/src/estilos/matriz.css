@@ -266,30 +266,6 @@
   overflow: hidden;
 }
 
-/* ===== AJUSTE FINAL DE EXIBIÇÃO — RANKING DE RISCO ===== */
-.custom-table-ranking {
-  table-layout: auto !important; /* permite o navegador ajustar colunas dinamicamente */
-  min-width: 1400px !important; /* base proporcional ao número de colunas */
-}
-
-.custom-table-ranking th,
-.custom-table-ranking td {
-  vertical-align: middle !important;
-  white-space: normal !important;
-  word-break: break-word !important;
-}
-
-/* Limita visualmente o texto a 2 linhas reais */
-.custom-table-ranking .cell-clip {
-  display: block;
-  line-height: 1.4em;
-  max-height: calc(2 * 1.4em); /* 2 linhas */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: normal;
-  word-break: break-word;
-}
-
 /* ========================================================================== */
 /* ABA DE NAVEGAÇÃO (RISK-TABS) — PADRONIZADA ENTRE MATRIZ, RANKING E HEATMAP */
 /* ========================================================================== */
