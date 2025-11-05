@@ -57,6 +57,21 @@ class DashboardViewSet(viewsets.ViewSet):
             "alertas": 0,
         }
 
+        # ===== Documentos a vencer (para tabela) =====
+        documentos_vencendo_qs = (
+            DocumentosLGPD.objects.filter(proxima_revisao__range=(hoje, daqui_30))
+            .order_by("proxima_revisao")
+            .values("id", "evidencia", "criticidade", "proxima_revisao")
+        )
+        documentosVencimentos = [
+            {
+                "evidencia": d["evidencia"],
+                "criticidade": d["criticidade"],
+                "proxima_revisao": d["proxima_revisao"],
+            }
+            for d in documentos_vencendo_qs
+        ]
+
         # ===== Distribuição de Riscos =====
         baixo = medio = alto = critico = 0
         for r in Risk.objects.all():
@@ -214,7 +229,7 @@ class DashboardViewSet(viewsets.ViewSet):
             "topRiscos": topRiscos,
             "acoesStatus": acoesStatus,
             "acoesTimeline": acoesTimeline,
-            "documentosVencimentos": [],
+            "documentosVencimentos": documentosVencimentos,
             "incidentesTimeline": [],
             "loginsRecentes": [],
             "rankingUsuarios": [],
