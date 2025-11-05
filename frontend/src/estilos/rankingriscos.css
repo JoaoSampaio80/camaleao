@@ -1,0 +1,156 @@
+/* ==========================================================================
+   RANKING DE RISCOS — Estilo exclusivo (Camaleão 2025)
+   --------------------------------------------------------------------------
+   - Mantém o padrão visual azul/branco do sistema
+   - Tabela 100% responsiva (sem rolagem horizontal)
+   - Colunas se ajustam proporcionalmente ao conteúdo
+   - Linhas alternadas azul/branca, hover com destaque
+   - Coluna "Plano de Ação" exibe múltiplas ações em lista
+   ========================================================================== */
+
+/* ===== CONTAINER GERAL ===== */
+.risk-table-wrap {
+  width: 100%;
+  overflow-x: hidden; /* 🚫 sem rolagem horizontal */
+  overflow-y: auto;
+  margin-bottom: 1rem;
+}
+
+/* ===== TABELA PRINCIPAL ===== */
+.risk-table {
+  width: 100%;
+  border-collapse: collapse !important;
+  border-color: #d9e1e8 !important;
+  table-layout: auto;
+  background-color: #ffffff;
+}
+
+/* ===== CABEÇALHO PADRÃO CAMALEÃO ===== */
+.risk-table thead.risk-thead-gradient tr {
+  background: linear-gradient(135deg, #002d5c, #004b80) !important;
+}
+
+.risk-table thead.risk-thead-gradient th {
+  background: linear-gradient(135deg, #002d5c, #004b80) !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  text-align: left;
+  padding: 0.75rem;
+  border-color: #003a6b !important;
+  white-space: nowrap; /* evita quebra de título */
+  word-break: normal;
+  vertical-align: middle;
+  font-size: 0.95rem;
+}
+
+/* ===== LINHAS ALTERNADAS ===== */
+.risk-row-blue td {
+  background: #004b80 !important;
+  color: #ffffff !important;
+}
+
+.risk-row-white td {
+  background: #ffffff !important;
+  color: #212529 !important;
+}
+
+/* ===== HOVER ===== */
+.risk-table tbody tr:hover td {
+  background-color: #003a6b !important;
+  color: #ffffff !important;
+  transition: background-color 0.25s ease;
+}
+
+/* ===== CÉLULAS ===== */
+/* ===== CÉLULAS PADRÃO ===== */
+.risk-table td,
+.risk-table th {
+  border-color: #d0d7de !important;
+  vertical-align: top;
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word;
+  padding: 0.75rem 0.9rem;
+  line-height: 1.4;
+}
+
+/* ===== COLUNAS ===== */
+.risk-table .col-narrow {
+  width: 6%;
+  min-width: 60px;
+  text-align: center;
+}
+
+.risk-table .col-medium {
+  width: 14%;
+  min-width: 120px;
+  text-align: center;
+}
+
+.risk-table .col-wide {
+  min-width: 260px;
+  width: auto;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* ===== CONTEÚDO DAS CÉLULAS ===== */
+.risk-cell {
+  display: block;
+  line-height: 1.4em;
+  white-space: normal;
+  word-break: break-word;
+  overflow: visible !important;
+  text-overflow: unset !important;
+
+  /* ⚙️ controla o equilíbrio: cresce horizontalmente até caber em 2 linhas */
+  max-height: calc(2 * 1.4em);
+  min-width: max-content; /* garante expansão horizontal conforme conteúdo */
+}
+
+/* ===== LISTA DE AÇÕES (PLANO DE AÇÃO) ===== */
+.risk-action-list {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.risk-action-list li {
+  list-style-type: disc;
+  line-height: 1.4;
+  white-space: normal;
+  word-break: break-word;
+  color: inherit;
+  font-size: 0.95rem;
+}
+
+/* ===== PAGINAÇÃO (HERDADA DO PADRÃO CAMALEÃO) ===== */
+.pagination {
+  margin-top: 1rem;
+  justify-content: flex-start !important;
+}
+
+/* ===== RESPONSIVIDADE ===== */
+@media (max-width: 992px) {
+  .risk-table th,
+  .risk-table td {
+    font-size: 0.9rem;
+    padding: 0.6rem;
+  }
+
+  .risk-table .col-wide {
+    min-width: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  .risk-table th,
+  .risk-table td {
+    font-size: 0.85rem;
+    padding: 0.5rem;
+  }
+
+  .risk-table .col-wide {
+    min-width: 180px;
+  }
+}

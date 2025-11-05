@@ -4,7 +4,7 @@ import { Table, Form, Pagination, Alert } from 'react-bootstrap';
 import Sidebar from '../components/Sidebar';
 import Axios from '../components/Axios';
 import PaginacaoRiscos from '../components/PaginacaoRiscos';
-import '../estilos/matriz.css';
+import '../estilos/rankingriscos.css';
 
 function RankingRisco() {
   const [rows, setRows] = useState([]);
@@ -127,118 +127,121 @@ function RankingRisco() {
         </div>
 
         {/* barra topo (apenas itens por página) */}
-        <div className="d-flex w-100 align-items-center justify-content-end mb-3 flex-wrap gap-2">
-          <div className="d-flex align-items-center gap-2">
-            <Form.Label className="mb-0">Itens por página</Form.Label>
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <Form.Group className="d-flex align-items-center mb-0">
+            <Form.Label className="me-2 mb-0">Itens por página</Form.Label>
             <Form.Select
               size="sm"
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
-              style={{ width: 110 }}
+              style={{ width: '80px' }}
             >
               <option value={5}>5</option>
               <option value={10}>10</option>
               <option value={20}>20</option>
               <option value={50}>50</option>
             </Form.Select>
-          </div>
+          </Form.Group>
         </div>
 
         {/* tabela */}
-        <div className="list-shell" style={{ width: '100%', alignSelf: 'stretch' }}>
-          <div className="table-wrap">
-            <Table bordered hover className="custom-table custom-table-ranking">
-              <thead className="thead-gradient">
+        {/* <div className="list-shell" style={{ width: '100%', alignSelf: 'stretch' }}> */}
+        <div className="risk-table-wrap">
+          <Table bordered hover className="risk-table">
+            <thead className="risk-thead-gradient">
+              <tr>
+                <th className="risk-col-narrow">Item</th>
+                <th className="risk-col-wide">Risco e Fator de Risco</th>
+                <th className="risk-col-medium">Probabilidade [1–5]</th>
+                <th className="risk-col-medium">Impacto [1–5]</th>
+                <th className="risk-col-medium">Pontuação do Risco</th>
+                <th className="risk-col-wide">Plano de Ação</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {loading && (
                 <tr>
-                  <th>Item</th>
-                  <th className="col-wide">Risco e Fator de Risco</th>
-                  <th>Probabilidade [1–5]</th>
-                  <th>Impacto [1–5]</th>
-                  <th>Pontuação do Risco</th>
-                  <th className="col-wide">Plano de Ação</th>
+                  <td colSpan={TOTAL_COLS} className="text-center">
+                    Carregando…
+                  </td>
                 </tr>
-              </thead>
+              )}
 
-              <tbody>
-                {loading && (
-                  <tr className="row-white">
-                    <td colSpan={TOTAL_COLS} className="text-center text-muted">
-                      Carregando…
-                    </td>
-                  </tr>
-                )}
+              {!loading && rows.length === 0 && (
+                <tr className="risk-row-white">
+                  <td colSpan={TOTAL_COLS} className="text-center">
+                    Nenhum risco cadastrado.
+                  </td>
+                </tr>
+              )}
 
-                {!loading && rows.length === 0 && (
-                  <tr className="row-white">
-                    <td colSpan={TOTAL_COLS} className="text-center text-muted">
-                      Nenhum risco cadastrado.
-                    </td>
-                  </tr>
-                )}
+              {!loading &&
+                rows.map((r, idx) => {
+                  const prob = r.probabilidade?.value ?? null;
+                  const imp = r.impacto?.value ?? null;
+                  const score = Number(r.pontuacao);
 
-                {!loading &&
-                  rows.map((r, idx) => {
-                    const prob = r.probabilidade?.value ?? null;
-                    const imp = r.impacto?.value ?? null;
-                    const score = Number(r.pontuacao);
-
-                    return (
-                      <tr key={r.id} className={zebra(idx)}>
-                        <td className="col-wide" title={r.risco_fator}>
-                          <div className="cell-clip">{itemNumber(idx)}</div>
-                        </td>
-                        <td title={r.risco_fator}>
-                          <div className="cell-clip">{r.risco_fator || '-'}</div>
-                        </td>
-                        <td className="text-center">
-                          <div className="cell-clip">{prob ?? '-'}</div>
-                        </td>
-                        <td className="text-center">
-                          <div className="cell-clip">{imp ?? '-'}</div>
-                        </td>
-                        <td className="text-center" style={{ fontWeight: 600 }}>
-                          <div className="cell-clip">{score ?? '-'}</div>
-                        </td>
-                        <td className="col-wide">
-                          {r.resposta_risco ? (
-                            <ul style={{ margin: 0, paddingLeft: '1rem' }}>
-                              {r.resposta_risco
-                                .split(/[\n;,]+/) // divide por quebra de linha, ponto e vírgula ou vírgula
-                                .filter((acao) => acao.trim() !== '')
-                                .map((acao, i) => (
-                                  <li
-                                    key={i}
-                                    style={{
-                                      whiteSpace: 'normal',
-                                      lineHeight: '1.4',
-                                      listStyleType: 'disc',
-                                      color: 'inherit',
-                                      fontSize: '0.95rem',
-                                    }}
-                                  >
-                                    {acao.trim()}
-                                  </li>
-                                ))}
-                            </ul>
-                          ) : (
-                            <div className="cell-clip">-</div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-              </tbody>
-            </Table>
-          </div>
-
-          {/* rodapé */}
-          <div className="list-footer">
-            <div className="text-muted">
-              <strong>Total:</strong> {count} • Página {page} de {totalPages}
-            </div>
-            {renderPagination()}
-          </div>
+                  return (
+                    <tr key={r.id} className={zebra(idx).replace('row', 'risk-row')}>
+                      <td className="risk-col-narrow" title={r.risco_fator}>
+                        <div className="risk-cell">{itemNumber(idx)}</div>
+                      </td>
+                      <td className="risk-col-wide" title={r.risco_fator}>
+                        <div className="risk-cell">{r.risco_fator || '-'}</div>
+                      </td>
+                      <td className="text-center risk-col-medium">
+                        <div className="risk-cell">{prob ?? '-'}</div>
+                      </td>
+                      <td className="text-center risk-col-medium">
+                        <div className="risk-cell">{imp ?? '-'}</div>
+                      </td>
+                      <td
+                        className="text-center risk-col-medium"
+                        style={{ fontWeight: 600 }}
+                      >
+                        <div className="risk-cell">{score ?? '-'}</div>
+                      </td>
+                      <td className="risk-col-wide">
+                        {r.resposta_risco ? (
+                          <ul style={{ margin: 0, paddingLeft: '1rem' }}>
+                            {r.resposta_risco
+                              .split(/[\n;,]+/) // divide por quebra de linha, ponto e vírgula ou vírgula
+                              .filter((acao) => acao.trim() !== '')
+                              .map((acao, i) => (
+                                <li
+                                  key={i}
+                                  style={{
+                                    whiteSpace: 'normal',
+                                    lineHeight: '1.4',
+                                    listStyleType: 'disc',
+                                    color: 'inherit',
+                                    fontSize: '0.95rem',
+                                  }}
+                                >
+                                  {acao.trim()}
+                                </li>
+                              ))}
+                          </ul>
+                        ) : (
+                          <div className="risk-cell">-</div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </Table>
         </div>
+
+        {/* rodapé */}
+        <div className="list-footer">
+          <div className="text-muted">
+            <strong>Total:</strong> {count} • Página {page} de {totalPages}
+          </div>
+          {renderPagination()}
+        </div>
+        {/* </div> */}
       </div>
     </div>
   );
