@@ -1836,9 +1836,8 @@ class CalendarEventViewSet(viewsets.ModelViewSet):
 class EnsureOverdueUpdatedView(APIView):
     permission_classes = [IsAdminOrDPO]  # ou [] se desejar público
 
-
-def post(self, request, *args, **kwargs):
-    updated = update_overdue_actions_if_needed(force=False)
-    return Response(
-        {"updated": updated, "detail": "Overdue check executed (if needed)."}
-    )
+    def post(self, request, *args, **kwargs):
+        updated = update_overdue_actions_if_needed(force=False)
+        return Response(
+            {"updated": updated, "detail": "Overdue check executed (if needed)."}
+        )
