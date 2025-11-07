@@ -46,7 +46,7 @@ class DashboardViewSet(viewsets.ViewSet):
         # ===== KPIs =====
         kpis = {
             "conformidade": 75,
-            "riscosAtivos": Risk.objects.count(),
+            "riscosMapeados": Risk.objects.count(),
             "acoesAtrasadas": ActionPlan.objects.filter(
                 status__in=["nao_iniciado", "andamento"],
                 prazo__lt=hoje,
@@ -221,6 +221,23 @@ class DashboardViewSet(viewsets.ViewSet):
             )
         ]
 
+        # ===== Incidentes ao longo do tempo =====
+        inc_timeline = defaultdict(lambda: {"qtd": 0})
+
+        # Usa a data de registro como referência temporal
+        for inc in Incident.objects.exclude(data_registro=None):
+            mes_label = inc.data_registro.strftime("%b/%y")  # Ex: "Nov/25"
+            inc_timeline[mes_label]["qtd"] += 1
+
+        # Ordena cronologicamente
+        incidentesTimeline = [
+            {"mes": k, "qtd": v["qtd"]}
+            for k, v in sorted(
+                inc_timeline.items(),
+                key=lambda x: datetime.strptime(x[0], "%b/%y"),
+            )
+        ]
+
         # ===== Monta resposta =====
         data = {
             "kpis": kpis,
@@ -230,7 +247,7 @@ class DashboardViewSet(viewsets.ViewSet):
             "acoesStatus": acoesStatus,
             "acoesTimeline": acoesTimeline,
             "documentosVencimentos": documentosVencimentos,
-            "incidentesTimeline": [],
+            "incidentesTimeline": incidentesTimeline,
             "loginsRecentes": [],
             "rankingUsuarios": [],
         }

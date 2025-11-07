@@ -54,8 +54,16 @@ export default function GraficoStatusPlanoAcao({ data = [] }) {
 
   return (
     <Card className="shadow-sm" style={{ borderRadius: 16 }}>
-      <Card.Body>
+      <Card.Body
+        style={{
+          borderRadius: 16,
+          background: 'linear-gradient(135deg, #e3f2fd, #52DEE5)', // tom azulado moderno
+          boxShadow: 'inset 0 1px 3px rgba(255,255,255,0.3), 0 4px 10px rgba(0,0,0,0.1)',
+          padding: '1.5rem',
+        }}
+      >
         <SectionHeader title="Status dos Planos de Ação" />
+
         <div style={{ width: '100%', height: 260 }}>
           <ResponsiveContainer>
             <PieChart>
@@ -63,23 +71,38 @@ export default function GraficoStatusPlanoAcao({ data = [] }) {
                 data={dataFormatada}
                 dataKey="value"
                 nameKey="name"
-                outerRadius={75}
+                outerRadius={80}
+                innerRadius={40} // 👈 cria o efeito "donut"
                 label={({ value }) => value}
                 labelLine={false}
               >
                 {dataFormatada.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} stroke="#fff" strokeWidth={1} />
+                  <Cell
+                    key={i}
+                    fill={entry.color}
+                    stroke="#fff"
+                    strokeWidth={2}
+                    style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.2))' }} // sombra nas fatias
+                  />
                 ))}
               </Pie>
+
               <Tooltip
                 formatter={(value, name) => [`${value}`, name]}
-                contentStyle={{ fontSize: '0.9rem' }}
+                contentStyle={{
+                  fontSize: '0.9rem',
+                  borderRadius: 10,
+                  background: '#ffffffee',
+                  border: '1px solid #90caf9',
+                }}
               />
+
               <Legend
                 verticalAlign="bottom"
                 height={36}
+                iconType="circle"
                 formatter={(value) => (
-                  <span style={{ fontSize: '0.9rem', color: COLORS.darkTitle }}>
+                  <span style={{ fontSize: '0.9rem', color: '#071744', fontWeight: 500 }}>
                     {value}
                   </span>
                 )}

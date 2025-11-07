@@ -14,7 +14,7 @@ import {
 
 const COLORS = {
   primaryA: '#003366',
-  info: '#0288d1',
+  info: '#7E1F86',
   ok: '#2e7d32',
   danger: '#c62828',
   darkTitle: '#071744',
@@ -53,20 +53,26 @@ export default function GraficoExecucaoPlanejado({ data = [] }) {
   }));
 
   return (
-    <Card className="shadow-sm" style={{ borderRadius: 16 }}>
+    <Card
+      className="shadow-sm"
+      style={{
+        borderRadius: 16,
+        background: 'linear-gradient(135deg, #E3F2FD, #1789FC)',
+      }}
+    >
       <Card.Body>
         <h5 style={{ color: COLORS.darkTitle, fontWeight: 700 }}>
           Execução (Planejado × Concluído)
         </h5>
 
-        <div style={{ width: '100%', height: 260 }}>
+        <div style={{ width: '100%', height: 275 }}>
           {safeData.length === 0 ? (
             <div
               style={{
                 textAlign: 'center',
                 color: '#777',
                 fontStyle: 'italic',
-                paddingTop: 80,
+                paddingTop: 100,
               }}
             >
               Nenhum dado disponível para exibição.

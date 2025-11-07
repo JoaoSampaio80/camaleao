@@ -2,10 +2,10 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card } from 'react-bootstrap';
 
 const COLORS = {
-  Baixo: '#00B050',
-  Médio: '#FFC000',
-  Alto: '#ED7D31',
-  Crítico: '#C00000',
+  Baixo: '#2ECC71',
+  Médio: '#F1C40f',
+  Alto: '#E67E22',
+  Crítico: '#E74C3C',
 };
 
 export default function GraficoDistribuicaoRiscos({ data }) {
@@ -46,7 +46,7 @@ export default function GraficoDistribuicaoRiscos({ data }) {
       style={{
         borderRadius: '1rem',
         border: '1px solid #d1dce6',
-        background: '#f7faff',
+        background: 'linear-gradient(135deg, #E3F2FD, #52DEE5)', // azul suave
         padding: '1.5rem 2rem',
         height: '100%',
       }}
@@ -66,7 +66,7 @@ export default function GraficoDistribuicaoRiscos({ data }) {
           <PieChart>
             <Pie
               data={dataWithPercent}
-              cx="58%" // 🔹 desloca pra direita, evita corte de "Médio"
+              cx="50%" // 🔹 desloca pra direita, evita corte de "Médio"
               cy="50%"
               innerRadius="50%"
               outerRadius="90%" // 🔹 ocupa o card de forma mais completa
@@ -79,7 +79,7 @@ export default function GraficoDistribuicaoRiscos({ data }) {
                 <Cell
                   key={entry.name}
                   fill={COLORS[entry.name]}
-                  stroke="#f7faff"
+                  stroke="#F7FAFF"
                   strokeWidth={2}
                 />
               ))}
@@ -87,7 +87,7 @@ export default function GraficoDistribuicaoRiscos({ data }) {
 
             {/* Total centralizado */}
             <text
-              x="58%"
+              x="50%"
               y="50%"
               textAnchor="middle"
               dominantBaseline="middle"
@@ -106,8 +106,8 @@ export default function GraficoDistribuicaoRiscos({ data }) {
                 name,
               ]}
               contentStyle={{
-                background: '#fff',
-                border: '1px solid #dce4ec',
+                background: '#FFF',
+                border: '1px solid #DCE4EC',
                 borderRadius: '0.6rem',
                 fontSize: '0.8rem',
                 color: '#071744',

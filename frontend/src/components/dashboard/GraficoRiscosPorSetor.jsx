@@ -13,7 +13,7 @@ import {
 
 const COLORS = {
   primaryA: '#003366',
-  primaryB: '#005b96',
+  primaryB: '#1789FC',
   darkTitle: '#071744',
 };
 
@@ -69,8 +69,21 @@ export default function GraficoRiscosPorSetor({ data = [] }) {
   // const domainMax = maxValor > 20 ? 20 : 'auto';
 
   return (
-    <Card className="shadow-sm" style={{ borderRadius: 16 }}>
-      <Card.Body>
+    <Card
+      className="shadow-sm"
+      style={{
+        border: 'none',
+        borderRadius: 20,
+        background: 'linear-gradient(135deg, #E8F5E9, #52DEE5)', // 💚 verde suave degradê
+        boxShadow: '0 4px 14px rgba(0, 0, 0, 0.08)',
+      }}
+    >
+      <Card.Body
+        style={{
+          borderRadius: 20,
+          padding: '1.2rem 1.5rem',
+        }}
+      >
         <SectionHeader title="Riscos por Setor" />
         <div style={{ width: '100%', height: 300 }}>
           <ResponsiveContainer>

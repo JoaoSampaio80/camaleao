@@ -89,7 +89,7 @@ export default function HeatmapDashboard() {
         background: '#fff',
         borderRadius: '12px',
         boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-        padding: '1rem',
+        padding: '0.5rem',
         minHeight: '400px',
         position: 'relative',
       }}
@@ -113,16 +113,16 @@ export default function HeatmapDashboard() {
             lenght="auto"
             preserveAspectRatio="xMidYMid meet"
             style={{
-              background: '#fff',
+              background: 'linear-gradient(135deg, #E3F2FD, #1789FC)', // cinza-azulado
               borderRadius: '12px',
             }}
           >
             <defs>
               <linearGradient id="riskGradient" x1="0%" y1="100%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#2ecc71" />
-                <stop offset="35%" stopColor="#f1c40f" />
-                <stop offset="65%" stopColor="#e67e22" />
-                <stop offset="100%" stopColor="#e74c3c" />
+                <stop offset="0%" stopColor="#2ECC71" />
+                <stop offset="35%" stopColor="#F1C40F" />
+                <stop offset="65%" stopColor="#E67E22" />
+                <stop offset="100%" stopColor="#E74C3C" />
               </linearGradient>
             </defs>
 
@@ -482,7 +482,7 @@ export default function HeatmapDashboard() {
               fontSize: '0.8rem',
               fontWeight: 600,
               color: '#071744',
-              background: 'rgba(255,255,255,0.85)',
+              background: '#1789FC70',
               padding: '0.7rem 0.9rem',
               borderRadius: '8px',
               boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
