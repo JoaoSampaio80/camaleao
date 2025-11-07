@@ -65,6 +65,7 @@ from .models import (
     LikelihoodItem,
     ImpactItem,
     CalendarEvent,
+    LoginActivity,
 )
 from .permissions import (
     IsRoleAdmin,
@@ -165,6 +166,24 @@ class CookieTokenObtainPairView(TokenObtainPairView):
     @method_decorator(never_cache)
     def post(self, request, *args, **kwargs):
         res = super().post(request, *args, **kwargs)
+
+        try:
+            email = request.data.get("email")
+            user = User.objects.filter(email=email).first()
+
+            if user:
+                ip = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[
+                    0
+                ] or request.META.get("REMOTE_ADDR")
+                LoginActivity.objects.create(
+                    usuario=user,
+                    setor=getattr(user, "setor", "Não informado"),
+                    ip_address=ip,
+                    data_login=timezone.now(),
+                )
+        except Exception as e:
+            print(f"⚠️ Erro ao registrar login: {e}")
+
         refresh = res.data.get("refresh")
         if refresh:
             _set_refresh_cookie(res, refresh, request)

@@ -67,7 +67,7 @@ export default function Documentos_A_Vencer({ data = [] }) {
 
                     // mesmas cores da outra tabela
                     const bg = isHovered
-                      ? 'rgba(33, 105, 202, 0.95)' // hover (um azul mais forte)
+                      ? 'rgba(33, 15, 203, 0.95)' // hover (um azul mais forte)
                       : i % 2 === 0
                         ? 'rgba(23, 175, 231, 0.95)' // linha clara
                         : 'rgba(29, 83, 175, 0.95)'; // linha mais azul

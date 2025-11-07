@@ -15,6 +15,7 @@ from .models import (
     Incident,
     LikelihoodItem,
     ImpactItem,
+    LoginActivity,
 )
 
 SPLIT_RE = re.compile(r"[\n;,•\u2022]+")
@@ -238,6 +239,19 @@ class DashboardViewSet(viewsets.ViewSet):
             )
         ]
 
+        # ===== Últimos Acessos =====
+        logins_qs = LoginActivity.objects.select_related("usuario").order_by(
+            "-data_login"
+        )
+        loginsRecentes = [
+            {
+                "usuario": l.usuario.get_full_name() or l.usuario.email,
+                "setor": l.setor or "-",
+                "quando": timezone.localtime(l.data_login).strftime("%d/%m/%Y %H:%M"),
+            }
+            for l in logins_qs
+        ]
+
         # ===== Monta resposta =====
         data = {
             "kpis": kpis,
@@ -248,7 +262,7 @@ class DashboardViewSet(viewsets.ViewSet):
             "acoesTimeline": acoesTimeline,
             "documentosVencimentos": documentosVencimentos,
             "incidentesTimeline": incidentesTimeline,
-            "loginsRecentes": [],
+            "loginsRecentes": loginsRecentes,
             "rankingUsuarios": [],
         }
 

@@ -2,7 +2,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card } from 'react-bootstrap';
 
 const COLORS = {
-  Baixo: '#2ECC71',
+  Baixo: '#209952ff',
   Médio: '#F1C40f',
   Alto: '#E67E22',
   Crítico: '#E74C3C',

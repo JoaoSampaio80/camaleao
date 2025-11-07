@@ -604,3 +604,31 @@ class CalendarEvent(models.Model):
 
     def __str__(self):
         return f"{self.date} {self.time} — {self.text}"
+
+
+class LoginActivity(models.Model):
+    """
+    Registra cada acesso de usuário ao sistema.
+    Criado automaticamente pelo middleware JWT.
+    """
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="logins",
+        verbose_name="Usuário",
+    )
+    setor = models.CharField(max_length=100, blank=True, null=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    data_login = models.DateTimeField(
+        default=timezone.now, verbose_name="Data de Login"
+    )
+
+    class Meta:
+        ordering = ["-data_login"]
+        verbose_name = "Atividade de Login"
+        verbose_name_plural = "Atividades de Login"
+
+    def __str__(self):
+        data_fmt = timezone.localtime(self.data_login).strftime("%d/%m/%Y %H:%M")
+        return f"{self.usuario.email} — {data_fmt}"
