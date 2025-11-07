@@ -17,7 +17,7 @@ export default function TabelaUltimosAcessos({ data = [] }) {
 
   const rows = (Array.isArray(data) ? data : []).map((r) => ({
     usuario: r.usuario ?? '-',
-    setor: r.setor ?? '-',
+    funcao: r.funcao ?? '-',
     quandoTxt: r.quando ?? (r.quandoISO ? dayjs(r.quandoISO).fromNow() : '-'),
   }));
 
@@ -46,7 +46,7 @@ export default function TabelaUltimosAcessos({ data = [] }) {
         >
           <thead>
             <tr>
-              {['Usuário', 'Setor', 'Quando'].map((h, i) => (
+              {['Usuário', 'Função', 'Quando'].map((h, i) => (
                 <th
                   key={i}
                   style={{
@@ -104,7 +104,7 @@ export default function TabelaUltimosAcessos({ data = [] }) {
                     }}
                   >
                     <td style={cellBase}>{r.usuario}</td>
-                    <td style={cellBase}>{r.setor}</td>
+                    <td style={cellBase}>{r.funcao}</td>
                     <td style={cellBase}>{r.quandoTxt}</td>
                   </tr>
                 );

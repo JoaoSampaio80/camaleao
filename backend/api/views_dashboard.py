@@ -246,10 +246,27 @@ class DashboardViewSet(viewsets.ViewSet):
         loginsRecentes = [
             {
                 "usuario": l.usuario.get_full_name() or l.usuario.email,
-                "setor": l.setor or "-",
+                "funcao": getattr(l.usuario, "role", "-"),
                 "quando": timezone.localtime(l.data_login).strftime("%d/%m/%Y %H:%M"),
             }
             for l in logins_qs
+        ]
+
+        # ===== Ranking de Usuários Mais Ativos =====
+        ranking_limit = int(request.query_params.get("limit", 10))  # 🔹 padrão: 10
+
+        rankingUsuarios_qs = (
+            LoginActivity.objects.values("usuario__first_name", "usuario__email")
+            .annotate(total=Count("id"))
+            .order_by("-total")[:ranking_limit]
+        )
+
+        rankingUsuarios = [
+            {
+                "nome": r["usuario__first_name"] or r["usuario__email"],
+                "acessos": r["total"],
+            }
+            for r in rankingUsuarios_qs
         ]
 
         # ===== Monta resposta =====
@@ -263,7 +280,7 @@ class DashboardViewSet(viewsets.ViewSet):
             "documentosVencimentos": documentosVencimentos,
             "incidentesTimeline": incidentesTimeline,
             "loginsRecentes": loginsRecentes,
-            "rankingUsuarios": [],
+            "rankingUsuarios": rankingUsuarios,
         }
 
         return Response(data)

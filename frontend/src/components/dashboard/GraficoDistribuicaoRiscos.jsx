@@ -2,10 +2,10 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card } from 'react-bootstrap';
 
 const COLORS = {
-  Baixo: '#209952ff',
-  Médio: '#F1C40f',
-  Alto: '#E67E22',
-  Crítico: '#E74C3C',
+  Baixo: '#c9ff00',
+  Médio: '#fdc500',
+  Alto: '#ff6b35',
+  Crítico: '#c1121f',
 };
 
 export default function GraficoDistribuicaoRiscos({ data }) {
@@ -32,7 +32,7 @@ export default function GraficoDistribuicaoRiscos({ data }) {
         fill={COLORS[name]}
         textAnchor={x > cx ? 'start' : 'end'}
         dominantBaseline="central"
-        fontSize={13}
+        fontSize={20}
         fontWeight={600}
       >
         {`${name}: ${value} (${percent}%)`}
@@ -46,14 +46,14 @@ export default function GraficoDistribuicaoRiscos({ data }) {
       style={{
         borderRadius: '1rem',
         border: '1px solid #d1dce6',
-        background: 'linear-gradient(135deg, #E3F2FD, #52DEE5)', // azul suave
+        background: 'linear-gradient(135deg, #668bf2ff, #002173)', // azul suave
         padding: '1.5rem 2rem',
         height: '100%',
       }}
     >
       <h5
         style={{
-          color: '#071744',
+          color: '#FFFF',
           fontWeight: '700',
           marginBottom: '1.25rem',
         }}
@@ -94,7 +94,7 @@ export default function GraficoDistribuicaoRiscos({ data }) {
               style={{
                 fontSize: '20px',
                 fontWeight: 700,
-                fill: '#071744',
+                fill: '#FFFF',
               }}
             >
               {total} riscos
