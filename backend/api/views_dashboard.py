@@ -44,9 +44,54 @@ class DashboardViewSet(viewsets.ViewSet):
         hoje = timezone.localdate()
         daqui_30 = hoje + timedelta(days=30)
 
+        # === Percentuais para Conformidade (robusto e sem quebrar nada) ===
+        try:
+            # Checklist
+            total_checklist = Checklist.objects.count()
+            concl_checklist = Checklist.objects.filter(is_completed=True).count()
+            p_checklist = (
+                (concl_checklist * 100.0 / total_checklist) if total_checklist else 0.0
+            )
+
+            total_planos = ActionPlan.objects.count()
+            concl_planos = ActionPlan.objects.filter(status__in=["concluido"]).count()
+            p_acoes = (concl_planos * 100.0 / total_planos) if total_planos else 0.0
+
+            total_docs = DocumentosLGPD.objects.count()
+            docs_validos = DocumentosLGPD.objects.filter(
+                proxima_revisao__gte=hoje
+            ).count()
+            p_docs = (docs_validos * 100.0 / total_docs) if total_docs else 0.0
+
+            # === Conformidade (revisada) ===
+            conformidade_calc = round(
+                (p_checklist * 0.5)  # maior peso → controles LGPD concluídos
+                + (p_acoes * 0.3)  # execução das ações corretivas
+                + (p_docs * 0.2),  # governança documental
+                1,
+            )
+
+        except Exception:
+            # fallback defensivo para não quebrar o dashboard
+            conformidade_calc = 75.0
+
+        # === Índice de Maturidade (simples e seguro) ===
+        try:
+            indice_maturidade = {
+                "indice": round((p_checklist * 0.6) + (p_acoes * 0.4), 1),
+                "percentAcoes": round(p_acoes, 1),
+                "percentChecklist": round(p_checklist, 1),
+            }
+        except Exception:
+            indice_maturidade = {
+                "indice": 0.0,
+                "percentAcoes": 0.0,
+                "percentChecklist": 0.0,
+            }
+
         # ===== KPIs =====
         kpis = {
-            "conformidade": 75,
+            "conformidade": conformidade_calc,
             "riscosMapeados": Risk.objects.count(),
             "acoesAtrasadas": ActionPlan.objects.filter(
                 status__in=["nao_iniciado", "andamento"],
@@ -281,6 +326,7 @@ class DashboardViewSet(viewsets.ViewSet):
             "incidentesTimeline": incidentesTimeline,
             "loginsRecentes": loginsRecentes,
             "rankingUsuarios": rankingUsuarios,
+            "indiceMaturidade": indice_maturidade,
         }
 
         return Response(data)
