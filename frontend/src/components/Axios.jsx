@@ -69,7 +69,10 @@ const decodeSafe = (token) => {
 const isExpired = (decoded) =>
   !decoded?.exp || decoded.exp <= Math.floor(Date.now() / 1000);
 
+const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+
 const getTokens = () => {
+  if (COOKIE_MODE && !isLocal) return null; // ✅ Em produção com cookies, ignora localStorage
   try {
     const raw = localStorage.getItem(TOKENS_KEY);
     return raw ? JSON.parse(raw) : null;
@@ -79,6 +82,7 @@ const getTokens = () => {
 };
 
 const setTokens = (tokens) => {
+  if (COOKIE_MODE && !isLocal) return; // ✅ evita salvar tokens em produção
   try {
     if (!tokens) {
       localStorage.removeItem(TOKENS_KEY);
@@ -185,7 +189,7 @@ const AxiosInstance = axios.create({
   baseURL: baseUrl,
   timeout: 10000,
   withCredentials: COOKIE_MODE,
-  headers: { accept: 'application/json' },
+  headers: { accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
 });
 
 export const AxiosPublic = axios.create({
@@ -223,14 +227,15 @@ const doLegacyRefresh = async () => {
 };
 
 const doCookieRefresh = async () => {
-  const resp = await raw.post(ENDPOINTS.refresh, null);
-  const access = resp?.data?.access;
+  const resp = await raw.post(ENDPOINTS.refresh, null, { withCredentials: true });
+  const access = resp?.data?.access || '';
   if (!access) throw new Error('Invalid cookie refresh response');
 
+  // ✅ Em modo cookie, não armazenamos nem lemos token — backend já o mantém
+  if (COOKIE_MODE && !isLocal) return access;
+
   const tokens = getTokens();
-  if (tokens) {
-    setTokens({ ...tokens, access });
-  }
+  if (tokens) setTokens({ ...tokens, access });
   return access;
 };
 
@@ -424,28 +429,51 @@ export const auth = {
     clearForceReauth();
     setTokens(null);
 
-    const resp = await raw.post(ENDPOINTS.login, { email, password });
+    // ✅ sempre envia com credenciais, pois no modo cookie o backend grava o httpOnly
+    const resp = await raw.post(
+      ENDPOINTS.login,
+      { email, password },
+      { withCredentials: true }
+    );
     const data = resp.data || {};
 
+    /* ================================
+     *  MODO TOKEN / LOCALSTORAGE (dev)
+     * ================================ */
     if (!COOKIE_MODE) {
       if (data.access || data.refresh) {
         setTokens({ access: data.access || '', refresh: data.refresh || '' });
       }
-    } else {
-      if (data.access) {
+      return data;
+    }
+
+    /* =====================================
+     *  MODO COOKIE HTTPONLY (produção)
+     * ===================================== */
+    if (COOKIE_MODE) {
+      // ✅ Em produção, os cookies já são definidos pelo backend (HttpOnly + Secure)
+      //    → o frontend não deve armazenar nem ler tokens.
+      //    → apenas mantém compatibilidade local, se estiver rodando via localhost.
+      const isLocal =
+        typeof window !== 'undefined' && window.location.hostname === 'localhost';
+
+      if (isLocal && data.access) {
+        // em localhost (sem cookie real) o backend costuma devolver access; guardamos pra debug
         const tokens = getTokens();
         setTokens({ ...(tokens || {}), access: data.access });
       } else {
+        // em produção, nenhum armazenamento — segurança total
         setTokens(null);
       }
+
+      return data;
     }
-    return data;
   },
 
   async logout() {
     try {
       if (ENDPOINTS.logout) {
-        await raw.post(ENDPOINTS.logout, null);
+        await raw.post(ENDPOINTS.logout, null, { withCredentials: true });
       }
     } catch {
       // ignore

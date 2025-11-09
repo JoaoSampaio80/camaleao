@@ -121,3 +121,21 @@ api_settings.AUTH_COOKIE_SAMESITE = JWT_AUTH_SAMESITE
 print(
     f"[camaleao.settings.prod] COOKIE_DOMAIN={COOKIE_DOMAIN} | MEDIA_ROOT={MEDIA_ROOT}"
 )
+
+# ============================================================
+# 🔒 Reforço de Segurança HTTP (neutro e sem impacto funcional)
+# ============================================================
+
+# Cabeçalhos de segurança adicionais (não afetam cookies nem CORS)
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"  # protege dados de navegação
+X_FRAME_OPTIONS = (
+    "DENY"  # impede que a aplicação seja carregada em iframes (anti-clickjacking)
+)
+
+# HSTS: instrui o navegador a sempre usar HTTPS para este domínio
+# Seguro mesmo atrás do túnel Cloudflare
+SECURE_HSTS_SECONDS = 31536000  # 1 ano
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+
+print("[camaleao.settings.prod] Segurança HTTP reforçada: HSTS + Headers ativados ✅")
