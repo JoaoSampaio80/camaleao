@@ -25,8 +25,8 @@ export default function ResetPassword() {
   const [variant, setVariant] = useState('success');
   const [submitting, setSubmitting] = useState(false);
 
-  // helper de mensagens (3s)
-  const showFlash = (v, t, ms = 3000) => {
+  // helper de mensagens (1,5s)
+  const showFlash = (v, t, ms = 1500) => {
     setVariant(v);
     setMsg(t);
     if (ms) {

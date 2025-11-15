@@ -8,11 +8,15 @@ from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from rest_framework.views import APIView
 from django.conf import settings
 from django.contrib.auth import get_user_model, password_validation
-from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.contrib.auth.tokens import (
+    PasswordResetTokenGenerator,
+    default_token_generator,
+)
 from django.http import FileResponse, Http404, HttpResponse
 from django.db import transaction
 from django.db.models import Count, F, Q
 from django_filters.rest_framework import DjangoFilterBackend
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
@@ -301,11 +305,14 @@ class UserViewSet(viewsets.ModelViewSet):
 
         # admin vê todos
         if user.is_superuser or getattr(user, "role", "") == "admin":
-            qs = User.objects.all().order_by("email")
+            show_inactive = self.request.query_params.get("show_inactive")
+            # Mostrar usuários desativados somente se show_inactive=1
+            if show_inactive == "1":
+                qs = User.objects.filter(is_active=False).order_by("email")
+            else:
+                qs = User.objects.filter(is_active=True).order_by("email")
             q = self.request.query_params.get("q")  # ex.: ?q=joao
             if q:
-                from django.db.models import Q
-
                 qs = qs.filter(
                     Q(email__icontains=q)
                     | Q(first_name__icontains=q)
@@ -337,15 +344,42 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         user = self.get_object()
+
+        # Impede que o usuário desative a si mesmo
         if user.pk == request.user.pk:
             return Response(
                 {"detail": "Você não pode excluir a si mesmo."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        # (opcional) limpar avatar do storage antes de apagar o usuário
+
+        # Remover avatar do storage (mantendo seu comportamento atual)
         if getattr(user, "avatar", None):
             user.avatar.delete(save=False)
-        return super().destroy(request, *args, **kwargs)
+
+        # 👉 SOFT DELETE: apenas desativa
+        user.is_active = False
+        user.save(update_fields=["is_active"])
+
+        return Response(
+            {"detail": "Usuário desativado com sucesso."},
+            status=status.HTTP_200_OK,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsRoleAdmin],
+    )
+    def reactivate(self, request, pk=None):
+        user = get_object_or_404(User, pk=pk)
+
+        # Impedir que um usuário reative a si mesmo? (opcional)
+        # Mas geralmente permitido, então não aplicamos bloqueio.
+
+        user.is_active = True
+        user.save(update_fields=["is_active"])
+
+        return Response({"detail": "Usuário reativado com sucesso."})
 
     # GET /users/me/ -> dados do próprio usuário
     @action(
@@ -412,21 +446,53 @@ class UserViewSet(viewsets.ModelViewSet):
                 {"detail": "Usuário sem e-mail."}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        ctx = {
-            "first_name": getattr(user, "first_name", "") or None,
-            "username": getattr(user, "username", "") or None,
-        }
-        sent = send_html_email(
-            subject="Bem-vindo(a) ao Camaleão",
-            to_email=user.email,
-            template_name="emails/welcome",
-            context=ctx,
-        )
-        if sent:
-            return Response({"detail": "E-mail de boas-vindas reenviado."})
-        return Response(
-            {"detail": "Falha ao enviar."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        try:
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+
+            frontend = (
+                getattr(settings, "FRONTEND_URL", None)
+                or getattr(settings, "FRONTEND_BASE_URL", None)
+                or "http://127.0.0.1:5173"
+            ).rstrip("/")
+
+            reset_url = f"{frontend}/definir-senha?uid={uid}&token={token}"
+
+            expires_seconds = int(
+                getattr(settings, "PASSWORD_RESET_TIMEOUT", 60 * 60 * 24 * 3)
+            )
+            expires_hours = expires_seconds // 3600
+
+            ctx = {
+                "first_name": user.first_name or "",
+                "reset_url": reset_url,
+                "expires_hours": expires_hours,
+            }
+
+            sent = send_html_email(
+                subject="Bem-vindo(a) ao Camaleão — defina sua senha",
+                to_email=user.email,
+                template_name="emails/welcome",
+                context=ctx,
+            )
+
+            if sent:
+                return Response({"detail": "E-mail de boas-vindas reenviado."})
+            else:
+                return Response(
+                    {"detail": "Falha ao enviar o e-mail."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        except Exception as exc:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.exception(f"Erro ao reenviar welcome para {user.email}: {exc}")
+            return Response(
+                {"detail": "Erro interno ao enviar o e-mail."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class DocumentosLGPDViewSet(viewsets.ModelViewSet):

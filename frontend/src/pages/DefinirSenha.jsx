@@ -69,8 +69,8 @@ export default function DefinirSenha() {
   const [msg, setMsg] = useState('');
   const [variant, setVariant] = useState('success');
 
-  // helper de mensagens (3s)
-  const showFlash = (v, t, ms = 3000) => {
+  // helper de mensagens (1,5s)
+  const showFlash = (v, t, ms = 1500) => {
     setVariant(v);
     setMsg(t);
     if (ms) {
@@ -108,7 +108,7 @@ export default function DefinirSenha() {
         showFlash(
           'success',
           'Senha definida com sucesso! Você já pode fazer login.',
-          3000
+          1500
         );
         // volta para o login em 2s (mantido)
         setTimeout(() => navigate('/login'), 2000);

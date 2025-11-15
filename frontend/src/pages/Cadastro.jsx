@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   Container,
   Form,
@@ -104,6 +104,16 @@ function Cadastro() {
 
   const [originalRole, setOriginalRole] = useState(null);
 
+  const [confirmResendOpen, setConfirmResendOpen] = useState(false);
+  const [resendTarget, setResendTarget] = useState(null);
+  const [resending, setResending] = useState(false);
+
+  const [showInactive, setShowInactive] = useState(false);
+
+  const [confirmReactivateOpen, setConfirmReactivateOpen] = useState(false);
+  const [reactivateTarget, setReactivateTarget] = useState(null);
+  const [reactivating, setReactivating] = useState(false);
+
   // ====== flash helper 1,5s ======
   const showFlash = (v, t) => {
     setVariant(v);
@@ -125,13 +135,17 @@ function Cadastro() {
   }, [count, users.length, pageSize]);
 
   // ------- Lista de usuários -------
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setListLoading(true);
     try {
       const params = {};
       if (query) params.q = query;
       params.page = page;
       params.page_size = pageSize;
+
+      if (showInactive) {
+        params.show_inactive = 1;
+      }
 
       const resp = await AxiosInstance.get('users/', { params });
       const data = resp?.data;
@@ -161,14 +175,11 @@ function Cadastro() {
     } finally {
       setListLoading(false);
     }
-  };
+  }, [page, pageSize, query, showInactive]);
 
   useEffect(() => {
     fetchUsers(); /* eslint-disable-next-line */
-  }, [page, pageSize]);
-  useEffect(() => {
-    fetchUsers(); /* eslint-disable-next-line */
-  }, []);
+  }, [fetchUsers]);
 
   // ------- Handlers -------
   const handleChange = (e) => {
@@ -380,6 +391,32 @@ function Cadastro() {
     }
   };
 
+  const askResend = (id) => {
+    setResendTarget(id);
+    setConfirmResendOpen(true);
+  };
+
+  const confirmResend = async () => {
+    if (!resendTarget) return;
+    setResending(true);
+
+    try {
+      const resp = await AxiosInstance.post(`users/${resendTarget}/resend_welcome/`);
+      const detail = resp?.data?.detail || 'E-mail de boas-vindas reenviado com sucesso!';
+      showFlash('success', detail);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) {
+      const detail =
+        e?.response?.data?.detail || 'Falha ao reenviar o e-mail. Tente novamente.';
+      showFlash('danger', detail);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } finally {
+      setResending(false);
+      setConfirmResendOpen(false);
+      setResendTarget(null);
+    }
+  };
+
   // ——— Exclusão com modal (sem alterar visual geral) ———
   const askDelete = async (id) => {
     setConfirmTarget(id);
@@ -405,6 +442,37 @@ function Cadastro() {
       setDeleting(false);
       setConfirmOpen(false);
       setConfirmTarget(null);
+    }
+  };
+
+  const askReactivate = (id) => {
+    setReactivateTarget(id);
+    setConfirmReactivateOpen(true);
+  };
+
+  const confirmReactivate = async () => {
+    if (!reactivateTarget) return;
+    setReactivating(true);
+
+    try {
+      const resp = await AxiosInstance.post(`users/${reactivateTarget}/reactivate/`);
+      const detail = resp?.data?.detail || 'Usuário reativado com sucesso!';
+      showFlash('success', detail);
+
+      // rola para o topo para exibir alerta
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // atualiza a lista após reativar
+      fetchUsers();
+    } catch (e) {
+      const detail = e?.response?.data?.detail || 'Falha ao reativar o usuário.';
+      showFlash('danger', detail);
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } finally {
+      setReactivating(false);
+      setConfirmReactivateOpen(false);
+      setReactivateTarget(null);
     }
   };
 
@@ -766,6 +834,20 @@ function Cadastro() {
                       Limpar
                     </Button>
                   </Col>
+                  <Col md="auto">
+                    <Button
+                      className="btn-white-custom"
+                      variant={showInactive ? 'warning' : 'outline-secondary'}
+                      onClick={() => {
+                        setShowInactive((prev) => !prev);
+                        setPage(1);
+                        // fetchUsers();
+                      }}
+                    >
+                      {showInactive ? 'Mostrar ativos' : 'Mostrar desativados'}
+                    </Button>
+                  </Col>
+
                   <Col md="auto" className="ms-auto">
                     <Form.Label>Tamanho da página</Form.Label>
                     <Form.Select
@@ -828,15 +910,28 @@ function Cadastro() {
                                   Ações
                                 </Dropdown.Toggle>
                                 <Dropdown.Menu>
-                                  <Dropdown.Item onClick={() => handleEdit(u.id)}>
-                                    Editar
-                                  </Dropdown.Item>
-                                  <Dropdown.Item
-                                    className="text-danger"
-                                    onClick={() => askDelete(u.id)}
-                                  >
-                                    Excluir
-                                  </Dropdown.Item>
+                                  {showInactive ? (
+                                    <Dropdown.Item onClick={() => askReactivate(u.id)}>
+                                      Reativar usuário
+                                    </Dropdown.Item>
+                                  ) : (
+                                    <>
+                                      <Dropdown.Item onClick={() => handleEdit(u.id)}>
+                                        Editar
+                                      </Dropdown.Item>
+
+                                      <Dropdown.Item onClick={() => askResend(u.id)}>
+                                        Reenviar e-mail (Boas Vindas)
+                                      </Dropdown.Item>
+
+                                      <Dropdown.Item
+                                        className="text-danger"
+                                        onClick={() => askDelete(u.id)}
+                                      >
+                                        Desativar
+                                      </Dropdown.Item>
+                                    </>
+                                  )}
                                 </Dropdown.Menu>
                               </Dropdown>
                             </td>
@@ -905,6 +1000,35 @@ function Cadastro() {
         </Container>
       </div>
 
+      {/*Modal de confirmação de reenvio de e-mail de boas vindas*/}
+      <Modal
+        show={confirmResendOpen}
+        onHide={() => !resending && setConfirmResendOpen(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Reenviar e-mail de boas-vindas</Modal.Title>
+        </Modal.Header>
+
+        <Modal.Body>
+          Tem certeza de que deseja reenviar o e-mail de boas-vindas para este usuário?
+        </Modal.Body>
+
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setConfirmResendOpen(false)}
+            disabled={resending}
+          >
+            Cancelar
+          </Button>
+
+          <Button variant="primary" onClick={confirmResend} disabled={resending}>
+            {resending ? 'Enviando…' : 'Reenviar'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
       {/* Modal de confirmação de exclusão */}
       <Modal
         show={confirmOpen}
@@ -915,7 +1039,7 @@ function Cadastro() {
           <Modal.Title>Confirmar exclusão</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Tem certeza de que deseja <strong>excluir</strong> este usuário?
+          Tem certeza de que deseja <strong>desativar</strong> este usuário?
         </Modal.Body>
         <Modal.Footer>
           <Button
@@ -927,6 +1051,31 @@ function Cadastro() {
           </Button>
           <Button variant="danger" onClick={confirmDelete} disabled={deleting}>
             {deleting ? 'Excluindo…' : 'Excluir'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+      <Modal
+        show={confirmReactivateOpen}
+        onHide={() => !reactivating && setConfirmReactivateOpen(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Reativar usuário</Modal.Title>
+        </Modal.Header>
+
+        <Modal.Body>Tem certeza de que deseja reativar este usuário?</Modal.Body>
+
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            disabled={reactivating}
+            onClick={() => setConfirmReactivateOpen(false)}
+          >
+            Cancelar
+          </Button>
+
+          <Button variant="success" disabled={reactivating} onClick={confirmReactivate}>
+            {reactivating ? 'Reativando…' : 'Reativar'}
           </Button>
         </Modal.Footer>
       </Modal>
