@@ -23,6 +23,8 @@ from .models import (
     RiskLevelBand,
     Instruction,
     CalendarEvent,
+    LoginActivity,
+    UserActivityLog,
 )
 
 # ===== User admin =====
@@ -510,3 +512,26 @@ class CalendarEventAdmin(admin.ModelAdmin):
     ordering = ("-date", "-time")
     autocomplete_fields = ("user",)
     date_hierarchy = "date"
+
+
+@admin.register(LoginActivity)
+class LoginActivityAdmin(admin.ModelAdmin):
+    list_display = ("email", "ip_address", "user_agent", "data_login")
+    search_fields = ("email", "ip_address", "user_agent")
+    list_filter = ("data_login",)
+
+
+@admin.register(UserActivityLog)
+class UserActivityLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "usuario",
+        "modulo",
+        "operacao",
+        "resultado",
+        "registro_id",
+        "ip",
+        "timestamp",
+    )
+    list_filter = ("modulo", "operacao", "resultado")
+    search_fields = ("usuario__email", "detalhe", "ip")
+    ordering = ("-timestamp",)
