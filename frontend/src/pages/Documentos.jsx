@@ -13,6 +13,7 @@ import {
 import Sidebar from '../components/Sidebar';
 import Axios from '../components/Axios';
 import TooltipInfo from '../components/TooltipInfo';
+import FilterBar from '../components/FilterBar';
 
 // Fallbacks caso /api/documentos/choices/ falhe ou venha vazio
 const FALLBACK_CHOICES = {
@@ -40,6 +41,9 @@ function FormularioAtividades() {
   const [rows, setRows] = useState([]);
   const [choices, setChoices] = useState(FALLBACK_CHOICES);
   const [loading, setLoading] = useState(false);
+  const [filterDim, setFilterDim] = useState('');
+  const [filterCrit, setFilterCrit] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
 
   // Paginação
   const [page, setPage] = useState(1);
@@ -101,6 +105,13 @@ function FormularioAtividades() {
     return `${dia}/${mes}/${ano}`;
   };
 
+  const clearFilters = () => {
+    setFilterDim('');
+    setFilterCrit('');
+    setFilterStatus('');
+    setPage(1);
+  };
+
   const loadChoices = async () => {
     try {
       const { data } = await Axios.get('/documentos/choices/');
@@ -112,31 +123,43 @@ function FormularioAtividades() {
 
   const loadRows = async (targetPage = page, targetPageSize = pageSize) => {
     setLoading(true);
+
     try {
-      const { data } = await Axios.get('/documentos/', {
-        params: { page: targetPage, page_size: targetPageSize },
-      });
+      const params = {
+        page: targetPage,
+        page_size: targetPageSize,
+        ...(filterDim && { dimensao: filterDim }),
+        ...(filterCrit && { criticidade: filterCrit }),
+        ...(filterStatus && { status: filterStatus }),
+      };
+
+      const { data } = await Axios.get('/documentos/', { params });
 
       const results = Array.isArray(data) ? data : data.results || [];
       const total = Array.isArray(data) ? results.length : (data.count ?? results.length);
 
-      setRows(results);
-      setCount(total);
-      setPage(targetPage);
-      setPageSize(targetPageSize);
-
       if (!Array.isArray(data) && results.length === 0 && targetPage > 1) {
         const prev = targetPage - 1;
         const retry = await Axios.get('/documentos/', {
-          params: { page: prev, page_size: targetPageSize },
+          params: {
+            page: prev,
+            page_size: targetPageSize,
+            ...(filterDim && { dimensao: filterDim }),
+            ...(filterCrit && { criticidade: filterCrit }),
+            ...(filterStatus && { status: filterStatus }),
+          },
         });
         const r2 = retry.data.results || [];
+
         setRows(r2);
         setCount(retry.data.count ?? 0);
-        setPage(prev);
+        setPage(prev); // apenas aqui!
+        return;
       }
-    } catch (e) {
-      console.error(e);
+
+      setRows(results);
+      setCount(total);
+    } catch {
       showMsg(
         'danger',
         'Falha ao carregar a listagem. Se o problema persistir, contate o administrador.'
@@ -149,12 +172,14 @@ function FormularioAtividades() {
   useEffect(() => {
     loadChoices();
   }, []);
-  useEffect(() => {
-    loadRows(1, pageSize);
-  }, [pageSize]); // volta para 1 ao mudar pageSize
+
   useEffect(() => {
     loadRows(page, pageSize);
-  }, [page]);
+  }, [page, pageSize]);
+
+  useEffect(() => {
+    loadRows(1, pageSize);
+  }, [filterDim, filterCrit, filterStatus]);
 
   const openCreate = () => {
     setEditing(null);
@@ -381,7 +406,6 @@ function FormularioAtividades() {
 
   const gotoPage = (p) => setPage(Math.min(Math.max(1, p), totalPages));
 
-  // Paginação (sempre visível)
   const renderPagination = () => {
     const items = [];
     const windowSize = 5;
@@ -524,27 +548,48 @@ function FormularioAtividades() {
           </h2>
         </div>
 
-        {/* Barra superior: itens por página + novo */}
-        <div className="d-flex w-100 align-items-center justify-content-between mb-3 flex-wrap gap-2">
-          <div className="d-flex align-items-center gap-2">
-            <Form.Label className="mb-0">Itens por página</Form.Label>
-            <Form.Select
-              size="sm"
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              style={{ width: 110 }}
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </Form.Select>
-          </div>
-
-          <Button variant="primary" onClick={openCreate}>
-            + Novo
-          </Button>
-        </div>
+        <FilterBar
+          pageSize={{
+            value: pageSize,
+            onChange: (v) => {
+              setPage(1);
+              setPageSize(v);
+            },
+          }}
+          extraActions={
+            <Button variant="primary" onClick={openCreate}>
+              + Novo
+            </Button>
+          }
+          filters={[
+            {
+              key: 'dimensao',
+              label: 'Dimensão',
+              value: filterDim,
+              onChange: setFilterDim,
+              options: choices.dimensao,
+              emptyOption: 'Todas',
+            },
+            {
+              key: 'criticidade',
+              label: 'Criticidade',
+              value: filterCrit,
+              onChange: setFilterCrit,
+              options: choices.criticidade,
+              emptyOption: 'Todas',
+            },
+            {
+              key: 'status',
+              label: 'Status',
+              value: filterStatus,
+              onChange: setFilterStatus,
+              options: choices.status,
+              emptyOption: 'Todos',
+            },
+          ]}
+          onClearFilters={clearFilters}
+          renderPagination={renderPagination}
+        />
 
         {/* Painel que estica até o rodapé */}
         <div className="list-shell">
@@ -657,8 +702,8 @@ function FormularioAtividades() {
             </Table>
           </div>
 
-          {/* Rodapé da lista: total + paginação SEMPRE visível */}
-          <div className="list-footer">
+          {/* Rodapé da lista */}
+          <div className="list-footer mt-3">
             <div className="text-muted">
               <strong>Total:</strong> {count} • Página {page} de {totalPages}
             </div>

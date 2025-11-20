@@ -16,6 +16,7 @@ import Sidebar from '../components/Sidebar';
 import AxiosInstance from '../components/Axios';
 import PaginacaoRiscos from '../components/PaginacaoRiscos';
 import TooltipInfo from '../components/TooltipInfo';
+import FilterBar from '../components/FilterBar';
 import '../estilos/matriz.css';
 
 /** ===== Componente isolado para o Dropdown de Ações =====
@@ -58,6 +59,7 @@ function AcaoMonitoramento() {
   const [deleteMsg, setDeleteMsg] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [activeDropdown, setActiveDropdown] = useState(null);
+  const [filterResponsavel, setFilterResponsavel] = useState('');
 
   const emptyForm = {
     framework_requisito: '',
@@ -121,8 +123,6 @@ function AcaoMonitoramento() {
       } else {
         setRows(results);
         setCount(total);
-        setPage(targetPage);
-        setPageSize(targetPageSize);
       }
     } catch {
       setError('Falha ao carregar ações de monitoramento.');
@@ -131,9 +131,6 @@ function AcaoMonitoramento() {
     }
   };
 
-  useEffect(() => {
-    loadRows(1, pageSize); /* mount */
-  }, []);
   useEffect(() => {
     loadRows(page, pageSize);
   }, [page, pageSize]);
@@ -285,7 +282,17 @@ function AcaoMonitoramento() {
   };
 
   // ===== Render row (mantém sticky da última coluna via seu CSS global) =====
-  const visibleRows = useMemo(() => rows, [rows]);
+  const filteredRows = useMemo(() => {
+    return rows.filter((r) => {
+      if (filterResponsavel) {
+        const texto = r.responsavel?.toLowerCase() || '';
+        if (!texto.includes(filterResponsavel.toLowerCase())) return false;
+      }
+      return true;
+    });
+  }, [rows, filterResponsavel]);
+
+  const visibleRows = filteredRows;
   const renderRow = (r, idx) => (
     <tr key={r.id} className={idx % 2 ? 'row-blue' : 'row-white'}>
       <td>
@@ -336,33 +343,50 @@ function AcaoMonitoramento() {
           <PaginacaoRiscos />
         </div>
 
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <Form.Group className="d-flex align-items-center mb-0">
-            <Form.Label className="me-2 mb-0">Itens por página</Form.Label>
-            <Form.Select
-              size="sm"
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              style={{ width: 80 }}
+        <FilterBar
+          pageSize={{
+            value: pageSize,
+            onChange: (v) => {
+              setPageSize(v);
+              setPage(1);
+            },
+          }}
+          renderPagination={renderPagination}
+          extraActions={
+            <Button
+              variant="primary"
+              onClick={() => {
+                resetForm();
+                setEditingId(null);
+                setShowModal(true);
+              }}
             >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </Form.Select>
-          </Form.Group>
-
-          <Button
-            variant="primary"
-            onClick={() => {
-              resetForm();
-              setEditingId(null);
-              setShowModal(true);
-            }}
-          >
-            + Novo
-          </Button>
-        </div>
+              + Novo
+            </Button>
+          }
+          filters={[
+            {
+              key: 'responsavel',
+              label: 'Responsável',
+              value: filterResponsavel,
+              onChange: setFilterResponsavel,
+              render: (
+                <Form.Control
+                  placeholder="Buscar responsável..."
+                  value={filterResponsavel}
+                  onChange={(e) => {
+                    setFilterResponsavel(e.target.value);
+                    setPage(1);
+                  }}
+                />
+              ),
+            },
+          ]}
+          onClearFilters={() => {
+            setFilterResponsavel('');
+            setPage(1);
+          }}
+        />
 
         <div className="list-shell" style={{ width: '100%', alignSelf: 'stretch' }}>
           <div className="table-wrap">
@@ -423,7 +447,8 @@ function AcaoMonitoramento() {
 
           <div className="list-footer">
             <div className="text-muted">
-              <strong>Total:</strong> {count} • Página {page} de {totalPages}
+              <strong>Total:</strong> {filterResponsavel ? filteredRows.length : count} •
+              Página {page} de {totalPages}
             </div>
             {renderPagination()}
           </div>

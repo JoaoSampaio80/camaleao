@@ -20,6 +20,7 @@ import AxiosInstance from '../components/Axios';
 import PaginacaoRiscos from '../components/PaginacaoRiscos';
 import ListaPlanoAcao from '../components/ListaPlanoAcao';
 import TooltipInfo from '../components/TooltipInfo';
+import FilterBar from '../components/FilterBar';
 import '../estilos/matriz.css';
 
 function MatrizRisco() {
@@ -56,6 +57,14 @@ function MatrizRisco() {
     risco_residual: '',
     resposta_risco: '',
   });
+
+  const [filterMatriz, setFilterMatriz] = useState('');
+  const [filterSetor, setFilterSetor] = useState('');
+  const [filterProb, setFilterProb] = useState('');
+  const [filterImpact, setFilterImpact] = useState('');
+  const [filterTipoCtrl, setFilterTipoCtrl] = useState('');
+  const [filterEficacia, setFilterEficacia] = useState('');
+  const [filterResidual, setFilterResidual] = useState('');
 
   // ---------- helpers (reset + erros) ----------
   const resetForm = () => {
@@ -106,9 +115,20 @@ function MatrizRisco() {
   const loadRows = async (targetPage = page, targetPageSize = pageSize) => {
     setLoading(true);
     try {
-      const { data } = await AxiosInstance.get('riscos/', {
-        params: { page: targetPage, page_size: targetPageSize },
-      });
+      const params = {
+        page: targetPage,
+        page_size: targetPageSize,
+        // filtros
+        ...(filterMatriz && { matriz_filial: filterMatriz }),
+        ...(filterSetor && { setor: filterSetor }),
+        ...(filterProb && { probabilidade: filterProb }),
+        ...(filterImpact && { impacto: filterImpact }),
+        ...(filterTipoCtrl && { tipo_controle: filterTipoCtrl }),
+        ...(filterEficacia && { eficacia: filterEficacia }),
+        ...(filterResidual && { risco_residual: filterResidual }),
+      };
+
+      const { data } = await AxiosInstance.get('riscos/', { params });
 
       const results = Array.isArray(data) ? data : data.results || [];
       const total = Array.isArray(data) ? results.length : (data.count ?? results.length);
@@ -117,7 +137,19 @@ function MatrizRisco() {
       if (!Array.isArray(data) && results.length === 0 && targetPage > 1) {
         const prev = targetPage - 1;
         const retry = await AxiosInstance.get('riscos/', {
-          params: { page: prev, page_size: targetPageSize },
+          params: {
+            page: prev,
+            page_size: targetPageSize,
+
+            // reaplica filtros
+            ...(filterMatriz && { matriz_filial: filterMatriz }),
+            ...(filterSetor && { setor: filterSetor }),
+            ...(filterProb && { probabilidade: filterProb }),
+            ...(filterImpact && { impacto: filterImpact }),
+            ...(filterTipoCtrl && { tipo_controle: filterTipoCtrl }),
+            ...(filterEficacia && { eficacia: filterEficacia }),
+            ...(filterResidual && { risco_residual: filterResidual }),
+          },
         });
         const r2 = Array.isArray(retry.data) ? retry.data : retry.data.results || [];
         setRows(r2);
@@ -127,8 +159,6 @@ function MatrizRisco() {
       } else {
         setRows(results);
         setCount(total);
-        setPage(targetPage);
-        setPageSize(targetPageSize);
       }
     } catch {
       setError('Falha ao carregar riscos.');
@@ -137,23 +167,21 @@ function MatrizRisco() {
     }
   };
 
-  // monta: carrega primeira página
-  useEffect(() => {
-    loadRows(1, pageSize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // quando trocar pageSize, volta para página 1
-  useEffect(() => {
-    loadRows(1, pageSize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageSize]);
-
   // quando trocar de página, recarrega mantendo pageSize
   useEffect(() => {
     loadRows(page, pageSize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [
+    page,
+    pageSize,
+    filterMatriz,
+    filterSetor,
+    filterProb,
+    filterImpact,
+    filterTipoCtrl,
+    filterEficacia,
+    filterResidual,
+  ]);
 
   // ---------- Configurações (risk-config) ----------
   const loadConfig = async () => {
@@ -169,6 +197,10 @@ function MatrizRisco() {
       setError('Falha ao carregar parametrizações.');
     }
   };
+
+  useEffect(() => {
+    loadConfig(); // carrega likelihoods, impacts e effs
+  }, []);
 
   useEffect(() => {
     if (showModal) loadConfig();
@@ -458,33 +490,157 @@ function MatrizRisco() {
           <PaginacaoRiscos />
         </div>
 
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <Form.Group className="d-flex align-items-center mb-0">
-            <Form.Label className="me-2 mb-0">Itens por página</Form.Label>
-            <Form.Select
-              size="sm"
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              style={{ width: '80px' }}
+        <FilterBar
+          pageSize={{
+            value: pageSize,
+            onChange: (v) => {
+              setPageSize(v);
+              setPage(1);
+            },
+          }}
+          extraActions={
+            <Button
+              variant="primary"
+              onClick={() => {
+                resetForm();
+                setEditingId(null);
+                setShowModal(true);
+              }}
             >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </Form.Select>
-          </Form.Group>
-
-          <Button
-            variant="primary"
-            onClick={() => {
-              resetForm();
-              setEditingId(null);
-              setShowModal(true);
-            }}
-          >
-            + Novo
-          </Button>
-        </div>
+              + Novo
+            </Button>
+          }
+          filters={[
+            {
+              key: 'matriz',
+              label: 'Matriz/Filial',
+              value: filterMatriz,
+              onChange: setFilterMatriz,
+              render: (
+                <Form.Select
+                  value={filterMatriz}
+                  onChange={(e) => setFilterMatriz(e.target.value)}
+                >
+                  <option value="">Todas</option>
+                  <option value="matriz">Matriz</option>
+                  <option value="filial">Filial</option>
+                  <option value="matriz/filial">Matriz/Filial</option>
+                </Form.Select>
+              ),
+            },
+            {
+              key: 'setor',
+              label: 'Setor',
+              value: filterSetor,
+              onChange: (v) => {
+                setFilterSetor(v);
+                setPage(1);
+              },
+            },
+            {
+              key: 'probabilidade',
+              label: 'Probabilidade',
+              value: filterProb,
+              onChange: setFilterProb,
+              render: (
+                <Form.Select
+                  value={filterProb}
+                  onChange={(e) => setFilterProb(e.target.value)}
+                >
+                  <option value="">Todas</option>
+                  {likelihoods.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.label_pt} ({l.value})
+                    </option>
+                  ))}
+                </Form.Select>
+              ),
+            },
+            {
+              key: 'impacto',
+              label: 'Impacto',
+              value: filterImpact,
+              onChange: setFilterImpact,
+              render: (
+                <Form.Select
+                  value={filterImpact}
+                  onChange={(e) => setFilterImpact(e.target.value)}
+                >
+                  <option value="">Todos</option>
+                  {impacts.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.label_pt} ({i.value})
+                    </option>
+                  ))}
+                </Form.Select>
+              ),
+            },
+            {
+              key: 'tipo_controle',
+              label: 'Tipo Controle',
+              value: filterTipoCtrl,
+              onChange: setFilterTipoCtrl,
+              render: (
+                <Form.Select
+                  value={filterTipoCtrl}
+                  onChange={(e) => setFilterTipoCtrl(e.target.value)}
+                >
+                  <option value="">Todos</option>
+                  <option value="C">Preventivo</option>
+                  <option value="D">Detectivo</option>
+                </Form.Select>
+              ),
+            },
+            {
+              key: 'eficacia',
+              label: 'Eficácia',
+              value: filterEficacia,
+              onChange: setFilterEficacia,
+              render: (
+                <Form.Select
+                  value={filterEficacia}
+                  onChange={(e) => setFilterEficacia(e.target.value)}
+                >
+                  <option value="">Todas</option>
+                  {effs.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.label_pt} ({e.value})
+                    </option>
+                  ))}
+                </Form.Select>
+              ),
+            },
+            {
+              key: 'residual',
+              label: 'Risco Residual',
+              value: filterResidual,
+              onChange: setFilterResidual,
+              render: (
+                <Form.Select
+                  value={filterResidual}
+                  onChange={(e) => setFilterResidual(e.target.value)}
+                >
+                  <option value="">Todos</option>
+                  <option value="baixo">Baixo</option>
+                  <option value="medio">Médio</option>
+                  <option value="alto">Alto</option>
+                  <option value="critico">Crítico</option>
+                </Form.Select>
+              ),
+            },
+          ]}
+          onClearFilters={() => {
+            setFilterMatriz('');
+            setFilterSetor('');
+            setFilterProb('');
+            setFilterImpact('');
+            setFilterTipoCtrl('');
+            setFilterEficacia('');
+            setFilterResidual('');
+            setPage(1);
+          }}
+          renderPagination={renderPagination}
+        />
 
         <div className="table-wrap">
           <Table bordered hover className="custom-table">
@@ -616,11 +772,15 @@ function MatrizRisco() {
         </div>
 
         {/* rodapé */}
-        <div className="list-footer">
+        <div
+          className="list-footer d-flex justify-content-between align-items-center"
+          style={{ width: '100%' }}
+        >
           <div className="text-muted">
             <strong>Total:</strong> {count} • Página {page} de {totalPages}
           </div>
-          {renderPagination()}
+
+          <div className="d-flex justify-content-end">{renderPagination()}</div>
         </div>
       </div>
 

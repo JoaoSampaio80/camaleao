@@ -15,6 +15,7 @@ import Axios from '../components/Axios';
 import PaginacaoRiscos from '../components/PaginacaoRiscos';
 import ListaComplementos from '../components/ListaComplementos';
 import TooltipInfo from '../components/TooltipInfo';
+import FilterBar from '../components/FilterBar';
 import '../estilos/matriz.css';
 
 function ControleAcoes() {
@@ -38,6 +39,12 @@ function ControleAcoes() {
 
   const [modalMsg, setModalMsg] = useState(null);
 
+  // === FILTROS ===
+  const [filterMatriz, setFilterMatriz] = useState('');
+  const [filterSetor, setFilterSetor] = useState('');
+  const [filterResp, setFilterResp] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+
   const showMsg = (variant, text, ms = 1500) => {
     setNotice({ variant, text });
     if (ms) setTimeout(() => setNotice(null), ms);
@@ -49,9 +56,7 @@ function ControleAcoes() {
   const loadRows = async () => {
     setLoading(true);
     try {
-      const { data } = await Axios.get('/riscos/', {
-        params: { page_size: 9999 },
-      });
+      const { data } = await Axios.get('/actionplan-controle/');
 
       const results = Array.isArray(data) ? data : data.results || [];
 
@@ -99,15 +104,45 @@ function ControleAcoes() {
     loadRows();
   }, []);
 
-  const totalItems = rows.length;
+  // ===== Aplicar filtros =====
+  const filteredRows = useMemo(() => {
+    return rows.filter((r) => {
+      // 🔹 filtro matriz
+      if (filterMatriz && r.matriz_filial !== filterMatriz) return false;
+
+      // 🔹 filtro setor (icontains)
+      if (
+        filterSetor &&
+        !r.setor_avaliacao?.toLowerCase().includes(filterSetor.toLowerCase())
+      )
+        return false;
+
+      // 🔹 filtro responsável (icontains + lista com ;)
+      if (filterResp) {
+        const texto = r.funcionario ? r.funcionario.toLowerCase() : '';
+        if (!texto.includes(filterResp.toLowerCase())) return false;
+      }
+
+      // 🔹 filtro status (tem múltiplos na mesma célula)
+      if (filterStatus) {
+        const txt = r.status ? r.status.toLowerCase() : '';
+        if (!txt.includes(filterStatus.toLowerCase())) return false;
+      }
+
+      return true;
+    });
+  }, [rows, filterMatriz, filterSetor, filterResp, filterStatus]);
+
+  const totalItems = filteredRows.length;
+
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const pageClamped = Math.min(page, totalPages);
 
   const startIndex = (pageClamped - 1) * pageSize;
   const endIndex = startIndex + pageSize;
   const visibleRows = useMemo(
-    () => rows.slice(startIndex, endIndex),
-    [rows, startIndex, endIndex]
+    () => filteredRows.slice(startIndex, endIndex),
+    [filteredRows, startIndex, endIndex]
   );
 
   // ===== Modal Complemento revisado =====
@@ -436,8 +471,6 @@ function ControleAcoes() {
       return `${dia}/${mes}/${ano}`;
     };
 
-    console.log('Complementos atuais:', complementos);
-
     return (
       <tr
         key={`${r.id}-${r.actionplan_id || 'new'}`}
@@ -677,7 +710,13 @@ function ControleAcoes() {
     setPage(1);
   };
 
-  const gotoPage = (p) => setPage(Math.min(Math.max(1, p), totalPages));
+  const gotoPage = (p) => {
+    const newPage = Math.min(Math.max(1, p), totalPages);
+    setPage(newPage);
+
+    // 🔹 envia log de navegação
+    Axios.get(`/actionplan/navegacao/?page=${newPage}`).catch(() => {});
+  };
 
   const renderPagination = () => {
     const items = [];
@@ -747,22 +786,101 @@ function ControleAcoes() {
           <PaginacaoRiscos />
         </div>
 
-        <div className="d-flex justify-content-start align-items-center mb-3">
-          <Form.Group className="d-flex align-items-center mb-0">
-            <Form.Label className="me-2 mb-0">Itens por página</Form.Label>
-            <Form.Select
-              size="sm"
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              style={{ width: '80px' }}
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </Form.Select>
-          </Form.Group>
-        </div>
+        <FilterBar
+          pageSize={{
+            value: pageSize,
+            onChange: (v) => {
+              setPageSize(v);
+              setPage(1);
+            },
+          }}
+          renderPagination={renderPagination}
+          filters={[
+            {
+              key: 'matriz',
+              label: 'Matriz / Filial',
+              value: filterMatriz,
+              onChange: setFilterMatriz,
+              render: (
+                <Form.Select
+                  value={filterMatriz}
+                  onChange={(e) => {
+                    setFilterMatriz(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">Todos</option>
+                  <option value="matriz">Matriz</option>
+                  <option value="filial">Filial</option>
+                  <option value="matriz/filial">Matriz/Filial</option>
+                </Form.Select>
+              ),
+            },
+
+            {
+              key: 'setor',
+              label: 'Setor',
+              value: filterSetor,
+              onChange: setFilterSetor,
+              render: (
+                <Form.Control
+                  placeholder="Buscar setor..."
+                  value={filterSetor}
+                  onChange={(e) => {
+                    setFilterSetor(e.target.value);
+                    setPage(1);
+                  }}
+                />
+              ),
+            },
+
+            {
+              key: 'responsavel',
+              label: 'Funcionário Responsável',
+              value: filterResp,
+              onChange: setFilterResp,
+              render: (
+                <Form.Control
+                  placeholder="Buscar funcionário..."
+                  value={filterResp}
+                  onChange={(e) => {
+                    setFilterResp(e.target.value);
+                    setPage(1);
+                  }}
+                />
+              ),
+            },
+
+            {
+              key: 'status',
+              label: 'Status',
+              value: filterStatus,
+              onChange: setFilterStatus,
+              render: (
+                <Form.Select
+                  value={filterStatus}
+                  onChange={(e) => {
+                    setFilterStatus(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">Todos</option>
+                  <option value="nao_iniciado">Não iniciado</option>
+                  <option value="andamento">Em andamento</option>
+                  <option value="concluido">Concluído</option>
+                  <option value="atrasado">Atrasado</option>
+                </Form.Select>
+              ),
+            },
+          ]}
+          onClearFilters={() => {
+            setFilterMatriz('');
+            setFilterSetor('');
+            setFilterResp('');
+            setFilterStatus('');
+            setPage(1);
+          }}
+        />
 
         <div className="list-shell" style={{ width: '100%', alignSelf: 'stretch' }}>
           <div className="table-wrap">

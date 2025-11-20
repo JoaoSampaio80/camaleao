@@ -39,6 +39,7 @@ function InventarioLista() {
   const [sortDir, setSortDir] = React.useState('desc'); // asc | desc
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(10);
+  const [ready, setReady] = React.useState(false);
 
   // Filtros avançados por campo (icontains onde faz sentido)
   const [advFilters, setAdvFilters] = React.useState({
@@ -287,6 +288,7 @@ function InventarioLista() {
       responsavel: sp.get('responsavel_email__icontains') || '',
       processo: sp.get('processo_negocio__icontains') || '',
     });
+    setReady(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -347,12 +349,14 @@ function InventarioLista() {
 
   // Recarrega quando filtros mudarem
   React.useEffect(() => {
+    if (!ready) return;
     fetchList();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, sortKey, sortDir, page, pageSize, advFilters]);
 
   // sempre que mudar busca, ordenação ou pageSize, volta pra página 1
   React.useEffect(() => {
+    if (!ready) return;
     setPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, sortKey, sortDir, pageSize, advFilters]);

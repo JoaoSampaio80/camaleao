@@ -17,6 +17,7 @@ import AxiosInstance from '../components/Axios';
 import PaginacaoRiscos from '../components/PaginacaoRiscos';
 import ReactDOM from 'react-dom';
 import TooltipInfo from '../components/TooltipInfo';
+import FilterBar from '../components/FilterBar';
 import '../estilos/matriz.css';
 
 /* ===== Componente de Dropdown (padrão matriz / ação monitoramento) ===== */
@@ -132,6 +133,9 @@ function ControleIncidentes() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedToDelete, setSelectedToDelete] = useState(null);
 
+  const [filterResponsavel, setFilterResponsavel] = useState('');
+  const [filterFonteInformada, setFilterFonteInformada] = useState('');
+
   const emptyForm = {
     numero_registro: '',
     descricao: '',
@@ -199,10 +203,22 @@ function ControleIncidentes() {
 
       const results = Array.isArray(data) ? data : data.results || [];
       const total = Array.isArray(data) ? results.length : (data.count ?? results.length);
+
+      if (!Array.isArray(data) && results.length === 0 && targetPage > 1) {
+        const prev = targetPage - 1;
+        const retry = await AxiosInstance.get('/incidentes/', {
+          params: { page: prev, page_size: targetPageSize },
+        });
+
+        const r2 = retry.data.results || [];
+        setRows(r2);
+        setCount(retry.data.count ?? 0);
+        setPage(prev); // apenas aqui alteramos a page!
+        return;
+      }
+
       setRows(results);
       setCount(total);
-      setPage(targetPage);
-      setPageSize(targetPageSize);
     } catch {
       setError('Falha ao carregar incidentes.');
     } finally {
@@ -210,9 +226,6 @@ function ControleIncidentes() {
     }
   };
 
-  useEffect(() => {
-    loadRows(1, pageSize);
-  }, []);
   useEffect(() => {
     loadRows(page, pageSize);
   }, [page, pageSize]);
@@ -357,7 +370,25 @@ function ControleIncidentes() {
     return <Pagination className="mb-0">{items}</Pagination>;
   };
 
-  const visibleRows = useMemo(() => rows, [rows]);
+  const filteredRows = useMemo(() => {
+    let f = rows;
+
+    // filtro responsável
+    if (filterResponsavel) {
+      const search = filterResponsavel.toLowerCase();
+      f = f.filter((r) => (r.responsavel_analise || '').toLowerCase().includes(search));
+    }
+
+    // filtro fonte informada (sim / não)
+    if (filterFonteInformada) {
+      const search = filterFonteInformada === 'sim';
+      f = f.filter((r) => r.fonte_informada === search);
+    }
+
+    return f;
+  }, [rows, filterResponsavel, filterFonteInformada]);
+
+  const visibleRows = filteredRows;
 
   const renderRow = (r, idx) => (
     <tr key={r.id} className={idx % 2 ? 'row-blue' : 'row-white'}>
@@ -395,33 +426,70 @@ function ControleIncidentes() {
           <PaginacaoRiscos />
         </div>
 
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <Form.Group className="d-flex align-items-center mb-0">
-            <Form.Label className="me-2 mb-0">Itens por página</Form.Label>
-            <Form.Select
-              size="sm"
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              style={{ width: 80 }}
+        <FilterBar
+          pageSize={{
+            value: pageSize,
+            onChange: (v) => {
+              setPageSize(v);
+              setPage(1);
+            },
+          }}
+          renderPagination={renderPagination}
+          extraActions={
+            <Button
+              variant="primary"
+              onClick={() => {
+                resetForm();
+                setEditingItem(null);
+                setShowModal(true);
+              }}
             >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </Form.Select>
-          </Form.Group>
-
-          <Button
-            variant="primary"
-            onClick={() => {
-              resetForm();
-              setEditingItem(null);
-              setShowModal(true);
-            }}
-          >
-            + Novo
-          </Button>
-        </div>
+              + Novo
+            </Button>
+          }
+          filters={[
+            {
+              key: 'responsavel',
+              label: 'Responsável',
+              value: filterResponsavel,
+              onChange: setFilterResponsavel,
+              render: (
+                <Form.Control
+                  placeholder="Buscar responsável..."
+                  value={filterResponsavel}
+                  onChange={(e) => {
+                    setFilterResponsavel(e.target.value);
+                    setPage(1);
+                  }}
+                />
+              ),
+            },
+            {
+              key: 'fonteinformada',
+              label: 'Fonte Informada',
+              value: filterFonteInformada,
+              onChange: setFilterFonteInformada,
+              render: (
+                <Form.Select
+                  value={filterFonteInformada}
+                  onChange={(e) => {
+                    setFilterFonteInformada(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">Todas</option>
+                  <option value="sim">Sim</option>
+                  <option value="nao">Não</option>
+                </Form.Select>
+              ),
+            },
+          ]}
+          onClearFilters={() => {
+            setFilterResponsavel('');
+            setFilterFonteInformada('');
+            setPage(1);
+          }}
+        />
 
         <div className="list-shell" style={{ width: '100%', alignSelf: 'stretch' }}>
           <div className="table-wrap">
@@ -486,7 +554,9 @@ function ControleIncidentes() {
 
           <div className="list-footer">
             <div className="text-muted">
-              <strong>Total:</strong> {count} • Página {page} de {totalPages}
+              <strong>Total:</strong>
+              {filterResponsavel || filterFonteInformada ? filteredRows.length : count} •
+              Página {page} de {totalPages}
             </div>
             {renderPagination()}
           </div>

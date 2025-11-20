@@ -4,18 +4,25 @@ import { Table, Form, Pagination, Alert } from 'react-bootstrap';
 import Sidebar from '../components/Sidebar';
 import Axios from '../components/Axios';
 import PaginacaoRiscos from '../components/PaginacaoRiscos';
+import FilterBar from '../components/FilterBar';
 import '../estilos/rankingriscos.css';
 
 function RankingRisco() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState(null); // {variant, text}
+  const [allRows, setAllRows] = useState([]);
 
   // paginação
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [count, setCount] = useState(0);
   const totalPages = Math.max(1, Math.ceil(count / pageSize));
+
+  // filtros
+  const [filterProb, setFilterProb] = useState('');
+  const [filterImpact, setFilterImpact] = useState('');
+  const [filterScore, setFilterScore] = useState('');
 
   const showMsg = (variant, text, ms = 3500) => {
     setNotice({ variant, text });
@@ -69,22 +76,12 @@ function RankingRisco() {
   const loadRows = async (targetPage = page, targetPageSize = pageSize) => {
     setLoading(true);
     try {
-      const { data } = await Axios.get('/riscos/ranking/');
+      const { data } = await Axios.get('/ranking-riscos/');
 
       // 🔹 já vem globalmente ordenado do backend
       const allResults = Array.isArray(data) ? data : [];
 
-      const total = allResults.length;
-
-      // 🔹 paginação apenas no front
-      const startIdx = (targetPage - 1) * targetPageSize;
-      const endIdx = startIdx + targetPageSize;
-      const paginated = allResults.slice(startIdx, endIdx);
-
-      setRows(paginated);
-      setCount(total);
-      setPage(targetPage);
-      setPageSize(targetPageSize);
+      setAllRows(allResults);
     } catch (e) {
       console.error(e);
       showMsg('danger', 'Falha ao carregar a listagem.');
@@ -94,14 +91,52 @@ function RankingRisco() {
   };
 
   useEffect(() => {
-    loadRows(1, pageSize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageSize]);
-
-  useEffect(() => {
     loadRows(page, pageSize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [page, pageSize]);
+
+  useEffect(() => {
+    let filtered = [...allRows];
+
+    // filtro probabilidade
+    if (filterProb) {
+      const probNum = Number(filterProb);
+      filtered = filtered.filter((r) => {
+        const v = r.probabilidade?.value ?? r.probabilidade;
+        return Number(v) === probNum;
+      });
+    }
+
+    // filtro impacto
+    if (filterImpact) {
+      const impactNum = Number(filterImpact);
+      filtered = filtered.filter((r) => {
+        const v = r.impacto?.value ?? r.impacto;
+        return Number(v) === impactNum;
+      });
+    }
+
+    // filtro pontuação
+    if (filterScore !== '') {
+      const scoreNum = Number(filterScore);
+      if (!Number.isNaN(scoreNum) && scoreNum >= 0) {
+        filtered = filtered.filter((r) => Number(r.pontuacao) === scoreNum);
+      }
+    }
+
+    const total = filtered.length;
+    setCount(total);
+
+    const totalPagesCalc = Math.max(1, Math.ceil(total / pageSize));
+    if (page > totalPagesCalc) {
+      setPage(totalPagesCalc);
+      return;
+    }
+
+    const startIdx = (page - 1) * pageSize;
+    const endIdx = startIdx + pageSize;
+    setRows(filtered.slice(startIdx, endIdx));
+  }, [allRows, filterProb, filterImpact, filterScore, page, pageSize]);
 
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
@@ -126,22 +161,115 @@ function RankingRisco() {
           <PaginacaoRiscos />
         </div>
 
-        {/* barra topo (apenas itens por página) */}
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <Form.Group className="d-flex align-items-center mb-0">
-            <Form.Label className="me-2 mb-0">Itens por página</Form.Label>
-            <Form.Select
-              size="sm"
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              style={{ width: '80px' }}
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </Form.Select>
-          </Form.Group>
+        <div className="d-flex justify-content-between align-items-start mb-3">
+          {/* Filtros à esquerda */}
+          <div style={{ flex: 1 }}>
+            <FilterBar
+              filters={[
+                {
+                  key: 'prob',
+                  label: 'Probabilidade',
+                  value: filterProb,
+                  onChange: setFilterProb,
+                  render: (
+                    <Form.Select
+                      value={filterProb}
+                      onChange={(e) => {
+                        setFilterProb(e.target.value);
+                        setPage(1);
+                      }}
+                    >
+                      <option value="">Todas</option>
+                      {[1, 2, 3, 4, 5].map((v) => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  ),
+                },
+                {
+                  key: 'impact',
+                  label: 'Impacto',
+                  value: filterImpact,
+                  onChange: setFilterImpact,
+                  render: (
+                    <Form.Select
+                      value={filterImpact}
+                      onChange={(e) => {
+                        setFilterImpact(e.target.value);
+                        setPage(1);
+                      }}
+                    >
+                      <option value="">Todos</option>
+                      {[1, 2, 3, 4, 5].map((v) => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  ),
+                },
+                {
+                  key: 'score',
+                  label: 'Pontuação',
+                  value: filterScore,
+                  onChange: setFilterScore,
+                  render: (
+                    <Form.Control
+                      type="number"
+                      placeholder="Pontuação exata"
+                      value={filterScore}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === '') {
+                          setFilterScore('');
+                          setPage(1);
+                          return;
+                        }
+
+                        const n = Number(raw);
+                        if (Number.isNaN(n) || n < 0) return;
+
+                        setFilterScore(String(n));
+                        setPage(1);
+                      }}
+                    />
+                  ),
+                },
+              ]}
+              onClearFilters={() => {
+                setFilterProb('');
+                setFilterImpact('');
+                setFilterScore('');
+                setPage(1);
+              }}
+            />
+          </div>
+
+          {/* Itens por página + paginação à direita, na MESMA LINHA */}
+          <div className="d-flex flex-column align-items-end ms-3">
+            <Form.Group className="d-flex align-items-center mb-2">
+              <Form.Label className="me-2 mb-0">Itens por página</Form.Label>
+              <Form.Select
+                size="sm"
+                value={pageSize}
+                onChange={(e) => {
+                  const size = Number(e.target.value);
+                  setPage(1);
+                  setPageSize(size);
+                }}
+                style={{ width: '80px' }}
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </Form.Select>
+            </Form.Group>
+
+            {renderPagination()}
+          </div>
         </div>
 
         {/* tabela */}

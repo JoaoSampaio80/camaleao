@@ -15,6 +15,7 @@ import {
 import Sidebar from '../components/Sidebar';
 import AxiosInstance from '../components/Axios';
 import { useAuth } from '../context/AuthContext';
+import FilterBar from '../components/FilterBar';
 
 function Checklist() {
   const { user } = useAuth();
@@ -39,6 +40,7 @@ function Checklist() {
   const [count, setCount] = useState(0); // total do backend (quando paginado)
   const [next, setNext] = useState(null);
   const [previous, setPrevious] = useState(null);
+  const [filterStatus, setFilterStatus] = useState('');
 
   // ===== Modal criação/edição =====
   const [showModal, setShowModal] = useState(false);
@@ -59,6 +61,9 @@ function Checklist() {
     setLoading(true);
     try {
       const params = { page: targetPage, page_size: targetPageSize };
+      // FILTRO DE SITUAÇÃO
+      if (filterStatus === 'true') params.is_completed = 'True';
+      if (filterStatus === 'false') params.is_completed = 'False';
       const resp = await AxiosInstance.get('checklists/', { params });
       const data = resp?.data;
 
@@ -69,16 +74,29 @@ function Checklist() {
           ? data.results
           : [];
 
-      setRows(list || []);
-      if (Array.isArray(data)) {
-        setCount(data.length);
-        setNext(null);
-        setPrevious(null);
-      } else {
-        setCount(Number.isFinite(data?.count) ? data.count : (list?.length ?? 0));
-        setNext(data?.next ?? null);
-        setPrevious(data?.previous ?? null);
+      const total = Array.isArray(data) ? list.length : (data.count ?? list.length);
+
+      // fallback ao apagar a última página inteira
+      if (!Array.isArray(data) && list.length === 0 && targetPage > 1) {
+        const prev = targetPage - 1;
+
+        const retry = await AxiosInstance.get('checklists/', {
+          params: {
+            page: prev,
+            page_size: targetPageSize,
+            ...(filterStatus === 'true' && { is_completed: 'True' }),
+            ...(filterStatus === 'false' && { is_completed: 'False' }),
+          },
+        });
+
+        setRows(retry.data.results || []);
+        setCount(retry.data.count ?? 0);
+        setPage(prev);
+        return;
       }
+
+      setRows(list || []);
+      setCount(total);
       // NÃO limpar msg aqui para não apagar mensagens de sucesso de criar/editar
     } catch (error) {
       console.error(
@@ -102,6 +120,10 @@ function Checklist() {
     loadList(page, pageSize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize]);
+
+  useEffect(() => {
+    loadList(1, pageSize);
+  }, [filterStatus]);
 
   // total de páginas (se backend não paginar, vira 1 página só)
   const totalPages = useMemo(() => {
@@ -257,6 +279,50 @@ function Checklist() {
       </div>
     );
   }
+
+  const renderPagination = () => {
+    const items = [];
+    const windowSize = 5;
+    const start = Math.max(1, page - Math.floor(windowSize / 2));
+    const end = Math.min(totalPages, start + windowSize - 1);
+    const realStart = Math.max(1, end - windowSize + 1);
+
+    items.push(
+      <Pagination.First key="first" disabled={page === 1} onClick={() => setPage(1)} />,
+      <Pagination.Prev
+        key="prev"
+        disabled={page === 1}
+        onClick={() => setPage(page - 1)}
+      />
+    );
+
+    if (realStart > 1) items.push(<Pagination.Ellipsis key="start-ellipsis" disabled />);
+
+    for (let p = realStart; p <= end; p++) {
+      items.push(
+        <Pagination.Item key={p} active={p === page} onClick={() => setPage(p)}>
+          {p}
+        </Pagination.Item>
+      );
+    }
+
+    if (end < totalPages) items.push(<Pagination.Ellipsis key="end-ellipsis" disabled />);
+
+    items.push(
+      <Pagination.Next
+        key="next"
+        disabled={page === totalPages}
+        onClick={() => setPage(page + 1)}
+      />,
+      <Pagination.Last
+        key="last"
+        disabled={page === totalPages}
+        onClick={() => setPage(totalPages)}
+      />
+    );
+
+    return <Pagination className="mb-0">{items}</Pagination>;
+  };
 
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
@@ -505,33 +571,43 @@ function Checklist() {
         )}
 
         <Container fluid className="px-0">
-          {/* Controles superiores: tamanho da página + Novo */}
-          <div className="d-flex justify-content-between align-items-center gap-2 px-3 mb-2 flex-wrap">
-            <div className="d-flex align-items-center gap-2">
-              <Form.Label className="mb-0" style={{ color: '#071744' }}>
-                Tamanho da página
-              </Form.Label>
-              <Form.Select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setPage(1);
-                }}
-                style={{ width: 120 }}
-              >
-                {[5, 10, 20, 50].map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </Form.Select>
-            </div>
-
-            <Button variant="primary" onClick={openCreate} disabled={readOnly}>
-              + Novo
-            </Button>
-          </div>
-
+          <FilterBar
+            pageSize={{
+              value: pageSize,
+              onChange: (v) => {
+                setPageSize(v);
+                setPage(1);
+              },
+            }}
+            extraActions={
+              <Button variant="primary" onClick={openCreate} disabled={readOnly}>
+                + Novo
+              </Button>
+            }
+            filters={[
+              {
+                key: 'situacao',
+                label: 'Situação',
+                value: filterStatus,
+                onChange: setFilterStatus,
+                render: (
+                  <Form.Select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                  >
+                    <option value="">Todas</option>
+                    <option value="true">Concluídas</option>
+                    <option value="false">Não concluídas</option>
+                  </Form.Select>
+                ),
+              },
+            ]}
+            onClearFilters={() => {
+              setFilterStatus('');
+              setPage(1);
+            }}
+            renderPagination={renderPagination}
+          />
           {/* Tabela (full width) */}
           <div className="table-wrap">
             <Table
@@ -684,8 +760,7 @@ function Checklist() {
               </tbody>
             </Table>
           </div>
-
-          {/* Paginação */}
+          Paginação
           <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 px-3">
             <div className="text-muted">
               Total: <strong>{count || (Array.isArray(rows) ? rows.length : 0)}</strong> •

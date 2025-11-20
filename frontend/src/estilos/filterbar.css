@@ -1,0 +1,58 @@
+/* ============================================
+   ESTILO PADRÃO PARA O COMPONENTE DE FILTROS
+   (Independente da página onde for usado)
+   Mesmo estilo do inventariolista.css,
+   porém isolado apenas para o bloco de filtros.
+   ============================================ */
+
+/* Wrapper do componente de filtros */
+.filterbar-container {
+  width: 100%;
+}
+
+/* Inputs sobre fundo gradiente: brancos e com borda suave */
+.filterbar-container .form-control,
+.filterbar-container .form-select {
+  background: #ffffff;
+  color: #213547;
+  border-color: #dee2e6;
+}
+
+/* Foco suave */
+.filterbar-container .form-control:focus,
+.filterbar-container .form-select:focus {
+  box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
+  border-color: #cbd3e0;
+}
+
+/* Label herdando cor padrão (fixa contraste no gradiente) */
+.filterbar-container label,
+.filterbar-container .form-label {
+  color: inherit;
+  font-weight: 500;
+}
+
+/* Botão branco padrão Camaleão */
+.filterbar-container .btn-white-custom {
+  background: #fff;
+  border: 1px solid #d4dae3;
+  color: #213547;
+  font-weight: 500;
+}
+
+.filterbar-container .btn-white-custom:hover {
+  background: #f1f1f1;
+  border-color: #c8cdd6;
+}
+
+/* Espaçamento entre linhas */
+.filterbar-container .row {
+  margin-bottom: 0.25rem;
+}
+
+/* Alinhamento dos elementos finais */
+.filterbar-container .actions-end {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.3rem;
+}
