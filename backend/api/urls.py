@@ -13,6 +13,7 @@ from .views import (
     InventarioDadosViewSet,
     RiskViewSet,
     ActionPlanViewSet,
+    ActionPlanControleView,
     RiskConfigView,
     MonitoringActionViewSet,
     IncidentViewSet,
@@ -21,6 +22,10 @@ from .views import (
     PasswordResetConfirmView,
     CalendarEventViewSet,
     EnsureOverdueUpdatedView,
+    RankingRiscoViewSet,
+    HeatmapRiscoViewSet,
+    LoginActivityViewSet,
+    UserActivityLogViewSet,
 )
 
 from .views_dashboard import DashboardViewSet
@@ -33,13 +38,20 @@ router.register(r"documentos", DocumentosLGPDViewSet, basename="documentos")
 router.register(r"checklists", ChecklistViewSet, basename="checklists")
 router.register(r"inventarios", InventarioDadosViewSet, basename="inventarios")
 router.register(r"riscos", RiskViewSet, basename="riscos")
+router.register(r"ranking-riscos", RankingRiscoViewSet, basename="ranking-riscos")
 router.register(r"actionplan", ActionPlanViewSet, basename="actionplan")
+router.register(
+    r"actionplan-controle", ActionPlanControleView, basename="actionplan-controle"
+)
 router.register(
     r"acoes-monitoramento", MonitoringActionViewSet, basename="acoes-monitoramento"
 )
 router.register(r"incidentes", IncidentViewSet, basename="incidentes")
+router.register(r"heatmap-riscos", HeatmapRiscoViewSet, basename="heatmap-riscos")
 router.register(r"calendarevent", CalendarEventViewSet, basename="calendarevent")
 router.register(r"dashboard", DashboardViewSet, basename="dashboard")
+router.register(r"audit/logins", LoginActivityViewSet, basename="audit-logins")
+router.register(r"audit/acoes", UserActivityLogViewSet, basename="audit-acoes")
 
 
 urlpatterns = [

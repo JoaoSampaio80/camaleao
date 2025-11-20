@@ -608,27 +608,118 @@ class CalendarEvent(models.Model):
 
 class LoginActivity(models.Model):
     """
-    Registra cada acesso de usuário ao sistema.
-    Criado automaticamente pelo middleware JWT.
+    Registra acessos de usuários ao sistema Camaleão,
+    conforme CDU14 – fluxo de login.
     """
 
+    # referência ao usuário
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,  # mantém auditoria mesmo se excluir o user
+        null=True,
         related_name="logins",
         verbose_name="Usuário",
     )
-    setor = models.CharField(max_length=100, blank=True, null=True)
+
+    # redundância do e-mail (auditoria não pode perder o autor)
+    email = models.EmailField(null=True, blank=True)
+
+    # IP de origem
     ip_address = models.GenericIPAddressField(null=True, blank=True)
-    data_login = models.DateTimeField(
-        default=timezone.now, verbose_name="Data de Login"
-    )
+
+    # device/browser da requisição
+    user_agent = models.TextField(null=True, blank=True)
+
+    # data e hora do login
+    data_login = models.DateTimeField(default=timezone.now)
 
     class Meta:
         ordering = ["-data_login"]
         verbose_name = "Atividade de Login"
         verbose_name_plural = "Atividades de Login"
 
+    def save(self, *args, **kwargs):
+        # sempre salva o e-mail do usuário
+        if self.usuario and not self.email:
+            self.email = self.usuario.email
+        super().save(*args, **kwargs)
+
     def __str__(self):
         data_fmt = timezone.localtime(self.data_login).strftime("%d/%m/%Y %H:%M")
-        return f"{self.usuario.email} — {data_fmt}"
+        return f"{self.email or 'Usuário removido'} — {data_fmt}"
+
+
+class UserActivityLog(models.Model):
+    """
+    Registra ações relevantes executadas por usuários dentro do sistema Camaleão.
+    Atende ao CDU14 – fluxo de operações internas.
+    """
+
+    ACTION_CHOICES = [
+        ("ACCESS", "Acesso"),
+        ("CREATE", "Criação"),
+        ("UPDATE", "Atualização"),
+        ("DELETE", "Exclusão"),
+        ("DEACTIVATE", "Desativação"),
+        ("REACTIVATE", "Reativação"),
+        ("EXPORT", "Exportação"),
+        ("OTHER", "Outra"),
+    ]
+
+    RESULT_CHOICES = [
+        ("SUCCESS", "Sucesso"),
+        ("ERROR", "Erro"),
+        ("INVALID", "Tentativa inválida"),
+    ]
+
+    # usuário que realizou a ação
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,  # mantém auditoria mesmo se user for deletado
+        null=True,
+        related_name="activity_logs",
+    )
+
+    # redundância do e-mail
+    email = models.EmailField(null=True, blank=True)
+
+    # Módulo do sistema: "riscos", "documentos", "inventario"...
+    modulo = models.CharField(max_length=100)
+
+    # opcional, rastreia a "view" ou tela (útil pra auditoria fina)
+    view_name = models.CharField(max_length=150, null=True, blank=True)
+
+    # tipo de ação feita
+    operacao = models.CharField(max_length=20, choices=ACTION_CHOICES)
+
+    # ID do registro afetado
+    registro_id = models.CharField(max_length=100, null=True, blank=True)
+
+    # descrição mais detalhada da ação
+    detalhe = models.TextField(null=True, blank=True)
+
+    # sucesso, erro, inválido
+    resultado = models.CharField(
+        max_length=20,
+        choices=RESULT_CHOICES,
+        default="SUCCESS",
+    )
+
+    # IP de origem
+    ip = models.GenericIPAddressField(null=True, blank=True)
+
+    # data e hora da ação
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-timestamp"]
+        verbose_name = "Log de Atividade de Usuário"
+        verbose_name_plural = "Logs de Atividades de Usuários"
+
+    def save(self, *args, **kwargs):
+        if self.usuario and not self.email:
+            self.email = self.usuario.email
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.timestamp:%Y-%m-%d %H:%M} — {self.modulo} — {self.operacao}"

@@ -1,5 +1,8 @@
+from api.utils.activity import log_login_activity, AuditLogMixin
+from api.utils.request_utils import get_client_ip
 from datetime import timedelta
 from rest_framework import viewsets, permissions, status, filters
+from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from rest_framework.decorators import action
@@ -56,6 +59,8 @@ from .serializers import (
     MonitoringActionSerializer,
     IncidentSerializer,
     CalendarEventSerializer,
+    LoginActivitySerializer,
+    UserActivityLogSerializer,
 )
 from .models import (
     User,
@@ -70,6 +75,7 @@ from .models import (
     ImpactItem,
     CalendarEvent,
     LoginActivity,
+    UserActivityLog,
 )
 from .permissions import (
     IsRoleAdmin,
@@ -171,22 +177,14 @@ class CookieTokenObtainPairView(TokenObtainPairView):
     def post(self, request, *args, **kwargs):
         res = super().post(request, *args, **kwargs)
 
-        try:
-            email = request.data.get("email")
-            user = User.objects.filter(email=email).first()
+        # → Obtém o usuário autenticado
+        email = request.data.get("email")
+        user = User.objects.filter(email=email).first()
 
-            if user:
-                ip = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[
-                    0
-                ] or request.META.get("REMOTE_ADDR")
-                LoginActivity.objects.create(
-                    usuario=user,
-                    setor=getattr(user, "setor", "Não informado"),
-                    ip_address=ip,
-                    data_login=timezone.now(),
-                )
-        except Exception as e:
-            print(f"⚠️ Erro ao registrar login: {e}")
+        # → REGISTRO OFICIAL DO LOGIN (CDU14)
+        if user:
+            print(">> LOGIN LOG DISPARADO")
+            log_login_activity(request, user)
 
         refresh = res.data.get("refresh")
         if refresh:
@@ -278,10 +276,27 @@ class CookieTokenLogoutView(APIView):
 
 
 # ViewSet para o modelo User
-class UserViewSet(viewsets.ModelViewSet):
+class UserViewSet(AuditLogMixin, viewsets.ModelViewSet):
     serializer_class = UserSerializer
     parser_classes = (JSONParser, MultiPartParser, FormParser)
     queryset = User.objects.none()
+    audit_module = "users"
+
+    def _log_activity(self, request, operation, obj=None, result="SUCCESS", details=""):
+        """Compatibiliza com sua model UserActivityLog atual."""
+        user = request.user if request.user.is_authenticated else None
+        email = getattr(user, "email", None)
+
+        UserActivityLog.objects.create(
+            usuario=user,
+            email=email,
+            modulo=self.audit_module,
+            operacao=operation.lower(),  # create/update/delete/read
+            registro_id=str(getattr(obj, "pk", "")) if obj else None,
+            detalhe=details[:5000],
+            resultado=result.lower(),
+            ip=get_client_ip(request),
+        )
 
     @action(
         detail=False,
@@ -343,27 +358,64 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     def destroy(self, request, *args, **kwargs):
-        user = self.get_object()
+        try:
+            user = self.get_object()
 
-        # Impede que o usuário desative a si mesmo
-        if user.pk == request.user.pk:
-            return Response(
-                {"detail": "Você não pode excluir a si mesmo."},
-                status=status.HTTP_400_BAD_REQUEST,
+            # 1. Tentativa inválida – admin tentando desativar a si mesmo
+            if user.pk == request.user.pk:
+                UserActivityLog.objects.create(
+                    usuario=request.user,
+                    modulo="users",
+                    operacao="deactivate",
+                    registro_id=user.pk,
+                    detalhe="Tentativa inválida: usuário tentou desativar a si mesmo.",
+                    resultado="invalid",
+                    ip=request.META.get("REMOTE_ADDR"),
+                )
+
+                return Response(
+                    {"detail": "Você não pode desativar a si mesmo."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Avatar mantido conforme lógica existente
+            if getattr(user, "avatar", None):
+                user.avatar.delete(save=False)
+
+            # 2. DESATIVAÇÃO NORMAL (soft delete)
+            user.is_active = False
+            user.save(update_fields=["is_active"])
+
+            # Registro de sucesso
+            UserActivityLog.objects.create(
+                usuario=request.user,
+                modulo="users",
+                operacao="deactivate",
+                registro_id=user.pk,
+                detalhe=f"Usuário {user.email} desativado.",
+                resultado="success",
+                ip=request.META.get("REMOTE_ADDR"),
             )
 
-        # Remover avatar do storage (mantendo seu comportamento atual)
-        if getattr(user, "avatar", None):
-            user.avatar.delete(save=False)
+            return Response(
+                {"detail": "Usuário desativado com sucesso."},
+                status=status.HTTP_200_OK,
+            )
 
-        # 👉 SOFT DELETE: apenas desativa
-        user.is_active = False
-        user.save(update_fields=["is_active"])
+        except Exception as exc:
+            # 3. Registro de ERRO interno (qualquer outra falha)
+            UserActivityLog.objects.create(
+                usuario=request.user,
+                modulo="users",
+                operacao="deactivate",
+                registro_id=None,
+                detalhe=f"Erro ao tentar desativar usuário: {exc}",
+                resultado="error",
+                ip=request.META.get("REMOTE_ADDR"),
+            )
 
-        return Response(
-            {"detail": "Usuário desativado com sucesso."},
-            status=status.HTTP_200_OK,
-        )
+            # re-levanta o erro para o DRF tratar
+            raise
 
     @action(
         detail=True,
@@ -371,15 +423,40 @@ class UserViewSet(viewsets.ModelViewSet):
         permission_classes=[IsRoleAdmin],
     )
     def reactivate(self, request, pk=None):
-        user = get_object_or_404(User, pk=pk)
+        try:
+            user = get_object_or_404(User, pk=pk)
 
-        # Impedir que um usuário reative a si mesmo? (opcional)
-        # Mas geralmente permitido, então não aplicamos bloqueio.
+            # Impedir que um usuário reative a si mesmo? (opcional)
+            # Mas geralmente permitido, então não aplicamos bloqueio.
 
-        user.is_active = True
-        user.save(update_fields=["is_active"])
+            user.is_active = True
+            user.save(update_fields=["is_active"])
 
-        return Response({"detail": "Usuário reativado com sucesso."})
+            # Registrar sucesso
+            UserActivityLog.objects.create(
+                usuario=request.user,
+                modulo="users",
+                operacao="reactivate",
+                registro_id=user.pk,
+                detalhe=f"Usuário {user.email} reativado.",
+                resultado="success",
+                ip=request.META.get("REMOTE_ADDR"),
+            )
+
+            return Response({"detail": "Usuário reativado com sucesso."})
+
+        except Exception as exc:
+            # Registrar erro inesperado
+            UserActivityLog.objects.create(
+                usuario=request.user,
+                modulo="users",
+                operacao="reactivate",
+                registro_id=None,
+                detalhe=f"Erro ao tentar reativar usuário: {exc}",
+                resultado="error",
+                ip=request.META.get("REMOTE_ADDR"),
+            )
+            raise
 
     # GET /users/me/ -> dados do próprio usuário
     @action(
@@ -495,10 +572,15 @@ class UserViewSet(viewsets.ModelViewSet):
             )
 
 
-class DocumentosLGPDViewSet(viewsets.ModelViewSet):
+class DocumentosLGPDViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = DocumentosLGPD.objects.all().order_by("-created_at")
     serializer_class = DocumentosLGPDSerializer
     permission_classes = [SimpleRolePermission]
+    audit_module = "documentos"
+
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["dimensao", "criticidade", "status"]
+
     OWN_FIELD = "criado_por"
     ROLE_PERMS = {
         # leitura liberada para todos autenticados
@@ -536,12 +618,10 @@ class DocumentosLGPDViewSet(viewsets.ModelViewSet):
         doc = self.get_object()
         # Permissão adicional já é validada pelo permission_classes em métodos de escrita,
         # mas mantemos uma checagem explícita aqui para upload:
-        if (
-            not request.user.is_staff
-            and not request.user.groups.filter(name="DPO").exists()
-        ):
+        if request.user.role not in ["admin", "dpo"]:
             return Response(
-                {"detail": "Sem permissão."}, status=status.HTTP_403_FORBIDDEN
+                {"detail": "Sem permissão."},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         file_obj = request.FILES.get("arquivo")
@@ -556,9 +636,14 @@ class DocumentosLGPDViewSet(viewsets.ModelViewSet):
 
 
 # ViewSet para gerenciar o checklist da LGPD
-class ChecklistViewSet(viewsets.ModelViewSet):
+class ChecklistViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = Checklist.objects.all().order_by("id")
     serializer_class = ChecklistSerializer
+    audit_module = "checklist"
+
+    # === Filtro habilitado ===
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["is_completed"]
 
     # Esta função controla as permissões de acesso para cada ação da API
     def get_permissions(self):
@@ -569,7 +654,7 @@ class ChecklistViewSet(viewsets.ModelViewSet):
 
 
 # ViewSet para InventarioDados
-class InventarioDadosViewSet(viewsets.ModelViewSet):
+class InventarioDadosViewSet(AuditLogMixin, viewsets.ModelViewSet):
     lookup_value_regex = r"\d+"
     queryset = InventarioDados.objects.select_related(
         "criado_por"
@@ -579,6 +664,7 @@ class InventarioDadosViewSet(viewsets.ModelViewSet):
     serializer_class = InventarioDadosSerializer
     permission_classes = [SimpleRolePermission]
     pagination_class = DefaultPagination
+    audit_module = "inventario"
 
     # Campo que identifica o "dono" do registro (para escopo 'own')
     OWN_FIELD = "criado_por"
@@ -1019,10 +1105,29 @@ class InventarioDadosViewSet(viewsets.ModelViewSet):
 
 
 # ViewSet para MatrizRisco
-class RiskViewSet(viewsets.ModelViewSet):
+class RiskViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = Risk.objects.all().select_related("probabilidade", "impacto", "eficacia")
     serializer_class = RiskSerializer
     permission_classes = [IsAdminOrDPO]
+    audit_module = "riscos"
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        params = self.request.query_params
+
+        setor = params.get("setor")
+        if setor:
+            qs = qs.filter(setor__icontains=setor)
+
+        processo = params.get("processo")
+        if processo:
+            qs = qs.filter(processo__icontains=processo)
+
+        matriz = params.get("matriz_filial")
+        if matriz:
+            qs = qs.filter(matriz_filial__icontains=matriz)
+
+        return qs
 
     # filtros/busca/ordenação padrão
     filter_backends = [
@@ -1032,7 +1137,7 @@ class RiskViewSet(viewsets.ModelViewSet):
     ]
     filterset_fields = {
         "matriz_filial": ["exact", "icontains"],
-        "setor": ["exact", "icontains"],
+        # "setor": ["exact", "icontains"],
         "processo": ["exact", "icontains"],
         "risco_residual": ["exact"],
         "tipo_controle": ["exact"],
@@ -1046,110 +1151,6 @@ class RiskViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # não passar 'criado_por' (o modelo Risk não tem esse campo)
         serializer.save()
-
-    @action(detail=False, methods=["get"])
-    def ranking(self, request):
-        """
-        Lista de riscos ordenada por pontuação (desc), depois impacto e probabilidade (desc),
-        mantendo os mesmos filtros/busca do list().
-        Agora inclui labels de prob/impact e campos de controle (quando existirem).
-        """
-        qs = self.filter_queryset(self.get_queryset()).order_by(
-            "-pontuacao", "-impacto__value", "-probabilidade__value", "-criado_em"
-        )
-
-        data = []
-        for r in qs:
-            data.append(
-                {
-                    "id": r.id,
-                    "matriz_filial": r.matriz_filial,
-                    "setor": r.setor,
-                    "processo": r.processo,
-                    "risco_fator": r.risco_fator,
-                    "probabilidade": (
-                        {
-                            "value": getattr(r.probabilidade, "value", None),
-                            "label": getattr(r.probabilidade, "label_pt", None),
-                        }
-                        if r.probabilidade_id
-                        else None
-                    ),
-                    "impacto": (
-                        {
-                            "value": getattr(r.impacto, "value", None),
-                            "label": getattr(r.impacto, "label_pt", None),
-                        }
-                        if r.impacto_id
-                        else None
-                    ),
-                    "pontuacao": r.pontuacao,
-                    "risco_residual": r.risco_residual,
-                    # campos adicionais úteis pro ranking (vêm da planilha)
-                    "medidas_controle": getattr(r, "medidas_controle", "") or "",
-                    "tipo_controle": r.tipo_controle or "",
-                    "eficacia_label": getattr(
-                        getattr(r, "eficacia", None), "label_pt", ""
-                    )
-                    or "",
-                    "resposta_risco": r.resposta_risco or "",
-                }
-            )
-        return Response(data)
-
-    @action(detail=False, methods=["get"])
-    def heatmap(self, request):
-        """
-        Buckets e matriz para Heatmap.
-        Mantém o retorno 'buckets' (compatibilidade), e acrescenta:
-          - grid: matriz 5x5 (índices 1..5) com contagens
-          - points: lista [{prob, impact, count}]
-          - axes: rótulos para probabilidade e impacto
-          - total: quantidade total após filtros
-        """
-        qs = self.filter_queryset(self.get_queryset())
-
-        # --- buckets no formato "p-i": count (compat com sua versão anterior)
-        buckets = {}
-        for r in qs:
-            if not (r.probabilidade_id and r.impacto_id):
-                continue
-            p = r.probabilidade.value
-            i = r.impacto.value
-            key = f"{p}-{i}"
-            buckets[key] = buckets.get(key, 0) + 1
-
-        # --- agregados estruturados (grid/points)
-        size = 5
-        grid = [[0 for _ in range(size + 1)] for _ in range(size + 1)]  # índice 1..5
-        points = []
-        # podemos percorrer buckets para montar grid/points
-        for key, count in buckets.items():
-            p_str, i_str = key.split("-")
-            p = int(p_str)
-            i = int(i_str)
-            if 1 <= p <= 5 and 1 <= i <= 5:
-                grid[p][i] = count
-                points.append({"prob": p, "impact": i, "count": count})
-
-        # --- eixos com labels PT (ordenados por value)
-        probs = list(
-            LikelihoodItem.objects.order_by("value").values("value", "label_pt")
-        )
-        imps = list(ImpactItem.objects.order_by("value").values("value", "label_pt"))
-
-        return Response(
-            {
-                "buckets": buckets,  # compatibilidade com front já existente
-                "grid": grid,  # grid[prob][impact] -> count (prob/impact 1..5)
-                "points": points,  # pontos úteis pra heatmap baseado em scatter
-                "axes": {
-                    "probabilidade": probs,  # [{value, label_pt}]
-                    "impacto": imps,
-                },
-                "total": qs.count(),
-            }
-        )
 
     @action(detail=False, methods=["get"], url_path=r"ranking/export/xlsx")
     def export_ranking_xlsx(self, request):
@@ -1536,8 +1537,59 @@ class RiskViewSet(viewsets.ModelViewSet):
         return Response(data)
 
 
+class RankingRiscoViewSet(AuditLogMixin, viewsets.ViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+    audit_module = "ranking_riscos"
+
+    def list(self, request):
+        self._log(request, "ACCESS")
+
+        qs = Risk.objects.all().order_by(
+            "-pontuacao", "-impacto__value", "-probabilidade__value", "-criado_em"
+        )
+
+        data = []
+        for r in qs:
+            data.append(
+                {
+                    "id": r.id,
+                    "matriz_filial": r.matriz_filial,
+                    "setor": r.setor,
+                    "processo": r.processo,
+                    "risco_fator": r.risco_fator,
+                    "probabilidade": (
+                        {
+                            "value": getattr(r.probabilidade, "value", None),
+                            "label": getattr(r.probabilidade, "label_pt", None),
+                        }
+                        if r.probabilidade_id
+                        else None
+                    ),
+                    "impacto": (
+                        {
+                            "value": getattr(r.impacto, "value", None),
+                            "label": getattr(r.impacto, "label_pt", None),
+                        }
+                        if r.impacto_id
+                        else None
+                    ),
+                    "pontuacao": r.pontuacao,
+                    "risco_residual": r.risco_residual,
+                    "medidas_controle": r.medidas_controle or "",
+                    "tipo_controle": r.tipo_controle or "",
+                    "eficacia_label": getattr(
+                        getattr(r, "eficacia", None), "label_pt", ""
+                    )
+                    or "",
+                    "resposta_risco": r.resposta_risco or "",
+                }
+            )
+
+        return Response(data)
+
+
 # ViewSet para PlanoAcao
-class ActionPlanViewSet(viewsets.ModelViewSet):
+class ActionPlanViewSet(AuditLogMixin, viewsets.ModelViewSet):
     """
     ViewSet de Planos de Ação, refletindo exatamente os campos do modelo.
     """
@@ -1545,6 +1597,7 @@ class ActionPlanViewSet(viewsets.ModelViewSet):
     queryset = ActionPlan.objects.all().select_related("risco")
     serializer_class = ActionPlanSerializer
     permission_classes = [IsAdminOrDPO]
+    audit_module = "plano-acao"
 
     # ===== Filtros =====
     filter_backends = [
@@ -1567,6 +1620,9 @@ class ActionPlanViewSet(viewsets.ModelViewSet):
 
     ordering_fields = ["prazo", "id"]
     ordering = ["prazo"]
+
+    def list(self, request):
+        self._log(request, "ACCESS")
 
     # ===== Criação =====
     def perform_create(self, serializer):
@@ -1630,11 +1686,40 @@ class ActionPlanViewSet(viewsets.ModelViewSet):
 
         return Response({"count": len(items), "items": items})
 
+    @action(detail=False, methods=["get"], url_path="navegacao")
+    def registrar_navegacao(self, request):
+        page = request.GET.get("page", "")
+        detalhe = f"Navegação página {page}" if page else "Navegação interna"
 
-class MonitoringActionViewSet(viewsets.ModelViewSet):
+        self.extra_log_detail = detalhe
+        return Response({"detail": "ok"})
+
+
+class ActionPlanControleView(AuditLogMixin, viewsets.ReadOnlyModelViewSet):
+    """
+    Endpoint SOMENTE para a tela Controle de Ações.
+
+    Devolve exatamente o mesmo payload de /riscos/ (RiskSerializer),
+    só que com módulo de auditoria próprio: 'controle_plano_acao'.
+    """
+
+    queryset = (
+        Risk.objects.select_related("probabilidade", "impacto", "eficacia")
+        .prefetch_related("planos")  # garante os complementos
+        .all()
+    )
+    serializer_class = RiskSerializer
+    permission_classes = [IsAdminOrDPO]
+    audit_module = "controle_plano_acao"
+    pagination_class = None
+    audit_ignore_models = ["Risk"]
+
+
+class MonitoringActionViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = MonitoringAction.objects.all()
     serializer_class = MonitoringActionSerializer
     permission_classes = [IsAdminOrDPO]
+    audit_module = "acao-monitoramento"
 
     filter_backends = [
         DjangoFilterBackend,
@@ -1646,10 +1731,11 @@ class MonitoringActionViewSet(viewsets.ModelViewSet):
     ordering = ["-data_monitoramento"]
 
 
-class IncidentViewSet(viewsets.ModelViewSet):
+class IncidentViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = Incident.objects.all()
     serializer_class = IncidentSerializer
     permission_classes = [IsAdminOrDPO]
+    audit_module = "incidentes"
 
     filter_backends = [
         DjangoFilterBackend,
@@ -1701,6 +1787,94 @@ class RiskConfigView(APIView):
             "instructions": InstructionSerializer(instructions, many=True).data,
         }
         return Response(data)
+
+
+class HeatmapRiscoViewSet(AuditLogMixin, viewsets.ViewSet):
+    permission_classes = [IsAdminOrDPO]
+
+    audit_module = "heatmap_riscos"
+
+    def list(self, request):
+        self._log(request, "ACCESS")
+        """
+        Retorna:
+        - riscos: lista completa (compatível com o Ranking)
+        - buckets: contagem por prob-impact
+        - grid, points
+        - axes: labels PT de probabilidade/impacto
+        """
+        qs = Risk.objects.select_related("probabilidade", "impacto").all()
+
+        # --- LISTA COMPLETA DE RISCOS (compatível com ranking-riscos) ---
+        riscos_list = []
+        for r in qs:
+            riscos_list.append(
+                {
+                    "id": r.id,
+                    "matriz_filial": r.matriz_filial,
+                    "setor": r.setor,
+                    "processo": r.processo,
+                    "risco_fator": r.risco_fator,
+                    "probabilidade": (
+                        {
+                            "value": getattr(r.probabilidade, "value", None),
+                            "label": getattr(r.probabilidade, "label_pt", None),
+                        }
+                        if r.probabilidade_id
+                        else None
+                    ),
+                    "impacto": (
+                        {
+                            "value": getattr(r.impacto, "value", None),
+                            "label": getattr(r.impacto, "label_pt", None),
+                        }
+                        if r.impacto_id
+                        else None
+                    ),
+                    "pontuacao": r.pontuacao,
+                    "risco_residual": r.risco_residual,
+                }
+            )
+
+        # --- buckets ---
+        buckets = {}
+        for r in qs:
+            if not (r.probabilidade_id and r.impacto_id):
+                continue
+            p = r.probabilidade.value
+            i = r.impacto.value
+            key = f"{p}-{i}"
+            buckets[key] = buckets.get(key, 0) + 1
+
+        # --- grid / points ---
+        size = 5
+        grid = [[0 for _ in range(size + 1)] for _ in range(size + 1)]
+        points = []
+
+        for key, count in buckets.items():
+            p_str, i_str = key.split("-")
+            p, i = int(p_str), int(i_str)
+
+            if 1 <= p <= 5 and 1 <= i <= 5:
+                grid[p][i] = count
+                points.append({"prob": p, "impact": i, "count": count})
+
+        # --- eixos ---
+        probs = list(
+            LikelihoodItem.objects.order_by("value").values("value", "label_pt")
+        )
+        imps = list(ImpactItem.objects.order_by("value").values("value", "label_pt"))
+
+        return Response(
+            {
+                "riscos": riscos_list,  # <- PARA O FRONTEND ATUAL
+                "buckets": buckets,
+                "grid": grid,
+                "points": points,
+                "axes": {"probabilidade": probs, "impacto": imps},
+                "total": qs.count(),
+            }
+        )
 
 
 # ===========================
@@ -1903,7 +2077,7 @@ class InviteSetPasswordView(APIView):
         )
 
 
-class CalendarEventViewSet(viewsets.ModelViewSet):
+class CalendarEventViewSet(AuditLogMixin, viewsets.ModelViewSet):
     """
     Permite listar, criar, editar e excluir eventos do calendário.
     Apenas o usuário autenticado vê e gerencia seus próprios eventos.
@@ -1911,6 +2085,7 @@ class CalendarEventViewSet(viewsets.ModelViewSet):
 
     serializer_class = CalendarEventSerializer
     permission_classes = [permissions.IsAuthenticated]
+    audit_module = "calendario"
 
     def get_queryset(self):
         return CalendarEvent.objects.filter(user=self.request.user).order_by(
@@ -1926,3 +2101,51 @@ class EnsureOverdueUpdatedView(APIView):
         return Response(
             {"updated": updated, "detail": "Overdue check executed (if needed)."}
         )
+
+
+class LoginActivityViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Listagem de logins realizados no sistema.
+    Acesso restrito a Admin e DPO.
+    """
+
+    queryset = LoginActivity.objects.all()
+    serializer_class = LoginActivitySerializer
+    permission_classes = [IsAdminOrDPO]
+
+    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
+    filterset_fields = ["email", "ip_address", "data_login"]
+    ordering_fields = ["data_login", "email"]
+    search_fields = ["email", "ip_address", "user_agent"]
+
+
+class UserActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Listagem de ações executadas no sistema.
+    Acesso restrito a Admin e DPO.
+    """
+
+    queryset = UserActivityLog.objects.all()
+    serializer_class = UserActivityLogSerializer
+    permission_classes = [IsAdminOrDPO]
+
+    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
+    filterset_fields = [
+        "email",
+        "modulo",
+        "operacao",
+        "resultado",
+        "ip",
+        "timestamp",
+    ]
+    ordering_fields = [
+        "timestamp",
+        "email",
+        "modulo",
+        "operacao",
+    ]
+    search_fields = [
+        "email",
+        "modulo",
+        "detalhe",
+    ]

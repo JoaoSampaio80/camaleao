@@ -1,14 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-  Container,
-  Row,
-  Col,
-  Card,
-  Spinner,
-  Alert,
-  Button,
-  ProgressBar,
-} from 'react-bootstrap';
+import React, { useEffect, useState } from 'react';
+import { Container, Row, Col, Card, Spinner, Alert } from 'react-bootstrap';
 import Sidebar from '../components/Sidebar';
 
 import AxiosInstance from '../components/Axios';
@@ -215,20 +206,12 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(t);
-  }, []);
-
-  useEffect(() => {
-    console.log('🚀 Iniciando fetchDashboard...');
-
     const fetchDashboard = async () => {
       try {
         setLoading(true);
         setErro('');
 
         const { data } = await AxiosInstance.get('/dashboard/');
-        console.log('📊 Dados recebidos do backend:', data);
 
         // Usa fallback seguro com operador ?? para valores nulos/indefinidos
         setKpis(data.kpis ?? fallback.kpis ?? {});
@@ -253,8 +236,7 @@ export default function Dashboard() {
           // fallback seguro se API antiga não enviar o campo
           setIndiceMaturidade({ indice: 0, percentAcoes: 0, percentChecklist: 0 });
         }
-      } catch (err) {
-        console.error('❌ Erro ao carregar dashboard:', err);
+      } catch {
         setErro('Não foi possível carregar os dados do dashboard.');
 
         // Mantém os dados de fallback para evitar quebra na renderização
@@ -266,7 +248,6 @@ export default function Dashboard() {
         setAcoesTimeline(fallback.acoesTimeline ?? []);
         setDocsVenc(fallback.documentosVencimentos ?? []);
         setincidentesTimeline(fallback.incidentesTimeline ?? []);
-        console.log('📋 Logins recebidos:', data.loginsRecentes);
         setLogins(fallback.loginsRecentes ?? []);
         setRanking(fallback.rankingUsuarios ?? []);
         setIndiceMaturidade({
@@ -298,7 +279,6 @@ export default function Dashboard() {
       >
         <Container fluid className="py-3 px-4" style={{ maxWidth: '100%' }}>
           <h2 className="dashboard-title">Dashboard de Conformidade LGPD</h2>
-          {console.log('📄 docsVenc', docsVenc)}
 
           {/* ==== KPI ==== */}
           <Row className="g-3 justify-content-center">

@@ -12,8 +12,9 @@ export default function HeatmapDashboard() {
   const loadRiscos = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await AxiosInstance.get('/riscos/ranking/');
-      const results = Array.isArray(data) ? data : data?.results || [];
+      const { data } = await AxiosInstance.get('/heatmap-riscos/');
+      const results = data.riscos || [];
+
       setRiscos(results);
     } catch (err) {
       console.error('Erro ao carregar riscos do dashboard:', err);

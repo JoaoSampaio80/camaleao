@@ -22,6 +22,8 @@ from .models import (
     RiskLevelBand,
     Instruction,
     CalendarEvent,
+    LoginActivity,
+    UserActivityLog,
 )
 
 
@@ -706,3 +708,15 @@ class CalendarEventSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         validated_data["user"] = request.user
         return super().create(validated_data)
+
+
+class LoginActivitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LoginActivity
+        fields = "__all__"
+
+
+class UserActivityLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserActivityLog
+        fields = "__all__"

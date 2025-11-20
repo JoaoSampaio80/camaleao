@@ -1,3 +1,4 @@
+from api.utils.activity import AuditLogMixin
 from collections import defaultdict
 from datetime import timedelta, datetime
 from django.utils import timezone
@@ -31,7 +32,7 @@ def _split_acoes(texto):
     ]
 
 
-class DashboardViewSet(viewsets.ViewSet):
+class DashboardViewSet(AuditLogMixin, viewsets.ViewSet):
     """
     GET /api/dashboard/
     Retorna os dados consolidados do Dashboard.
@@ -39,8 +40,10 @@ class DashboardViewSet(viewsets.ViewSet):
     """
 
     permission_classes = [permissions.IsAuthenticated]
+    audit_module = "dashboard"
 
     def list(self, request):
+        self._log_access(request)
         hoje = timezone.localdate()
         daqui_30 = hoje + timedelta(days=30)
 

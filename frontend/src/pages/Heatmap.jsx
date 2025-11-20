@@ -55,8 +55,8 @@ export default function Heatmap() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const { data } = await AxiosInstance.get('/riscos/ranking/');
-      const allResults = Array.isArray(data) ? data : data?.results || [];
+      const { data } = await AxiosInstance.get('/heatmap-riscos/');
+      const allResults = data.riscos || [];
 
       setRiscos(allResults);
 
@@ -642,9 +642,6 @@ export default function Heatmap() {
                               const chartX = 140;
                               const chartW = 550;
                               const tooltipW = 240;
-
-                              // const minX = chartX; // não passar da esquerda
-                              // const maxX = chartX + chartW - tooltipW; // não passar da direita
 
                               // clamp
                               return Math.min(
