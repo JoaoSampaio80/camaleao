@@ -898,7 +898,18 @@ function Cadastro() {
                               </div>
                             </td>
                             <td>
-                              <div className="cell-clip">{u.role}</div>
+                              <div className="cell-clip d-flex align-items-center gap-2">
+                                <span>{u.role}</span>
+
+                                {/* 🔥 Badge de status */}
+                                {showInactive ? (
+                                  <Badge bg="warning" text="dark">
+                                    Desativado
+                                  </Badge>
+                                ) : (
+                                  <Badge bg="success">Ativo</Badge>
+                                )}
+                              </div>
                             </td>
                             <td style={{ textAlign: 'center' }}>
                               <Dropdown align="end">
@@ -1050,7 +1061,7 @@ function Cadastro() {
             Cancelar
           </Button>
           <Button variant="danger" onClick={confirmDelete} disabled={deleting}>
-            {deleting ? 'Excluindo…' : 'Excluir'}
+            {deleting ? 'Desativando…' : 'Desativar'}
           </Button>
         </Modal.Footer>
       </Modal>
