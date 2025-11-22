@@ -16,6 +16,12 @@ ALLOWED_HOSTS = [
 ]
 
 # =========================
+# Detecta ambiente Railway (produção real)
+# =========================
+ENV = os.getenv("NODE_ENV", "").lower()
+IS_RAILWAY = ENV == "railway"
+
+# =========================
 # Validação de senha
 # =========================
 AUTH_PASSWORD_VALIDATORS = [
@@ -67,27 +73,35 @@ SECURE_SSL_REDIRECT = (
     False  # não redireciona para https internamente (o túnel já é https)
 )
 
-# =========================
-# Domínio do túnel e cookies
-# =========================
-TUNNEL_URL = os.getenv("TUNNEL_URL")
-if not TUNNEL_URL:
-    raise RuntimeError(
-        "TUNNEL_URL ausente. Rode o script que sobe o túnel e atualiza o .env.prod."
-    )
+if IS_RAILWAY:
+    # ===========================================
+    # Produção REAL Railway (sem Túnel)
+    # ===========================================
+    COOKIE_DOMAIN = None  # Railway usa domínio sem cookie domain forçado
 
-parsed = urlparse(TUNNEL_URL)
-COOKIE_DOMAIN = parsed.hostname  # ex.: my-subdomain.trycloudflare.com
+    CSRF_TRUSTED_ORIGINS = [
+        "https://"
+        + os.getenv("RAILWAY_PUBLIC_DOMAIN", "camaleao-production.up.railway.app")
+    ]
 
-# Garante que o hostname do túnel está permitido
-if COOKIE_DOMAIN and COOKIE_DOMAIN not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append(COOKIE_DOMAIN)
+    print("[prod] Modo Railway → TUNNEL_URL ignorado")
+else:
+    # ===========================================
+    # Produção simulada (Túnel)
+    # ===========================================
+    TUNNEL_URL = os.getenv("TUNNEL_URL")
+    if not TUNNEL_URL:
+        raise RuntimeError(
+            "TUNNEL_URL ausente. Rode o script que sobe o túnel e atualiza o .env.prod."
+        )
 
-# CSRF deve confiar no domínio público do túnel
-CSRF_TRUSTED_ORIGINS = [
-    f"https://{COOKIE_DOMAIN}",
-    # opcionalmente, adicione outros domínios públicos que possam acessar sua API
-]
+    parsed = urlparse(TUNNEL_URL)
+    COOKIE_DOMAIN = parsed.hostname  # ex: xxxxx.trycloudflare.com
+
+    if COOKIE_DOMAIN and COOKIE_DOMAIN not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(COOKIE_DOMAIN)
+
+    CSRF_TRUSTED_ORIGINS = [f"https://{COOKIE_DOMAIN}"]
 
 # Cookies seguros e com domínio do túnel
 CSRF_COOKIE_SECURE = True
@@ -119,7 +133,7 @@ api_settings.AUTH_COOKIE_SAMESITE = JWT_AUTH_SAMESITE
 # 9️⃣ Log simples de domínio ativo (para debug seguro)
 # ============================================================
 print(
-    f"[camaleao.settings.prod] COOKIE_DOMAIN={COOKIE_DOMAIN} | MEDIA_ROOT={MEDIA_ROOT}"
+    f"[camaleao.settings.prod] COOKIE_DOMAIN={COOKIE_DOMAIN} | MEDIA_ROOT={MEDIA_ROOT} | ALLOWED_HOSTS={ALLOWED_HOSTS}"
 )
 
 # ============================================================
