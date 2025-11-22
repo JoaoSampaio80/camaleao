@@ -103,6 +103,16 @@ else:
 
     CSRF_TRUSTED_ORIGINS = [f"https://{COOKIE_DOMAIN}"]
 
+# =========================
+# CORS (Netlify -> Railway)
+# =========================
+CORS_ALLOWED_ORIGINS = [
+    "https://quiet-sunshine-2c8d5f.netlify.app",
+]
+
+CSRF_TRUSTED_ORIGINS.append("https://quiet-sunshine-2c8d5f.netlify.app")
+
+
 # Cookies seguros e com domínio do túnel
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
