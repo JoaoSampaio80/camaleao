@@ -7,23 +7,17 @@ function Home() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.log('O componente Home foi renderizado!');
-
     (async () => {
       const lastRun = localStorage.getItem('overdue_check_date');
       const today = new Date().toISOString().slice(0, 10);
 
-      if (lastRun === today) {
-        console.log('Verificação de ações atrasadas já executada hoje.');
-        return;
-      }
+      if (lastRun === today) return;
 
       try {
         await AxiosInstance.post('/overdue/ensure/');
-        console.log('Verificação de ações atrasadas executada com sucesso.');
         localStorage.setItem('overdue_check_date', today);
       } catch (e) {
-        console.warn('Falha ao garantir atualização de atrasados:', e?.message || e);
+        console.warn('Erro ao verificar atrasados:', e);
       }
     })();
   }, []);
@@ -32,11 +26,34 @@ function Home() {
     <div className="d-flex" style={{ minHeight: '100vh' }}>
       <Sidebar />
 
+      {/* CAMADA PRINCIPAL */}
       <main
-        className="home-content d-flex justify-content-center align-items-center"
+        className="d-flex justify-content-center align-items-center"
         role="main"
+        style={{
+          position: 'relative',
+          width: '100%',
+          minHeight: '100vh',
+          overflow: 'hidden',
+        }}
       >
-        <div className="text-center">
+        {/* CAMADA DE FUNDO - SÓ A IMAGEM FICA TRANSPARENTE */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: `url('logoHome.png')`,
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center center',
+            backgroundSize: '65%', // ⬅️ AUMENTA A LARGURA DA IMAGEM
+            opacity: 0.18, // ⬅️ TRANSPARÊNCIA DA IMAGEM
+            zIndex: 0,
+            pointerEvents: 'none', // fundo não atrapalha clique
+          }}
+        ></div>
+
+        {/* CAMADA DO TEXTO - NÃO FICA TRANSPARENTE */}
+        <div className="text-center" style={{ zIndex: 1 }}>
           <h2 className="fw-bold" style={{ color: '#003366' }}>
             Bem-vindo(a) ao Sistema Camaleão
           </h2>
