@@ -14,13 +14,13 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Arquivos necessários para instalação
-COPY ./requirements.txt /app/requirements.txt
+# Copiar requirements
+COPY backend/requirements.txt /app/requirements.txt
 
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# Copiar resto do backend
-COPY . /app
+# Copiar todo o backend
+COPY backend/ /app/
 
 ENV DJANGO_SETTINGS_MODULE=camaleao.settings.prod
 
