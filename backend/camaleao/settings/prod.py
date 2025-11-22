@@ -130,14 +130,14 @@ api_settings.AUTH_COOKIE_SECURE = JWT_AUTH_SECURE
 api_settings.AUTH_COOKIE_SAMESITE = JWT_AUTH_SAMESITE
 
 # ============================================================
-# 9️⃣ Log simples de domínio ativo (para debug seguro)
+# Log simples de domínio ativo (para debug seguro)
 # ============================================================
 print(
     f"[camaleao.settings.prod] COOKIE_DOMAIN={COOKIE_DOMAIN} | MEDIA_ROOT={MEDIA_ROOT} | ALLOWED_HOSTS={ALLOWED_HOSTS}"
 )
 
 # ============================================================
-# 🔒 Reforço de Segurança HTTP (neutro e sem impacto funcional)
+# Reforço de Segurança HTTP (neutro e sem impacto funcional)
 # ============================================================
 
 # Cabeçalhos de segurança adicionais (não afetam cookies nem CORS)
@@ -152,4 +152,4 @@ SECURE_HSTS_SECONDS = 31536000  # 1 ano
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
-print("[camaleao.settings.prod] Segurança HTTP reforçada: HSTS + Headers ativados ✅")
+print("[camaleao.settings.prod] Segurança HTTP reforçada: HSTS + Headers ativados")

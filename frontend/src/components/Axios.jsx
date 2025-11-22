@@ -17,7 +17,7 @@ const pickEnvBase = () => {
   const fallback = 'http://localhost:8000/api/v1/';
   let chosen = fromVite || fallback;
 
-  // ✅ Garante que o prefixo /api/v1/ exista mesmo em produção
+  // Garante que o prefixo /api/v1/ exista mesmo em produção
   if (!/\/api\/v1\/?$/i.test(chosen)) {
     chosen = chosen.replace(/\/+$/, '') + '/api/v1/';
   }
@@ -72,7 +72,7 @@ const isExpired = (decoded) =>
 const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
 
 const getTokens = () => {
-  if (COOKIE_MODE && !isLocal) return null; // ✅ Em produção com cookies, ignora localStorage
+  if (COOKIE_MODE && !isLocal) return null; // Em produção com cookies, ignora localStorage
   try {
     const raw = localStorage.getItem(TOKENS_KEY);
     return raw ? JSON.parse(raw) : null;
@@ -82,7 +82,7 @@ const getTokens = () => {
 };
 
 const setTokens = (tokens) => {
-  if (COOKIE_MODE && !isLocal) return; // ✅ evita salvar tokens em produção
+  if (COOKIE_MODE && !isLocal) return; // evita salvar tokens em produção
   try {
     if (!tokens) {
       localStorage.removeItem(TOKENS_KEY);
@@ -231,7 +231,7 @@ const doCookieRefresh = async () => {
   const access = resp?.data?.access || '';
   if (!access) throw new Error('Invalid cookie refresh response');
 
-  // ✅ Em modo cookie, não armazenamos nem lemos token — backend já o mantém
+  // Em modo cookie, não armazenamos nem lemos token — backend já o mantém
   if (COOKIE_MODE && !isLocal) return access;
 
   const tokens = getTokens();
@@ -429,7 +429,7 @@ export const auth = {
     clearForceReauth();
     setTokens(null);
 
-    // ✅ sempre envia com credenciais, pois no modo cookie o backend grava o httpOnly
+    // sempre envia com credenciais, pois no modo cookie o backend grava o httpOnly
     const resp = await raw.post(
       ENDPOINTS.login,
       { email, password },
@@ -451,9 +451,9 @@ export const auth = {
      *  MODO COOKIE HTTPONLY (produção)
      * ===================================== */
     if (COOKIE_MODE) {
-      // ✅ Em produção, os cookies já são definidos pelo backend (HttpOnly + Secure)
-      //    → o frontend não deve armazenar nem ler tokens.
-      //    → apenas mantém compatibilidade local, se estiver rodando via localhost.
+      // Em produção, os cookies já são definidos pelo backend (HttpOnly + Secure)
+      // o frontend não deve armazenar nem ler tokens.
+      // apenas mantém compatibilidade local, se estiver rodando via localhost.
       const isLocal =
         typeof window !== 'undefined' && window.location.hostname === 'localhost';
 
