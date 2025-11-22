@@ -10,19 +10,26 @@ const ensureTrailingSlash = (url) => {
 };
 
 const pickEnvBase = () => {
-  const fromVite =
+  const rawEnv =
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) ||
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL);
 
-  const fallback = 'http://localhost:8000/api/v1/';
-  let chosen = fromVite || fallback;
+  let base = rawEnv || 'http://localhost:8000/api/v1/';
 
-  // ✅ Garante que o prefixo /api/v1/ exista mesmo em produção
-  if (!/\/api\/v1\/?$/i.test(chosen)) {
-    chosen = chosen.replace(/\/+$/, '') + '/api/v1/';
+  const isRailway =
+    typeof window !== 'undefined' && window.location.hostname.includes('railway.app');
+
+  // 🔥 Regra: Railway NÃO usa /api/v1/
+  if (isRailway) {
+    return ensureTrailingSlash(base.replace(/\/api\/v1\/?$/i, ''));
   }
 
-  return ensureTrailingSlash(chosen);
+  // 🔥 Dev e túnel cloudflare usam /api/v1/
+  if (!/\/api\/v1\/?$/i.test(base)) {
+    base = base.replace(/\/+$/, '') + '/api/v1/';
+  }
+
+  return ensureTrailingSlash(base);
 };
 
 const baseUrl = pickEnvBase();
