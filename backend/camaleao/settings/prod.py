@@ -75,10 +75,12 @@ SECURE_SSL_REDIRECT = False
 # PRODUÇÃO REAL (RENDER)
 # =========================
 if IS_RENDER:
+    render_url = os.getenv("RENDER_EXTERNAL_URL", "").strip()
+    parsed = urlparse(render_url) if render_url else None
+    COOKIE_DOMAIN = parsed.hostname if parsed else None  # camaleao.onrender.com
 
-    COOKIE_DOMAIN = None  # Render usa host-only cookies
-
-    public_url = os.getenv("RENDER_EXTERNAL_URL", "").rstrip("/")
+    # Frontend React hospedado no Render (STATIC SITE)
+    # Ex: https://camaleao-web.onrender.com
     frontend_url = os.getenv("FRONTEND_URL", "").rstrip("/")
 
     # Render exige lista SÓ com produção
@@ -89,21 +91,19 @@ if IS_RENDER:
         CORS_ALLOWED_ORIGINS.append(frontend_url)
         CSRF_TRUSTED_ORIGINS.append(frontend_url)
 
-    if public_url:
-        CSRF_TRUSTED_ORIGINS.append(public_url)
+    if COOKIE_DOMAIN:
+        api_origin = f"https://{COOKIE_DOMAIN}"
+        CSRF_TRUSTED_ORIGINS.append(api_origin)
+
+        if COOKIE_DOMAIN not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(COOKIE_DOMAIN)
+
+    # Cookies de sessão / CSRF / JWT atrelados ao domínio do backend
+    CSRF_COOKIE_DOMAIN = COOKIE_DOMAIN
+    SESSION_COOKIE_DOMAIN = COOKIE_DOMAIN
+    JWT_COOKIE_DOMAIN = COOKIE_DOMAIN
 
     print("[prod] Modo Render → configurado com FRONTEND_URL e RENDER_EXTERNAL_URL")
-
-# =========================
-# PRODUÇÃO REAL (RAILWAY)
-# =========================
-elif IS_RAILWAY:
-    COOKIE_DOMAIN = None
-    CSRF_TRUSTED_ORIGINS = [
-        "https://"
-        + os.getenv("RAILWAY_PUBLIC_DOMAIN", "camaleao-production.up.railway.app")
-    ]
-    print("[prod] Modo Railway → TUNNEL_URL ignorado")
 
 # =========================
 # PRODUÇÃO LOCAL VIA TÚNEL (NÃO ALTERAR)
