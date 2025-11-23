@@ -16,10 +16,9 @@ ALLOWED_HOSTS = [
 ]
 
 # =========================
-# Detecta ambiente Railway (produção real)
+# # Detecta se está rodando no Render (produção real)
 # =========================
-ENV = os.getenv("NODE_ENV", "").lower()
-IS_RAILWAY = ENV == "railway"
+IS_RENDER = os.getenv("RENDER", "").lower() == "true"
 
 # =========================
 # Validação de senha
@@ -73,22 +72,16 @@ SECURE_SSL_REDIRECT = (
     False  # não redireciona para https internamente (o túnel já é https)
 )
 
-if IS_RAILWAY:
-    # ===========================================
-    # Produção REAL Railway (sem Túnel)
-    # ===========================================
-    COOKIE_DOMAIN = None  # Railway usa domínio sem cookie domain forçado
+if IS_RENDER:
+    # Ambiente de produção real no Render
+    COOKIE_DOMAIN = None  # Render usa domínio próprio
+    public_domain = os.getenv("RENDER_EXTERNAL_URL", "")
+    if public_domain:
+        CSRF_TRUSTED_ORIGINS = [public_domain]
+    print("[prod] Modo Render → TUNNEL_URL ignorado")
 
-    CSRF_TRUSTED_ORIGINS = [
-        "https://"
-        + os.getenv("RAILWAY_PUBLIC_DOMAIN", "camaleao-production.up.railway.app")
-    ]
-
-    print("[prod] Modo Railway → TUNNEL_URL ignorado")
 else:
-    # ===========================================
-    # Produção simulada (Túnel)
-    # ===========================================
+    # Ambiente local com Túnel Cloudflare
     TUNNEL_URL = os.getenv("TUNNEL_URL")
     if not TUNNEL_URL:
         raise RuntimeError(
@@ -96,15 +89,16 @@ else:
         )
 
     parsed = urlparse(TUNNEL_URL)
-    COOKIE_DOMAIN = parsed.hostname  # ex: xxxxx.trycloudflare.com
+    COOKIE_DOMAIN = parsed.hostname
 
     if COOKIE_DOMAIN and COOKIE_DOMAIN not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append(COOKIE_DOMAIN)
 
     CSRF_TRUSTED_ORIGINS = [f"https://{COOKIE_DOMAIN}"]
 
+
 # =========================
-# CORS (Netlify -> Railway)
+# CORS (Netlify)
 # =========================
 CORS_ALLOWED_ORIGINS = [
     "https://quiet-sunshine-2c8d5f.netlify.app",
