@@ -1,0 +1,62 @@
+/* ====== Navbar com gradiente ====== */
+.navbar-gradient {
+  background: var(--grad);
+}
+
+/* ====== Botões "fantasma" ====== */
+.ghost-btn {
+  background: transparent !important;
+  color: var(--white) !important;
+  padding: 6px 10px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.white-border {
+  border: 1px solid var(--white) !important;
+}
+.no-border {
+  border: 0;
+}
+.white-text {
+  color: var(--white);
+}
+
+/* ====== Sidebar / Offcanvas ====== */
+.sidebar-offcanvas {
+  background-color: var(--white);
+}
+.offcanvas-header-gradient {
+  background: var(--grad);
+  color: var(--white);
+}
+.offcanvas-header-gradient .btn-close {
+  filter: invert(1);
+}
+
+/* ====== Links da sidebar ====== */
+.sidebar-link {
+  color: #003366 !important;
+  font-size: 1.05rem;
+  padding: 10px 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.sidebar-link .fa-icon {
+  margin-right: 10px;
+}
+.sidebar-link:hover {
+  background-color: #d9eaff;
+  color: #003366 !important;
+}
+.sidebar-link.active {
+  background: var(--grad);
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
