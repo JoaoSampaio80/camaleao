@@ -5,13 +5,10 @@
   },
 
   "deploy": {
-    "startCommand": "sh -c \"cd /app && gunicorn camaleao.wsgi:application --bind 0.0.0.0:${PORT}\""
-  },
-
-  "healthcheck": {
-    "path": "/health/",
-    "interval": 10,
-    "timeout": 5,
-    "retries": 3
+    "startCommand": "sh -c \"cd /app && gunicorn camaleao.wsgi:application --bind 0.0.0.0:${PORT}\"",
+    "healthcheckPath": "/health/",
+    "healthcheckInterval": 10,
+    "healthcheckTimeout": 5,
+    "healthcheckRetries": 3
   }
 }
