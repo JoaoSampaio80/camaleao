@@ -78,13 +78,11 @@ SECURE_SSL_REDIRECT = False
 if IS_RENDER:
     render_url = os.getenv("RENDER_EXTERNAL_URL", "").strip()
     parsed = urlparse(render_url) if render_url else None
-    COOKIE_DOMAIN = parsed.hostname if parsed else None  # camaleao.onrender.com
 
-    # Frontend React hospedado no Render (STATIC SITE)
-    # Ex: https://camaleao-web.onrender.com
+    # ESSENCIAL: não forçar domínio, senão cookies quebram
+    COOKIE_DOMAIN = None
+
     frontend_url = os.getenv("FRONTEND_URL", "").rstrip("/")
-
-    # Render exige lista SÓ com produção
     CSRF_TRUSTED_ORIGINS = []
     CORS_ALLOWED_ORIGINS = []
 
@@ -92,17 +90,15 @@ if IS_RENDER:
         CORS_ALLOWED_ORIGINS.append(frontend_url)
         CSRF_TRUSTED_ORIGINS.append(frontend_url)
 
-    if COOKIE_DOMAIN:
-        api_origin = f"https://{COOKIE_DOMAIN}"
-        CSRF_TRUSTED_ORIGINS.append(api_origin)
+    if parsed and parsed.hostname:
+        backend_origin = f"https://{parsed.hostname}"
+        CSRF_TRUSTED_ORIGINS.append(backend_origin)
+        ALLOWED_HOSTS.append(parsed.hostname)
 
-        if COOKIE_DOMAIN not in ALLOWED_HOSTS:
-            ALLOWED_HOSTS.append(COOKIE_DOMAIN)
-
-    # Cookies de sessão / CSRF / JWT atrelados ao domínio do backend
-    CSRF_COOKIE_DOMAIN = COOKIE_DOMAIN
-    SESSION_COOKIE_DOMAIN = COOKIE_DOMAIN
-    JWT_COOKIE_DOMAIN = COOKIE_DOMAIN
+    # Cookies host-only (obrigatório no Render)
+    CSRF_COOKIE_DOMAIN = None
+    SESSION_COOKIE_DOMAIN = None
+    JWT_COOKIE_DOMAIN = None
 
     print("[prod] Modo Render → configurado com FRONTEND_URL e RENDER_EXTERNAL_URL")
 
