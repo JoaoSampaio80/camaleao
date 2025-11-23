@@ -9,6 +9,7 @@
   "deploy": {
     "startCommand": "sh -c \"cd /app && gunicorn camaleao.wsgi:application --bind 0.0.0.0:${PORT}\"",
     "healthcheckPath": "/health/",
-    "healthcheckTimeout": 100
+    "healthcheckTimeout": 100,
+    "restartPolicyType": "ON_FAILURE"
   }
 }
