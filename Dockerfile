@@ -39,4 +39,4 @@ EXPOSE 8000
 CMD ["sh", "-c", "gunicorn camaleao.wsgi:application --bind 0.0.0.0:${PORT:-8000} --timeout 90"]
 
 # Coletar estáticos
-RUN python manage.py collectstatic --noinput
+# RUN python manage.py collectstatic --noinput
