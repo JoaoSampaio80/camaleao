@@ -3,6 +3,9 @@ import os
 from urllib.parse import urlparse
 from rest_framework_simplejwt.settings import api_settings
 
+MIDDLEWARE.insert(0, "api.middleware.debug_exceptions.DebugExceptionMiddleware")
+
+
 # =========================
 # Básico
 # =========================
