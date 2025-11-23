@@ -26,13 +26,13 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 # Copiar todo o backend
 COPY backend/ /app/
 
+# Settings para produção no Render
+ENV DJANGO_SETTINGS_MODULE=camaleao.settings.prod
+
 # Criar diretório de estáticos (evita warnings)
 RUN mkdir -p /app/staticfiles
 
 RUN python manage.py collectstatic --noinput
-
-# Settings para produção no Render
-ENV DJANGO_SETTINGS_MODULE=camaleao.settings.prod
 
 # Railway usa variável $PORT automaticamente
 EXPOSE 8000
