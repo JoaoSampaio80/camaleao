@@ -96,6 +96,15 @@ else:
 
     CSRF_TRUSTED_ORIGINS = [f"https://{COOKIE_DOMAIN}"]
 
+if COOKIE_DOMAIN:
+    # só aplica domínio se houver domínio válido (caso túnel)
+    CSRF_COOKIE_DOMAIN = COOKIE_DOMAIN
+    SESSION_COOKIE_DOMAIN = COOKIE_DOMAIN
+else:
+    # em produção comum (Render), Django usa cookie host-only
+    CSRF_COOKIE_DOMAIN = None
+    SESSION_COOKIE_DOMAIN = None
+
 
 # =========================
 # CORS (Netlify)
@@ -114,8 +123,8 @@ CSRF_COOKIE_SAMESITE = "None"
 SESSION_COOKIE_SAMESITE = "None"
 
 # Define explicitamente o domínio dos cookies de sessão/CSRF
-CSRF_COOKIE_DOMAIN = COOKIE_DOMAIN
-SESSION_COOKIE_DOMAIN = COOKIE_DOMAIN
+# CSRF_COOKIE_DOMAIN = COOKIE_DOMAIN
+# SESSION_COOKIE_DOMAIN = COOKIE_DOMAIN
 
 # =========================
 # JWT (cookie de refresh)
