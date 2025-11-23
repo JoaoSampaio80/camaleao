@@ -29,7 +29,10 @@ COPY backend/ /app/
 # Criar diretório de estáticos (evita warnings)
 RUN mkdir -p /app/staticfiles
 
-# Settings para produção no Railway
+# Coletar estáticos
+RUN python manage.py collectstatic --noinput
+
+# Settings para produção no Render
 ENV DJANGO_SETTINGS_MODULE=camaleao.settings.prod
 
 # Railway usa variável $PORT automaticamente
