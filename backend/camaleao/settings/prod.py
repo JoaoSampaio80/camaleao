@@ -3,8 +3,6 @@ import os
 from urllib.parse import urlparse
 from rest_framework_simplejwt.settings import api_settings
 
-MIDDLEWARE.insert(0, "api.middleware.debug_exceptions.DebugExceptionMiddleware")
-
 
 # =========================
 # Básico
@@ -168,3 +166,39 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
 print("[camaleao.settings.prod] Segurança HTTP reforçada")
+
+
+# ============================================================
+# LOGGING – força traceback de erro 500 a aparecer no Render
+# ============================================================
+import logging
+import sys
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "stream": sys.stdout,
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+    "loggers": {
+        # Erros de requisição (inclui todos os 500)
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+        # Se quiser ver prints/infos suas também
+        "api": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+    },
+}
