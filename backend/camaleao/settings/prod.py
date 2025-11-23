@@ -16,8 +16,10 @@ ALLOWED_HOSTS = [
 ]
 
 # =========================
-# # Detecta se está rodando no Render (produção real)
+# Detecta ambiente
 # =========================
+ENV = os.getenv("NODE_ENV", "").lower()
+IS_RAILWAY = ENV == "railway"
 IS_RENDER = os.getenv("RENDER", "").lower() == "true"
 
 # =========================
@@ -37,7 +39,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # =========================
-# E-mail
+# Email
 # =========================
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@seusite.com.br")
 SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
@@ -63,25 +65,50 @@ else:
     )
 
 # =========================
-# Proxy/HTTPS (Cloudflare)
+# Proxy/HTTPS
 # =========================
-# Confia no cabeçalho do proxy para considerar a requisição como HTTPS
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
-SECURE_SSL_REDIRECT = (
-    False  # não redireciona para https internamente (o túnel já é https)
-)
+SECURE_SSL_REDIRECT = False
 
+# =========================
+# PRODUÇÃO REAL (RENDER)
+# =========================
 if IS_RENDER:
-    # Ambiente de produção real no Render
-    COOKIE_DOMAIN = None  # Render usa domínio próprio
-    public_domain = os.getenv("RENDER_EXTERNAL_URL", "")
-    if public_domain:
-        CSRF_TRUSTED_ORIGINS = [public_domain]
-    print("[prod] Modo Render → TUNNEL_URL ignorado")
 
+    COOKIE_DOMAIN = None  # Render usa host-only cookies
+
+    public_url = os.getenv("RENDER_EXTERNAL_URL", "").rstrip("/")
+    frontend_url = os.getenv("FRONTEND_URL", "").rstrip("/")
+
+    # Render exige lista SÓ com produção
+    CSRF_TRUSTED_ORIGINS = []
+    CORS_ALLOWED_ORIGINS = []
+
+    if frontend_url:
+        CORS_ALLOWED_ORIGINS.append(frontend_url)
+        CSRF_TRUSTED_ORIGINS.append(frontend_url)
+
+    if public_url:
+        CSRF_TRUSTED_ORIGINS.append(public_url)
+
+    print("[prod] Modo Render → configurado com FRONTEND_URL e RENDER_EXTERNAL_URL")
+
+# =========================
+# PRODUÇÃO REAL (RAILWAY)
+# =========================
+elif IS_RAILWAY:
+    COOKIE_DOMAIN = None
+    CSRF_TRUSTED_ORIGINS = [
+        "https://"
+        + os.getenv("RAILWAY_PUBLIC_DOMAIN", "camaleao-production.up.railway.app")
+    ]
+    print("[prod] Modo Railway → TUNNEL_URL ignorado")
+
+# =========================
+# PRODUÇÃO LOCAL VIA TÚNEL (NÃO ALTERAR)
+# =========================
 else:
-    # Ambiente local com Túnel Cloudflare
     TUNNEL_URL = os.getenv("TUNNEL_URL")
     if not TUNNEL_URL:
         raise RuntimeError(
@@ -89,78 +116,52 @@ else:
         )
 
     parsed = urlparse(TUNNEL_URL)
-    COOKIE_DOMAIN = parsed.hostname
+    COOKIE_DOMAIN = parsed.hostname  # ex: xxxxx.trycloudflare.com
 
     if COOKIE_DOMAIN and COOKIE_DOMAIN not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append(COOKIE_DOMAIN)
 
     CSRF_TRUSTED_ORIGINS = [f"https://{COOKIE_DOMAIN}"]
 
-if COOKIE_DOMAIN:
-    # só aplica domínio se houver domínio válido (caso túnel)
-    CSRF_COOKIE_DOMAIN = COOKIE_DOMAIN
-    SESSION_COOKIE_DOMAIN = COOKIE_DOMAIN
-else:
-    # em produção comum (Render), Django usa cookie host-only
-    CSRF_COOKIE_DOMAIN = None
-    SESSION_COOKIE_DOMAIN = None
-
+    # !!! Mantido exatamente como sua versão que funciona !!!
+    print("[prod] Modo Túnel Cloudflare → funcionando como antes")
 
 # =========================
-# CORS (Netlify)
+# Cookies
 # =========================
-CORS_ALLOWED_ORIGINS = []
-
-CSRF_TRUSTED_ORIGINS = []
-
-
-# Cookies seguros e com domínio do túnel
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SAMESITE = "None"
 SESSION_COOKIE_SAMESITE = "None"
 
-# Define explicitamente o domínio dos cookies de sessão/CSRF
-# CSRF_COOKIE_DOMAIN = COOKIE_DOMAIN
-# SESSION_COOKIE_DOMAIN = COOKIE_DOMAIN
+CSRF_COOKIE_DOMAIN = COOKIE_DOMAIN
+SESSION_COOKIE_DOMAIN = COOKIE_DOMAIN
 
 # =========================
-# JWT (cookie de refresh)
+# JWT
 # =========================
 JWT_AUTH_COOKIE = "refresh_token"
 JWT_AUTH_REFRESH_COOKIE = "refresh_token"
 JWT_AUTH_SECURE = True
 JWT_AUTH_SAMESITE = "None"
+JWT_COOKIE_DOMAIN = COOKIE_DOMAIN
 
-# Se o seu código que emite o cookie de refresh usa este setting, mantenha-o:
-JWT_COOKIE_DOMAIN = COOKIE_DOMAIN  # use isso ao chamar response.set_cookie(..., domain=JWT_COOKIE_DOMAIN)
-
-# Integração com DRF SimpleJWT (quando aplicável)
 api_settings.AUTH_COOKIE = JWT_AUTH_COOKIE
-api_settings.AUTH_COOKIE_SECURE = JWT_AUTH_SECURE
-api_settings.AUTH_COOKIE_SAMESITE = JWT_AUTH_SAMESITE
+api_settings.AUTH_COOKIE_SECURE = True
+api_settings.AUTH_COOKIE_SAMESITE = "None"
 
-# ============================================================
-# Log simples de domínio ativo (para debug seguro)
-# ============================================================
+# =========================
+# Logs
+# =========================
 print(
-    f"[camaleao.settings.prod] COOKIE_DOMAIN={COOKIE_DOMAIN} | MEDIA_ROOT={MEDIA_ROOT} | ALLOWED_HOSTS={ALLOWED_HOSTS}"
+    f"[camaleao.settings.prod] COOKIE_DOMAIN={COOKIE_DOMAIN} | ALLOWED_HOSTS={ALLOWED_HOSTS}"
 )
 
-# ============================================================
-# Reforço de Segurança HTTP (neutro e sem impacto funcional)
-# ============================================================
-
-# Cabeçalhos de segurança adicionais (não afetam cookies nem CORS)
-SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"  # protege dados de navegação
-X_FRAME_OPTIONS = (
-    "DENY"  # impede que a aplicação seja carregada em iframes (anti-clickjacking)
-)
-
-# HSTS: instrui o navegador a sempre usar HTTPS para este domínio
-# Seguro mesmo atrás do túnel Cloudflare
-SECURE_HSTS_SECONDS = 31536000  # 1 ano
+# Segurança
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+X_FRAME_OPTIONS = "DENY"
+SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
-print("[camaleao.settings.prod] Segurança HTTP reforçada: HSTS + Headers ativados")
+print("[camaleao.settings.prod] Segurança HTTP reforçada")
