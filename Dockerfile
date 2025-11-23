@@ -1,5 +1,5 @@
 # ============================================================
-# CAMALÉAO – DOCKERFILE DE PRODUÇÃO (RAILWAY)
+# CAMALEÃO – DOCKERFILE DE PRODUÇÃO
 # ============================================================
 
 FROM python:3.13.5-slim
@@ -29,11 +29,11 @@ COPY backend/ /app/
 # Criar diretório de estáticos (evita warnings)
 RUN mkdir -p /app/staticfiles
 
-# Coletar estáticos
-RUN python manage.py collectstatic --noinput
-
 # Settings para produção no Render
 ENV DJANGO_SETTINGS_MODULE=camaleao.settings.prod
+
+# Coletar estáticos
+RUN python manage.py collectstatic --noinput
 
 # Railway usa variável $PORT automaticamente
 EXPOSE 8000
