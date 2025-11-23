@@ -109,11 +109,9 @@ else:
 # =========================
 # CORS (Netlify)
 # =========================
-CORS_ALLOWED_ORIGINS = [
-    "https://quiet-sunshine-2c8d5f.netlify.app",
-]
+CORS_ALLOWED_ORIGINS = []
 
-CSRF_TRUSTED_ORIGINS.append("https://quiet-sunshine-2c8d5f.netlify.app")
+CSRF_TRUSTED_ORIGINS = []
 
 
 # Cookies seguros e com domínio do túnel
