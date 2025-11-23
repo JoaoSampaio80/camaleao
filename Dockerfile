@@ -29,6 +29,8 @@ COPY backend/ /app/
 # Criar diretório de estáticos (evita warnings)
 RUN mkdir -p /app/staticfiles
 
+RUN python manage.py collectstatic --noinput
+
 # Settings para produção no Render
 ENV DJANGO_SETTINGS_MODULE=camaleao.settings.prod
 
@@ -37,6 +39,3 @@ EXPOSE 8000
 
 # Usar PORT dinamicamente se existir, fallback 8000
 CMD ["sh", "-c", "gunicorn camaleao.wsgi:application --bind 0.0.0.0:${PORT:-8000} --timeout 90"]
-
-# Coletar estáticos
-# RUN python manage.py collectstatic --noinput
