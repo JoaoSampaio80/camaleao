@@ -39,10 +39,9 @@ ENV DJANGO_SETTINGS_MODULE=camaleao.settings.prod
 # Criar diretório de estáticos (evita warnings)
 RUN mkdir -p /app/staticfiles
 
-RUN python manage.py collectstatic --noinput
-
 # Railway usa variável $PORT automaticamente
 EXPOSE 8000
 
 # Usar PORT dinamicamente se existir, fallback 8000
-CMD ["sh", "-c", "gunicorn camaleao.wsgi:application --bind 0.0.0.0:${PORT:-8000} --timeout 90"]
+CMD ["sh", "-c", "python manage.py collectstatic --noinput && gunicorn camaleao.wsgi:application --bind 0.0.0.0:${PORT:-8000} --timeout 90"]
+
