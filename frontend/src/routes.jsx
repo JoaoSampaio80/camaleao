@@ -64,8 +64,26 @@ function AppRouter() {
     `AppRouter: Renderizando. User: ${user ? user.email : 'null'}, Loading: ${loading}, URL: ${window.location.pathname}`
   );
 
+  // -------- ROTAS PÚBLICAS (sempre acessíveis sem login) --------
+  const PUBLIC_ROUTES = ['/login', '/definir-senha', '/reset-password'];
+
+  const currentPath = window.location.pathname;
+
+  const isPublic = PUBLIC_ROUTES.some((route) => currentPath.startsWith(route));
+
   if (loading) {
     return <div>Carregando...</div>;
+  }
+
+  if (isPublic) {
+    return (
+      <Routes>
+        <Route path={ROUTES.LOGIN} element={<Login />} />
+        <Route path={ROUTES.DEFINIR_SENHA} element={<DefinirSenha />} />
+        <Route path={ROUTES.RESET_PASSWORD} element={<ResetPassword />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
   }
 
   if (user) {
