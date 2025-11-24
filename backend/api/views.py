@@ -378,10 +378,6 @@ class UserViewSet(AuditLogMixin, viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Avatar mantido conforme lógica existente
-            if getattr(user, "avatar", None):
-                user.avatar.delete(save=False)
-
             # 2. DESATIVAÇÃO NORMAL (soft delete)
             user.is_active = False
             user.save(update_fields=["is_active"])
@@ -570,6 +566,24 @@ class UserViewSet(AuditLogMixin, viewsets.ModelViewSet):
                 {"detail": "Erro interno ao enviar o e-mail."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+    @action(
+        detail=True,
+        methods=["get"],
+        permission_classes=[permissions.IsAuthenticated],
+        url_path="avatar",
+    )
+    def avatar(self, request, pk=None):
+        """
+        Endpoint para retornar o avatar salvo no banco.
+        URL final: /api/users/<id>/avatar/
+        """
+        user = self.get_object()
+
+        if not user.avatar_data:
+            raise Http404("Avatar não encontrado.")
+
+        return HttpResponse(user.avatar_data, content_type=user.avatar_mime)
 
 
 class DocumentosLGPDViewSet(AuditLogMixin, viewsets.ModelViewSet):

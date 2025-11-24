@@ -76,7 +76,7 @@ function Perfil() {
           password: '',
           password2: '',
           avatar: null,
-          avatar_url: resp.data?.avatar || '',
+          avatar_url: resp.data?.avatar_url || '',
         };
         setForm(next);
         snapshotRef.current = next; // salva snapshot inicial
@@ -248,7 +248,7 @@ function Perfil() {
         password: '',
         password2: '',
         avatar: null,
-        avatar_url: resp.data.avatar || prev.avatar_url,
+        avatar_url: resp.data.avatar_url || prev.avatar_url,
       }));
       revokeLocalPreview();
       await refreshUser();
@@ -262,7 +262,7 @@ function Perfil() {
         password: '',
         password2: '',
         avatar: null,
-        avatar_url: resp.data.avatar || form.avatar_url,
+        avatar_url: resp.data.avatar_url || form.avatar_url,
       };
     } catch (err) {
       console.log('users/me/ error payload:', err?.response?.data);

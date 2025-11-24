@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }) => {
         email: (u.email || '').toLowerCase(),
         first_name: u.first_name || '',
         role: u.role || '',
-        avatar: u.avatar || null,
+        avatar_url: u.avatar || null,
       });
     } catch (err) {
       // 👇 só ignora se for 401 (usuário não logado)
@@ -67,7 +67,7 @@ export const AuthProvider = ({ children }) => {
               email: (decoded.email || decoded.sub || '').toLowerCase(),
               first_name: decoded.first_name || decoded.given_name || '',
               role: decoded.role || '',
-              avatar: null,
+              avatar_url: null,
             });
           }
         }
@@ -100,7 +100,7 @@ export const AuthProvider = ({ children }) => {
             email: (decoded.email || decoded.sub || '').toLowerCase(),
             first_name: decoded.first_name || decoded.given_name || '',
             role: decoded.role || '',
-            avatar: null,
+            avatar_url: null,
           });
         }
         await fetchMe();
@@ -126,10 +126,10 @@ export const AuthProvider = ({ children }) => {
         email: (decoded.email || decoded.sub || '').toLowerCase(),
         first_name: decoded.first_name || decoded.given_name || '',
         role: decoded.role || '',
-        avatar: null,
+        avatar_url: null,
       });
     } else {
-      setUser({ email: '', first_name: '', role: '', avatar: null });
+      setUser({ email: '', first_name: '', role: '', avatar_url: null });
     }
 
     try {

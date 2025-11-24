@@ -142,14 +142,14 @@ function Sidebar() {
               aria-haspopup="menu"
               aria-expanded="false"
             >
-              <AvatarImg src={user?.avatar} className="avatar-img" />
+              <AvatarImg src={user?.avatar_url} className="avatar-img" />
             </Dropdown.Toggle>
 
             <Dropdown.Menu>
               <Dropdown.Header>
                 <div className="d-flex align-items-center gap-2">
                   <AvatarImg
-                    src={user?.avatar}
+                    src={user?.avatar_url}
                     className="avatar-mini"
                     iconColor="#6c757d"
                   />

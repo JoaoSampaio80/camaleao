@@ -60,6 +60,9 @@ class UserSerializer(serializers.ModelSerializer):
     avatar = serializers.ImageField(required=False, allow_null=True)
     remove_avatar = serializers.BooleanField(write_only=True, required=False)
 
+    avatar_data = serializers.SerializerMethodField(read_only=True)
+    avatar_mime = serializers.CharField(read_only=True)
+
     class Meta:
         model = User
         # Inclua todos os campos que você quer que sejam acessíveis via API
@@ -79,6 +82,8 @@ class UserSerializer(serializers.ModelSerializer):
             "last_login",
             "password",
             "avatar",
+            "avatar_data",
+            "avatar_mime",
             "remove_avatar",
             "current_password",
             "refresh",
@@ -87,6 +92,18 @@ class UserSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "avatar": {"required": False, "allow_null": True},
         }
+
+    def get_avatar_data(self, instance):
+        """
+        Retorna o avatar como base64 para evitar endpoint separado
+        (você pode escolher entre servir por endpoint, ou base64. Aqui deixo base64 pronto).
+        """
+        if not instance.avatar_data:
+            return None
+
+        import base64
+
+        return base64.b64encode(instance.avatar_data).decode("utf-8")
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -262,19 +279,26 @@ class UserSerializer(serializers.ModelSerializer):
         validated_data.pop("refresh", None)
         new_password = validated_data.pop("password", None)
 
+        request = self.context.get("request")
+        avatar_file = request.FILES.get("avatar") if request else None
+
+        if avatar_file:
+            # salva no banco
+            instance.avatar_data = avatar_file.read()
+            instance.avatar_mime = avatar_file.content_type
+
+            # DELETA O ARQUIVO ANTIGO
+            if instance.avatar:
+                instance.avatar.delete(save=False)
+            instance.avatar = None
+
         # Remoção de avatar
         if remove:
             if instance.avatar:
                 instance.avatar.delete(save=False)
             instance.avatar = None
-
-        # Upload de avatar (se vier)
-        if "avatar" in validated_data:
-            new_file = validated_data.pop("avatar")
-            if new_file is not None:
-                if instance.avatar:
-                    instance.avatar.delete(save=False)
-            instance.avatar = new_file
+            instance.avatar_data = None
+            instance.avatar_mime = None
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)

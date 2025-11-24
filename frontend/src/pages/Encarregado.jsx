@@ -75,7 +75,7 @@ export default function Encarregado() {
           data.appointment_validity ||
           (dataNomeacao ? addYearsSafe(dataNomeacao, 2) : null);
 
-        const avatar_url = data.avatar || '';
+        const avatar_url = data.avatar_url || '';
 
         if (!mounted) return;
         setDpo({ nome, email, telefone, dataNomeacao, validade, avatar_url });

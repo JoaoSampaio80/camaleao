@@ -64,6 +64,9 @@ class User(AbstractUser):
     )
     avatar = models.ImageField(upload_to=avatar_upload_to, null=True, blank=True)
 
+    avatar_data = models.BinaryField(null=True, blank=True)
+    avatar_mime = models.CharField(max_length=50, null=True, blank=True)
+
     # Campo para definir o papel do usuário (Admin, DPO, Gerente)
     USER_ROLES = (
         ("admin", "Administrador"),
