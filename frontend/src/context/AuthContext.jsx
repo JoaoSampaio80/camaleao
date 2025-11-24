@@ -6,6 +6,8 @@ import AxiosInstance from '../components/Axios';
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
 
+const PUBLIC_ROUTES = ['/login', '/definir-senha', '/reset-password'];
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [authTokens, setAuthTokens] = useState(null);
@@ -45,8 +47,15 @@ export const AuthProvider = ({ children }) => {
         avatar_url: u.avatar || null,
       });
     } catch (err) {
+      const status = err?.response?.status;
+      const path = window.location.pathname;
+      const isPublic = PUBLIC_ROUTES.some((r) => path.startsWith(r));
+
+      if (status === 401 && isPublic) {
+        return; // não limpa user, não força login
+      }
       // 👇 só ignora se for 401 (usuário não logado)
-      if (err?.response?.status !== 401) {
+      if (status !== 401) {
         console.warn('fetchMe falhou:', err);
       }
     }
