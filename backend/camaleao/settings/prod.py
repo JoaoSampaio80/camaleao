@@ -164,6 +164,36 @@ SECURE_HSTS_PRELOAD = True
 print("[camaleao.settings.prod] Segurança HTTP reforçada")
 
 
+# =========================
+# BANCO DE DADOS
+# =========================
+
+if IS_RENDER:
+    # Produção real → usar PostgreSQL do Render
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DB_NAME"),
+            "USER": os.getenv("DB_USER"),
+            "PASSWORD": os.getenv("DB_PASSWORD"),
+            "HOST": os.getenv("DB_HOST"),
+            "PORT": os.getenv("DB_PORT", "5432"),
+            "OPTIONS": {"sslmode": "require"},
+        }
+    }
+    print("[prod] Usando banco PostgreSQL do Render (produção real)")
+
+else:
+    # Produção local via túnel → usar SQLite local
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+    print("[prod] Usando banco SQLite local (túnel Cloudflare)")
+
+
 # ============================================================
 # LOGGING – força traceback de erro 500 a aparecer no Render
 # ============================================================

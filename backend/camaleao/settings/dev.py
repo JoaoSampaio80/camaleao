@@ -8,7 +8,9 @@ DEBUG = os.getenv("DEBUG", "True").lower() == "true"
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]").split(",")
 
 # E-mail: console em dev (pode sobrescrever no .env se quiser)
-EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
+)
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@localhost")
 EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "5"))
 
@@ -27,3 +29,10 @@ AUTH_PASSWORD_VALIDATORS = [
         "OPTIONS": {"min_length": 3},
     },
 ]
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    }
+}

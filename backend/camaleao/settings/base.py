@@ -125,12 +125,7 @@ WSGI_APPLICATION = "camaleao.wsgi.application"
 # ============================================================
 # 7️⃣ Banco de dados (SQLite local por padrão)
 # ============================================================
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
+DATABASES = {}
 
 # ============================================================
 # 8️⃣ Internacionalização
