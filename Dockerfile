@@ -43,5 +43,5 @@ RUN mkdir -p /app/staticfiles
 EXPOSE 8000
 
 # Usar PORT dinamicamente se existir, fallback 8000
-CMD ["sh", "-c", "python manage.py collectstatic --noinput && gunicorn camaleao.wsgi:application --bind 0.0.0.0:${PORT:-8000} --timeout 90"]
+CMD ["sh", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn camaleao.wsgi:application --bind 0.0.0.0:${PORT:-8000} --timeout 90"]
 
