@@ -164,34 +164,44 @@ SECURE_HSTS_PRELOAD = True
 print("[camaleao.settings.prod] Segurança HTTP reforçada")
 
 
-# =========================
+# ============================================================
 # BANCO DE DADOS
-# =========================
+# ============================================================
+
+from urllib.parse import urlparse
 
 if IS_RENDER:
-    # Produção real → usar PostgreSQL do Render
+    # Render fornece DATABASE_URL
+    DATABASE_URL = os.getenv("DATABASE_URL")
+    if not DATABASE_URL:
+        raise RuntimeError("DATABASE_URL não encontrado no ambiente Render.")
+
+    url = urlparse(DATABASE_URL)
+
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.getenv("DB_NAME"),
-            "USER": os.getenv("DB_USER"),
-            "PASSWORD": os.getenv("DB_PASSWORD"),
-            "HOST": os.getenv("DB_HOST"),
-            "PORT": os.getenv("DB_PORT", "5432"),
+            "NAME": url.path[1:],  # remove a barra inicial
+            "USER": url.username,
+            "PASSWORD": url.password,
+            "HOST": url.hostname,
+            "PORT": url.port,
             "OPTIONS": {"sslmode": "require"},
         }
     }
-    print("[prod] Usando banco PostgreSQL do Render (produção real)")
+
+    print(f"[prod] Banco conectado via DATABASE_URL → {url.hostname}")
 
 else:
-    # Produção local via túnel → usar SQLite local
+    # Produção local via túnel → usar SQLite
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
-    print("[prod] Usando banco SQLite local (túnel Cloudflare)")
+
+    print("[prod] Usando SQLite local (túnel Cloudflare)")
 
 
 # ============================================================
