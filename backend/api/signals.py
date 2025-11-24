@@ -76,12 +76,9 @@ def send_welcome_on_user_created(sender, instance, created: bool, **kwargs):
 def registrar_login(sender, request, user, **kwargs):
     """Registra cada login feito no sistema."""
     try:
-        setor = getattr(user, "setor", "Não informado")
         from .models import LoginActivity
 
-        LoginActivity.objects.create(
-            usuario=user, setor=setor, data_login=timezone.now()
-        )
+        LoginActivity.objects.create(usuario=user, data_login=timezone.now())
     except Exception as e:
         import logging
 
