@@ -57,11 +57,8 @@ class UserSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField(required=False, allow_blank=True)
     appointment_date = serializers.DateField(required=False)
     appointment_validity = serializers.DateField(required=False)
-    avatar = serializers.ImageField(required=False, allow_null=True)
+    avatar_url = serializers.SerializerMethodField()
     remove_avatar = serializers.BooleanField(write_only=True, required=False)
-
-    avatar_data = serializers.SerializerMethodField(read_only=True)
-    avatar_mime = serializers.CharField(read_only=True)
 
     class Meta:
         model = User
@@ -81,9 +78,7 @@ class UserSerializer(serializers.ModelSerializer):
             "date_joined",
             "last_login",
             "password",
-            "avatar",
-            "avatar_data",
-            "avatar_mime",
+            "avatar_url",
             "remove_avatar",
             "current_password",
             "refresh",
@@ -93,28 +88,18 @@ class UserSerializer(serializers.ModelSerializer):
             "avatar": {"required": False, "allow_null": True},
         }
 
-    def get_avatar_data(self, instance):
-        """
-        Retorna o avatar como base64 para evitar endpoint separado
-        (você pode escolher entre servir por endpoint, ou base64. Aqui deixo base64 pronto).
-        """
-        if not instance.avatar_data:
-            return None
-
-        import base64
-
-        return base64.b64encode(instance.avatar_data).decode("utf-8")
-
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
+    def get_avatar_url(self, instance):
         request = self.context.get("request")
         # Se o avatar existir e houver request, torne a URL absoluta
-        if data.get("avatar") and request:
-            try:
-                data["avatar"] = request.build_absolute_uri(data["avatar"])
-            except Exception:
-                pass
-        return data
+        if not request:
+            return None
+
+        # Sem avatar → placeholder
+        if not instance.avatar_data:
+            return request.build_absolute_uri("/avatar/placeholder/")
+
+        # Com avatar → thumbnail
+        return request.build_absolute_uri(f"/avatar/{instance.pk}/")
 
     def validate(self, data):
         """
@@ -273,36 +258,29 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
     def update(self, instance, validated_data):
-        # Campos não-modelo (não devem ir para setattr)
         remove = validated_data.pop("remove_avatar", False)
         validated_data.pop("current_password", None)
         validated_data.pop("refresh", None)
         new_password = validated_data.pop("password", None)
 
         request = self.context.get("request")
+
+        # Upload de avatar via multipart
         avatar_file = request.FILES.get("avatar") if request else None
 
         if avatar_file:
-            # salva no banco
             instance.avatar_data = avatar_file.read()
             instance.avatar_mime = avatar_file.content_type
 
-            # DELETA O ARQUIVO ANTIGO
-            if instance.avatar:
-                instance.avatar.delete(save=False)
-            instance.avatar = None
-
-        # Remoção de avatar
+        # Remover avatar
         if remove:
-            if instance.avatar:
-                instance.avatar.delete(save=False)
-            instance.avatar = None
             instance.avatar_data = None
             instance.avatar_mime = None
 
+        # Update comum
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        # Troca de senha (se solicitada)
+
         if new_password:
             instance.set_password(new_password)
 

@@ -15,7 +15,8 @@ import AxiosInstance from '../components/Axios';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faUser } from '@fortawesome/free-solid-svg-icons';
 const MAX_AVATAR_MB = 5;
 const ACCEPTED = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
@@ -76,7 +77,7 @@ function Perfil() {
           password: '',
           password2: '',
           avatar: null,
-          avatar_url: resp.data?.avatar_url || '',
+          avatar_url: resp.data?.avatar_url ?? '',
         };
         setForm(next);
         snapshotRef.current = next; // salva snapshot inicial
@@ -164,11 +165,15 @@ function Perfil() {
     setErrors({});
     try {
       const fd = buildFormData({ removeAvatar: true });
-      await AxiosInstance.patch('users/me/', fd);
+      const resp = await AxiosInstance.patch('users/me/', fd);
       showFlash('success', 'Foto removida com sucesso.');
       revokeLocalPreview();
-      setForm((p) => ({ ...p, avatar: null, avatar_url: '' }));
-      snapshotRef.current = { ...snapshotRef.current, avatar: null, avatar_url: '' };
+      setForm((p) => ({ ...p, avatar: null, avatar_url: resp.data.avatar_url }));
+      snapshotRef.current = {
+        ...snapshotRef.current,
+        avatar: null,
+        avatar_url: resp.data.avatar_url,
+      };
       await refreshUser();
     } catch (err) {
       const st = err?.response?.status;
@@ -242,18 +247,17 @@ function Perfil() {
       }
 
       showFlash('success', 'Perfil atualizado com sucesso.');
+      const newAvatar = resp.data.avatar_url;
       setForm((prev) => ({
         ...prev,
         current_password: '',
         password: '',
         password2: '',
         avatar: null,
-        avatar_url: resp.data.avatar_url || prev.avatar_url,
+        avatar_url: newAvatar,
       }));
       revokeLocalPreview();
-      await refreshUser();
-      // fecha modo de edição após salvar
-      setIsEditing(false);
+
       // atualiza snapshot para refletir os dados persistidos
       snapshotRef.current = {
         email: form.email,
@@ -262,8 +266,12 @@ function Perfil() {
         password: '',
         password2: '',
         avatar: null,
-        avatar_url: resp.data.avatar_url || form.avatar_url,
+        avatar_url: newAvatar,
       };
+
+      await refreshUser();
+      // fecha modo de edição após salvar
+      setIsEditing(false);
     } catch (err) {
       console.log('users/me/ error payload:', err?.response?.data);
       const st = err?.response?.status;
@@ -332,32 +340,29 @@ function Perfil() {
                 >
                   Foto de perfil
                 </div>
-                {form.avatar_url ? (
+                {!form.avatar_url ? (
+                  <FontAwesomeIcon
+                    icon={faUser}
+                    size="5x"
+                    style={{
+                      color: '#999',
+                      background: '#fff',
+                      width: 120,
+                      height: 120,
+                      borderRadius: '50%',
+                      padding: '20px',
+                    }}
+                  />
+                ) : (
                   <Image
                     src={form.avatar_url}
                     roundedCircle
                     width={120}
                     height={120}
                     alt="Avatar"
+                    onError={() => setForm((p) => ({ ...p, avatar_url: null }))}
                     style={{ objectFit: 'cover', background: '#fff' }}
                   />
-                ) : (
-                  <div
-                    style={{
-                      width: 120,
-                      height: 120,
-                      borderRadius: '50%',
-                      background: '#e9ecef',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 12,
-                      color: '#6c757d',
-                      margin: '0 auto',
-                    }}
-                  >
-                    sem foto
-                  </div>
                 )}
               </div>
 
@@ -405,7 +410,9 @@ function Perfil() {
                         variant="outline-secondary"
                         type="button"
                         onClick={askRemoveAvatar}
-                        disabled={saving || !form.avatar_url}
+                        disabled={
+                          saving || form.avatar_url?.includes('/avatar/placeholder/')
+                        }
                         style={{ height: '38px', marginTop: '2px' }} // força alinhamento perfeito
                       >
                         Remover foto

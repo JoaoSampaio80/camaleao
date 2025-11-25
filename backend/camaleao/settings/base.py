@@ -89,9 +89,9 @@ INSTALLED_APPS = [
 # 5️⃣ Middleware
 # ============================================================
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -150,13 +150,10 @@ USE_X_FORWARDED_HOST = True
 # ============================================================
 # 🔟 CORS / CSRF (ajustado dinamicamente em prod.py)
 # ============================================================
-CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 # Valores locais (serão sobrescritos por domínio do túnel no prod.py)
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-]
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
 ]

@@ -460,7 +460,6 @@ class UserViewSet(AuditLogMixin, viewsets.ModelViewSet):
         methods=["get", "patch"],
         permission_classes=[permissions.IsAuthenticated],
         url_path="me",
-        parser_classes=[JSONParser, MultiPartParser, FormParser],
     )
     def me(self, request):
         user = request.user
@@ -566,24 +565,6 @@ class UserViewSet(AuditLogMixin, viewsets.ModelViewSet):
                 {"detail": "Erro interno ao enviar o e-mail."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
-    @action(
-        detail=True,
-        methods=["get"],
-        permission_classes=[permissions.IsAuthenticated],
-        url_path="avatar",
-    )
-    def avatar(self, request, pk=None):
-        """
-        Endpoint para retornar o avatar salvo no banco.
-        URL final: /api/users/<id>/avatar/
-        """
-        user = self.get_object()
-
-        if not user.avatar_data:
-            raise Http404("Avatar não encontrado.")
-
-        return HttpResponse(user.avatar_data, content_type=user.avatar_mime)
 
 
 class DocumentosLGPDViewSet(AuditLogMixin, viewsets.ModelViewSet):

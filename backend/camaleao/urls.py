@@ -6,6 +6,12 @@ from django.conf import settings  # Importe settings
 from django.conf.urls.static import static  # Importe static
 from django.views.static import serve as static_serve
 
+from api.avatar_views import (
+    serve_avatar_full,
+    serve_avatar_thumb,
+    serve_avatar_placeholder,
+)
+
 
 def health(_):
     return JsonResponse({"status": "ok"})
@@ -16,6 +22,13 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("health/", health),
     path("api/v1/", include("api.urls")),
+]
+
+# ==== ROTAS DE AVATAR (fora do DRF) ====
+urlpatterns += [
+    path("avatar/<int:pk>/", serve_avatar_thumb, name="avatar-thumb"),
+    path("avatar/full/<int:pk>/", serve_avatar_full, name="avatar-full"),
+    path("avatar/placeholder/", serve_avatar_placeholder, name="avatar-placeholder"),
 ]
 
 # === Servir mídia mesmo com DEBUG=False (modo produção local/túnel) ===

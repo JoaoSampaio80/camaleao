@@ -139,32 +139,14 @@ export default function Encarregado() {
                 <>
                   <Row className="mb-4 align-items-center">
                     <Col md="auto">
-                      {safe.avatar_url ? (
-                        <Image
-                          src={safe.avatar_url}
-                          roundedCircle
-                          width={96}
-                          height={96}
-                          alt="Avatar do DPO"
-                          style={{ objectFit: 'cover', background: '#fff' }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: 96,
-                            height: 96,
-                            borderRadius: '50%',
-                            background: '#e9ecef',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: 12,
-                            color: '#6c757d',
-                          }}
-                        >
-                          sem foto
-                        </div>
-                      )}
+                      <Image
+                        src={safe.avatar_url}
+                        roundedCircle
+                        width={96}
+                        height={96}
+                        alt="Avatar do DPO"
+                        style={{ objectFit: 'cover', background: '#fff' }}
+                      />
                     </Col>
                     <Col>
                       <h5 className="mb-1 text-white">

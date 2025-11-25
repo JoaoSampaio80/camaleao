@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Container,
@@ -39,6 +39,11 @@ const ROLE_LABEL = {
 // Avatar com fallback no ícone
 function AvatarImg({ src, className, iconColor = 'white' }) {
   const [broken, setBroken] = useState(false);
+
+  useEffect(() => {
+    setBroken(false);
+  }, [src]);
+
   if (!src || broken) {
     return <FontAwesomeIcon icon={faUser} size="lg" style={{ color: iconColor }} />;
   }
@@ -47,7 +52,9 @@ function AvatarImg({ src, className, iconColor = 'white' }) {
       src={src}
       alt="Avatar do usuário"
       className={className}
-      onError={() => setBroken(true)}
+      onError={(e) => {
+        if (!broken) setBroken(true);
+      }}
     />
   );
 }
@@ -56,7 +63,7 @@ function Sidebar() {
   const [show, setShow] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, loading } = useAuth();
+  const { user, refreshUser, logout, loading } = useAuth();
 
   const isAdmin = !!user && user.role === 'admin';
 
@@ -67,6 +74,10 @@ function Sidebar() {
     logout();
     navigate(ROUTES.LOGIN, { replace: true });
   };
+
+  useEffect(() => {
+    refreshUser();
+  }, [location.pathname]);
 
   const navLinks = [
     { to: ROUTES.DASHBOARD, icon: faTachometerAlt, label: 'Dashboard' },

@@ -15,6 +15,7 @@ export const AuthProvider = ({ children }) => {
 
   const TOKENS_KEY = 'authTokens';
   const isLocal = window.location.hostname === 'localhost';
+
   const decodeSafe = (t) => {
     try {
       return jwtDecode(t);
@@ -26,48 +27,52 @@ export const AuthProvider = ({ children }) => {
     !decoded?.exp || decoded.exp <= Math.floor(Date.now() / 1000);
 
   const getStoredTokens = () => {
-    if (!isLocal) return null; // ✅ Em produção, ignora localStorage
-    const raw = localStorage.getItem(TOKENS_KEY);
-    if (!raw) return null;
+    if (!isLocal) return null;
     try {
-      return JSON.parse(raw);
+      const raw = localStorage.getItem(TOKENS_KEY);
+      return raw ? JSON.parse(raw) : null;
     } catch {
       return null;
     }
   };
 
+  // ============================================================
+  // FETCH ME — CORRIGIDO (usa avatar_url verdadeiro)
+  // ============================================================
   const fetchMe = async () => {
     try {
       const resp = await AxiosInstance.get('users/me/');
       const u = resp?.data || {};
+
       setUser({
         email: (u.email || '').toLowerCase(),
         first_name: u.first_name || '',
         role: u.role || '',
-        avatar_url: u.avatar || null,
+        avatar_url: u.avatar_url || null,
       });
     } catch (err) {
       const status = err?.response?.status;
       const path = window.location.pathname;
-      const isPublic = PUBLIC_ROUTES.some((r) => path.startsWith(r));
 
-      if (status === 401 && isPublic) {
-        return; // não limpa user, não força login
-      }
-      // 👇 só ignora se for 401 (usuário não logado)
+      if (status === 401 && PUBLIC_ROUTES.some((r) => path.startsWith(r))) return;
+
       if (status !== 401) {
         console.warn('fetchMe falhou:', err);
       }
     }
   };
 
+  // ============================================================
+  // LOAD INICIAL
+  // ============================================================
   useEffect(() => {
     let mounted = true;
+
     (async () => {
       setLoading(true);
       try {
-        // ✅ Em produção, tokens vêm do cookie; localStorage é apenas fallback local
         const tokens = getStoredTokens();
+
         if (tokens) {
           setAuthTokens(tokens);
           const decoded = decodeSafe(tokens.access);
@@ -81,29 +86,35 @@ export const AuthProvider = ({ children }) => {
           }
         }
 
-        if (mounted) await fetchMe(); // ✅ sempre consulta backend, que é fonte da verdade
+        if (mounted) await fetchMe();
       } finally {
         if (mounted) setLoading(false);
       }
     })();
-    return () => {
-      mounted = false;
-    };
+
+    return () => (mounted = false);
   }, []);
 
+  // ============================================================
+  // SINCRONIZAÇÃO ENTRE ABAS
+  // ============================================================
   useEffect(() => {
-    if (!isLocal) return; // ✅ não precisa sincronizar storage em produção
+    if (!isLocal) return;
+
     const onStorage = async (e) => {
       if (e.key !== TOKENS_KEY) return;
+
       const raw = e.newValue;
       if (!raw) {
         setAuthTokens(null);
         setUser(null);
         return;
       }
+
       try {
         const tokens = JSON.parse(raw);
         const decoded = decodeSafe(tokens?.access);
+
         if (decoded && !isExpired(decoded)) {
           setUser({
             email: (decoded.email || decoded.sub || '').toLowerCase(),
@@ -112,18 +123,22 @@ export const AuthProvider = ({ children }) => {
             avatar_url: null,
           });
         }
+
         await fetchMe();
       } catch {
         setAuthTokens(null);
         setUser(null);
       }
     };
+
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
+  // ============================================================
+  // LOGIN
+  // ============================================================
   const login = async (data) => {
-    // ✅ Em produção, o cookie httpOnly é criado pelo backend; não precisamos salvar nada
     if (isLocal && data?.access) {
       localStorage.setItem(TOKENS_KEY, JSON.stringify(data));
       setAuthTokens(data);
@@ -137,28 +152,39 @@ export const AuthProvider = ({ children }) => {
         role: decoded.role || '',
         avatar_url: null,
       });
-    } else {
-      setUser({ email: '', first_name: '', role: '', avatar_url: null });
     }
 
-    try {
-      await fetchMe();
-    } catch {}
+    await fetchMe();
   };
 
+  // ============================================================
+  // LOGOUT
+  // ============================================================
   const logout = async () => {
     try {
-      await AxiosInstance.post('auth/logout/'); // ✅ backend apaga cookies httpOnly
+      await AxiosInstance.post('auth/logout/');
     } catch {}
+
     if (isLocal) localStorage.removeItem(TOKENS_KEY);
+
     setAuthTokens(null);
     setUser(null);
   };
 
+  // ============================================================
+  // EXPOSTO PARA O PERFIL (refreshUser)
+  // ============================================================
   const refreshUser = fetchMe;
 
   const value = useMemo(
-    () => ({ user, authTokens, login, logout, refreshUser, loading }),
+    () => ({
+      user,
+      authTokens,
+      login,
+      logout,
+      refreshUser,
+      loading,
+    }),
     [user, authTokens, loading]
   );
 
